@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/college_football_data",
+  "version": "0.0.3",
+  "description": "Pipedream College Football Data Components",
+  "main": "college_football_data.app.mjs",
+  "keywords": [
+    "pipedream",
+    "college_football_data"
+  ],
+  "homepage": "https://pipedream.com/apps/college_football_data",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

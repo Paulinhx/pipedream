@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-update-comment",
   name: "Update Comment",
-  description: "Updates a comment. [See the docs here](https://developer.todoist.com/rest/v1/#update-a-comment)",
-  version: "0.0.1",
+  description: "Updates a comment. [See the documentation](https://developer.todoist.com/api/v1#tag/Comments/operation/update_comment_api_v1_comments__comment_id__post)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,
@@ -14,6 +19,7 @@ export default {
         "project",
       ],
       description: "Project containing the comment to update",
+      optional: false,
     },
     task: {
       propDefinition: [

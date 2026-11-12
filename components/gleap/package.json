@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/gleap",
+  "version": "0.2.0",
+  "description": "Pipedream Gleap Components",
+  "main": "gleap.app.mjs",
+  "keywords": [
+    "pipedream",
+    "gleap"
+  ],
+  "homepage": "https://pipedream.com/apps/gleap",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8"
+  }
+}

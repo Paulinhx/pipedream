@@ -1,0 +1,24 @@
+{
+  "name": "@pipedream/rise",
+  "version": "0.0.5",
+  "description": "Pipedream Rise Components",
+  "main": "dist/app/rise.app.mjs",
+  "keywords": [
+    "pipedream",
+    "rise"
+  ],
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://pipedream.com/apps/rise",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  },
+  "devDependencies": {
+    "@pipedream/types": "^0.3.2"
+  }
+}

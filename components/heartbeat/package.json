@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/heartbeat",
+  "version": "0.2.0",
+  "description": "Pipedream Heartbeat Components",
+  "main": "heartbeat.app.mjs",
+  "keywords": [
+    "pipedream",
+    "heartbeat"
+  ],
+  "homepage": "https://pipedream.com/apps/heartbeat",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

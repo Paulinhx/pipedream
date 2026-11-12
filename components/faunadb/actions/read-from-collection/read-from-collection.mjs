@@ -2,9 +2,14 @@ import faunadb from "../../faunadb.app.mjs";
 
 export default {
   key: "faunadb-read-from-collection",
-  name: "Read From FaunaDB Collection",
-  description: "Reads all documents from a given FaunaDB collection. [See docs here](https://docs.fauna.com/fauna/current/api/fql/functions/documents)",
-  version: "0.4.2",
+  name: "Read From Fauna Collection",
+  description: "Reads all documents from a given Fauna collection. [See docs here](https://docs.fauna.com/fauna/current/api/fql/functions/documents)",
+  version: "0.4.5",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     faunadb,
@@ -32,7 +37,7 @@ export default {
       documentField,
     });
 
-    $.export("summary", "Successfully retrieved the collection's documents");
+    $.export("$summary", "Successfully retrieved the collection's documents");
 
     return response;
   },

@@ -7,7 +7,7 @@ export default {
   key: "spotify-new-track-in-playlist",
   name: "New Track in Playlist",
   description: "Emit new event for each new Spotify track added to a playlist",
-  version: "0.0.6",
+  version: "0.1.7",
   props: {
     ...common.props,
     db: "$.service.db",
@@ -24,14 +24,14 @@ export default {
   methods: {
     ...common.methods,
     getMeta({
-      track,
+      item,
       added_at: ts,
       playlistId,
     }) {
       const {
         id,
         name: summary,
-      } = track;
+      } = item;
       return {
         id: id + playlistId,
         summary,

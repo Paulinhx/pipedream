@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/cloudlayer",
+  "version": "0.0.3",
+  "description": "Pipedream Cloudlayer Components",
+  "main": "cloudlayer.app.mjs",
+  "keywords": [
+    "pipedream",
+    "cloudlayer"
+  ],
+  "homepage": "https://pipedream.com/apps/cloudlayer",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

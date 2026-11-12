@@ -1,12 +1,17 @@
 import youtubeDataApi from "../../youtube_data_api.app.mjs";
-import fs from "fs";
-import got from "got";
+import common from "./common.mjs";
 
 export default {
+  ...common,
   key: "youtube_data_api-upload-video",
   name: "Upload Video",
-  description: "Post a video to your channel. [See the docs](https://developers.google.com/youtube/v3/docs/videos/insert) for more information",
-  version: "0.0.2",
+  description: "Post a video to your channel. [See the documentation](https://developers.google.com/youtube/v3/docs/videos/insert) for more information",
+  version: "1.0.2",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     youtubeDataApi,
@@ -22,17 +27,10 @@ export default {
         "description",
       ],
     },
-    fileUrl: {
-      propDefinition: [
-        youtubeDataApi,
-        "fileUrl",
-      ],
-    },
     filePath: {
-      propDefinition: [
-        youtubeDataApi,
-        "filePath",
-      ],
+      type: "string",
+      label: "File Path or URL",
+      description: "Provide either a file URL or a path to a file in the /tmp directory (for example, /tmp/myFile.pdf).",
     },
     privacyStatus: {
       propDefinition: [
@@ -58,34 +56,12 @@ export default {
         "notifySubscribers",
       ],
     },
-  },
-  async run({ $ }) {
-    const {
-      fileUrl,
-      filePath,
-      title,
-      description,
-      privacyStatus,
-      publishAt,
-      tags,
-      notifySubscribers,
-    } = this;
-    if (!fileUrl && !filePath) {
-      throw new Error("This action requires either File URL or File Path. Please enter one or the other above.");
-    }
-    const body = fileUrl
-      ? await got.stream(fileUrl)
-      : fs.createReadStream(filePath);
-    const resp = (await this.youtubeDataApi.insertVideo({
-      title,
-      description,
-      privacyStatus,
-      publishAt,
-      tags,
-      notifySubscribers,
-      content: body,
-    })).data;
-    $.export("$summary", `Successfully uploaded a new video, "${title}"`);
-    return resp;
+    ...common.props,
+    syncDir: {
+      type: "dir",
+      accessMode: "read",
+      sync: true,
+      optional: true,
+    },
   },
 };

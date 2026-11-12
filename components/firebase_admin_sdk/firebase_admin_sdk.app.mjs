@@ -1,8 +1,12 @@
-import admin from "firebase-admin";
+// Pinned: the component builder resolves npm dependencies from the import
+// specifier alone (never from package.json), so an unpinned specifier installs
+// the `latest` dist-tag. firebase-admin 14 dropped the namespaced default export
+// (admin.app, admin.credential, admin.firestore), and google-auth-library 10
+// dropped the positional JWT constructor.
+import admin from "firebase-admin@13.10.0";
 import { axios } from "@pipedream/platform";
-import googleAuth from "google-auth-library";
-import { Firestore } from "@google-cloud/firestore";
-const pageSize = 20; // used for pagination of documents
+import googleAuth from "google-auth-library@7.14.1";
+import constants from "./common/constants.mjs";
 
 export default {
   type: "app",
@@ -22,9 +26,9 @@ export default {
       type: "string",
       label: "Collection",
       description: "The collection containing the documents to list",
-      async options() {
+      async options({ region }) {
         try {
-          await this.initializeApp();
+          await this.initializeApp(region);
           const collections = await this.listCollections();
           return collections.map((collection) => collection._queryOptions.collectionId);
         } finally {
@@ -36,9 +40,11 @@ export default {
       type: "string",
       label: "Document",
       description: "The document to update",
-      async options({ collection }) {
+      async options({
+        collection, region,
+      }) {
         try {
-          await this.initializeApp();
+          await this.initializeApp(region);
           const documents = await this.listDocuments(collection);
           return documents.map((doc) => doc._ref._path.segments[1]);
         } finally {
@@ -58,16 +64,25 @@ export default {
       optional: true,
       default: 20,
     },
+    databaseRegion: {
+      type: "string",
+      label: "Database Region",
+      description: "The region where your Realtime Database is located. [Additional Info](https://firebase.google.com/docs/projects/locations#rtdb-locations)",
+      options: constants.DATABASE_REGION_OPTIONS,
+      default: "firebaseio.com",
+      optional: true,
+    },
   },
   methods: {
     /**
      * Creates and initializes a Firebase app instance.
      */
-    async initializeApp() {
+    async initializeApp(region) {
       const {
         projectId,
         clientEmail,
         privateKey,
+        customDatabaseUrl,
       } = this.$auth;
       const formattedPrivateKey = privateKey.replace(/\\n/g, "\n");
       return admin.initializeApp({
@@ -76,7 +91,7 @@ export default {
           clientEmail,
           privateKey: formattedPrivateKey,
         }),
-        databaseURL: `https://${projectId}-default-rtdb.firebaseio.com/`,
+        databaseURL: customDatabaseUrl || `https://${projectId}-default-rtdb.${region}/`,
       });
     },
     /**
@@ -93,7 +108,7 @@ export default {
     },
     _getHeaders(token) {
       const defaultHeader = {
-        "Content-Type": "applicaton/json",
+        "Content-Type": "application/json",
       };
       const headers = token
         ? {
@@ -178,6 +193,7 @@ export default {
     async listDocuments(collection, maxResults) {
       const documentRefs = [];
       let pageTotal, offset = 0;
+      const pageSize = constants.DEFAULT_PAGE_SIZE;
       do {
         pageTotal = 0;
         await this.getCollection(collection).limit(pageSize)
@@ -196,9 +212,12 @@ export default {
       }
       return this.getFirestore().getAll(...documentRefs);
     },
-    async createDocument(collection, data) {
+    async createDocument(collection, data, customId) {
       const collectionRef = this.getCollection(collection);
-      return collectionRef.add(data);
+
+      return customId ?
+        collectionRef.doc(customId).set(data) :
+        collectionRef.add(data);
     },
     async updateDocument(collection, document, data) {
       const doc = this.getDocument({

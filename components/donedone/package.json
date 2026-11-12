@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/donedone",
+  "version": "0.2.0",
+  "description": "Pipedream DoneDone  Components",
+  "main": "donedone.app.mjs",
+  "keywords": [
+    "pipedream",
+    "donedone"
+  ],
+  "homepage": "https://pipedream.com/apps/donedone",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.2"
+  }
+}

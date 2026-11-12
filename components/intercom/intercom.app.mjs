@@ -1,3 +1,4 @@
+// x-pd-ai: optimized
 import { axios } from "@pipedream/platform";
 
 export default {
@@ -7,26 +8,32 @@ export default {
     userIds: {
       type: "string[]",
       label: "Users",
-      description: "Users to watch for new events",
-      async options() {
-        const data = {
-          query: {
-            field: "role",
-            operator: "=",
-            value: "user",
-          },
-        };
-        const results = await this.searchContacts(data);
-        return results.map((user) => ({
-          label: user.name || user.id,
-          value: user.id,
-        }));
-      },
+      description: "The Intercom contact ID. Run **Search Contacts** first to find valid contact IDs (e.g. `63a07ddf05a32042dffac965`).",
     },
     body: {
       type: "string",
       label: "Body",
       description: "The text of the note.",
+    },
+    tagId: {
+      type: "string",
+      label: "Tag ID",
+      description: "The unique identifier for the tag which is given by Intercom (e.g. `7522907`). Run **List Tag ID Options** first to discover valid tag IDs and names.",
+    },
+    conversationId: {
+      type: "string",
+      label: "Conversation ID",
+      description: "The Intercom provisioned identifier for the conversation (e.g. `192783634529321`). Run **List Conversations** first to discover one, or reuse the ID from a prior **Reply To Conversation**, **Manage A Conversation**, or **Retrieve Conversation** call's response.",
+    },
+    adminId: {
+      type: "string",
+      label: "Admin ID",
+      description: "The unique identifier for the admin which is given by Intercom (e.g. `25`). Run **List Admin ID Options** first to discover valid admin IDs.",
+    },
+    teamAssigneeId: {
+      type: "string",
+      label: "Assignee ID",
+      description: "The `id` of the `team` which will be assigned the conversation. A conversation can be assigned both an admin and a team. Set `0` to assign to no team (ie. Unassigned). Run **List Assignee ID Options** first to discover valid team IDs.",
     },
   },
   methods: {
@@ -34,6 +41,13 @@ export default {
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       return monthAgo;
+    },
+    _headers() {
+      return {
+        "Authorization": `Bearer ${this.$auth.oauth_access_token}`,
+        "Accept": "application/json",
+        "Intercom-Version": "2.12",
+      };
     },
     /**
     * Make a request to the Intercom API
@@ -45,24 +59,17 @@ export default {
     * @params {Object} [opts.data] - The request body
     * @returns {*} The response may vary depending on the specific API request.
     */
-    async makeRequest(opts) {
-      const {
-        method,
-        url,
-        endpoint,
-        data,
-        $,
-      } = opts;
-      const config = {
-        method,
+    async makeRequest({
+      url,
+      endpoint,
+      $ = this,
+      ...opts
+    }) {
+      return axios($, {
         url: url ?? `https://api.intercom.io/${endpoint}`,
-        headers: {
-          Authorization: `Bearer ${this.$auth.oauth_access_token}`,
-          Accept: "application/json",
-        },
-        data,
-      };
-      return axios($ || this, config);
+        headers: this._headers(),
+        ...opts,
+      });
     },
     /**
      * Paginate through a list of items and return the results
@@ -74,9 +81,10 @@ export default {
      * endpoint for search requests
      * @params {Interger} [lastCreatedAt] - Timestamp of the last relevant item created.
      * Used to retrieve only new results
+     * @params {Object} [$] - The execution context to forward to makeRequest
      * @returns {Array} The complete list of paginated items
      */
-    async paginate(itemType, method, data, isSearch = false, lastCreatedAt) {
+    async paginate(itemType, method, data, isSearch = false, lastCreatedAt, resourceKey = "data", $ = this) {
       let results = null;
       let done = false;
       let items = [];
@@ -89,18 +97,17 @@ export default {
           method,
           endpoint,
           data,
+          $,
         });
         if (lastCreatedAt) {
-          for (const item of results.data) {
+          for (const item of results[resourceKey]) {
             if (item.created_at > lastCreatedAt)
               items.push(item);
             else
               done = true;
           }
         } else {
-          items = items.concat(results.data);
-          if (!startingAfter)
-            done = true;
+          items = items.concat(results[resourceKey]);
         }
       }
       return items;
@@ -121,7 +128,6 @@ export default {
      */
     async getAdmin($) {
       return this.makeRequest({
-        method: "GET",
         endpoint: "me",
         $,
       });
@@ -131,10 +137,21 @@ export default {
      * @params {String} id - The identifier for the conversation as given by Intercom
      * @returns {Object} A conversation object matching the given id
      */
-    async getConversation(id) {
+    async getConversation({
+      conversationId, ...opts
+    }) {
       return this.makeRequest({
-        method: "GET",
-        endpoint: `conversations/${id}`,
+        endpoint: `conversations/${conversationId}`,
+        ...opts,
+      });
+    },
+    /**
+     * Get a list of teams
+     * @returns {Array} List of team objects
+     */
+    getTeams() {
+      return this.makeRequest({
+        endpoint: "teams",
       });
     },
     /**
@@ -171,18 +188,18 @@ export default {
      */
     async getContact(id, $) {
       return this.makeRequest({
-        method: "GET",
         endpoint: `contacts/${id}`,
         $,
       });
     },
     /**
      * Search for contacts
-     * @params {Ojbect} data - A query object used to search for contacts
+     * @params {Object} data - A query object used to search for contacts
+     * @params {Object} [$] - The execution context to forward to the API request
      * @returns {Array} List of contacts matching search query
      */
-    async searchContacts(data) {
-      return this.paginate("contacts", "POST", data, true);
+    async searchContacts(data, $) {
+      return this.paginate("contacts", "POST", data, true, null, "data", $);
     },
     /**
      * Search for conversations
@@ -190,7 +207,7 @@ export default {
      * @returns {Array} List of conversations matching search query
      */
     async searchConversations(data) {
-      return this.paginate("conversations", "POST", data, true);
+      return this.paginate("conversations", "POST", data, true, null, "conversations");
     },
     /**
      * Create a note for a specific user
@@ -210,6 +227,29 @@ export default {
         $,
       });
     },
+    searchContact(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        endpoint: "contacts/search",
+        ...opts,
+      });
+    },
+    createContact(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        endpoint: "contacts",
+        ...opts,
+      });
+    },
+    updateContact({
+      contactId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "PUT",
+        endpoint: `contacts/${contactId}`,
+        ...opts,
+      });
+    },
     /**
      * Create an incoming message from a user
      * @params {Object} data - The request body parameters including a `from` object and
@@ -222,6 +262,79 @@ export default {
         endpoint: "conversations",
         data,
         $,
+      });
+    },
+    listTags() {
+      return this.makeRequest({
+        endpoint: "tags",
+      });
+    },
+    searchTickets(data) {
+      return this.paginate("tickets", "POST", data, true, null, "tickets");
+    },
+    listConversations(args = {}) {
+      return this.makeRequest({
+        endpoint: "conversations",
+        ...args,
+      });
+    },
+    listAdmins(opts = {}) {
+      return this.makeRequest({
+        endpoint: "admins",
+        ...opts,
+      });
+    },
+    /**
+     * Add a tag to a contact
+     * @params {String} contactId - The unique identifier for the contact which is given by Intercom
+     * @returns {Object} The updated tag object
+     */
+    addTagToContact({
+      contactId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "POST",
+        endpoint: `contacts/${contactId}/tags`,
+        ...opts,
+      });
+    },
+    /**
+     * Close, snooze, open, or assign a conversation
+     * @params {String} conversationId - The identifier for the conversation as given by Intercom
+     * @returns {Object} The updated conversation part
+     */
+    manageConversation({
+      conversationId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "POST",
+        endpoint: `conversations/${conversationId}/parts`,
+        ...opts,
+      });
+    },
+    /**
+     * Reply to a conversation as an admin or on behalf of a contact
+     * @params {String} conversationId - The identifier for the conversation as given by Intercom
+     * @returns {Object} The updated conversation
+     */
+    replyToConversation({
+      conversationId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "POST",
+        endpoint: `conversations/${conversationId}/reply`,
+        ...opts,
+      });
+    },
+    /**
+     * Send an outbound message from an admin to a contact
+     * @returns {Object} The message object created by the request
+     */
+    sendMessage(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        endpoint: "messages",
+        ...opts,
       });
     },
   },

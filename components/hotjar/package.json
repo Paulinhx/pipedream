@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/hotjar",
+  "version": "0.0.2",
+  "description": "Pipedream Hotjar Components",
+  "main": "hotjar.app.mjs",
+  "keywords": [
+    "pipedream",
+    "hotjar"
+  ],
+  "homepage": "https://pipedream.com/apps/hotjar",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

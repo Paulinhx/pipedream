@@ -4,10 +4,10 @@ import constants from "../../common/constants.mjs";
 export default {
   ...common,
   key: "linear_app-issue-created-instant",
-  name: "New Created Issue (Instant)",
-  description: "Emit new event when a new issue is created. See the docs [here](https://developers.linear.app/docs/graphql/webhooks)",
+  name: "New Issue Created (Instant)",
+  description: "Emit new event when a new issue is created in Linear. Provides complete issue details including title, description, team, assignee, state, and timestamps. Supports filtering by team and project. See Linear docs for additional info [See the documentation](https://linear.app/developers/webhooks).",
   type: "source",
-  version: "0.1.1",
+  version: "0.3.27",
   dedupe: "unique",
   methods: {
     ...common.methods,
@@ -19,20 +19,44 @@ export default {
     getWebhookLabel() {
       return "Issue created";
     },
-    getActions() {
-      return [
-        constants.ACTION.CREATE,
-      ];
+    getResourcesFn() {
+      return this.linearApp.listIssues;
+    },
+    getResourcesFnArgs() {
+      return {
+        orderBy: "createdAt",
+        filter: {
+          team: {
+            id: {
+              in: this.teamIds,
+            },
+          },
+          project: {
+            id: {
+              eq: this.projectId,
+            },
+          },
+        },
+      };
+    },
+    isRelevant(body) {
+      return body?.action === "create";
+    },
+    getResource(issue) {
+      return this.linearApp.getIssue({
+        issueId: issue.id,
+      });
     },
     getMetadata(resource) {
       const {
         delivery,
+        title,
         data,
         createdAt,
       } = resource;
       return {
-        id: delivery,
-        summary: `Issue created: ${data.title}`,
+        id: delivery || resource.id,
+        summary: `Issue created: ${data?.title || title}`,
         ts: Date.parse(createdAt),
       };
     },

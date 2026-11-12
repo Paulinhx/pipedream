@@ -1,24 +1,19 @@
-import googleCalendar from "../../google_calendar.app.mjs";
+import common from "../common/common.mjs";
+import sampleEmit from "./test-event.mjs";
 
 export default {
   key: "google_calendar-new-calendar",
-  name: "New Calendar",
-  description: "Emit an event when a calendar is created.",
-  version: "0.1.1",
+  name: "New Calendar Created",
+  description: "Emit new event when a calendar is created.",
+  version: "0.1.17",
   type: "source",
+  dedupe: "unique",
   props: {
+    ...common.props,
     db: "$.service.db",
-    googleCalendar,
-    timer: {
-      type: "$.interface.timer",
-      default: {
-        intervalSeconds: 15 * 60,
-      },
-    },
   },
   hooks: {
     async activate() {
-      // get list of calendars
       const { items: calendars = [] } = await this.googleCalendar.listCalendars();
       this.emitNewCalendars(calendars);
       const calendarIds = calendars.map((item) => item.id);
@@ -65,4 +60,5 @@ export default {
     const calendarIds = calendars.map((item) => item.id);
     this.setCalendarIds(calendarIds);
   },
+  sampleEmit,
 };

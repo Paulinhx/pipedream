@@ -2,26 +2,30 @@ import includes from "lodash/includes.js";
 import { v4 as uuid } from "uuid";
 
 import googleDrive from "../google_drive.app.mjs";
-import { WEBHOOK_SUBSCRIPTION_RENEWAL_SECONDS } from "../constants.mjs";
+import {
+  MY_DRIVE_VALUE,
+  WEBHOOK_RENEWAL_WINDOW_MILLISECONDS,
+  WEBHOOK_TIMER_INTERVAL_SECONDS,
+} from "../common/constants.mjs";
+import { getListFilesOpts } from "../common/utils.mjs";
+import commonDedupeChanges from "./common-dedupe-changes.mjs";
 
 export default {
   props: {
     googleDrive,
     db: "$.service.db",
-    http: "$.interface.http",
+    http: {
+      type: "$.interface.http",
+      customResponse: true,
+    },
     drive: {
       propDefinition: [
         googleDrive,
         "watchedDrive",
       ],
-      description: "Defaults to My Drive. To select a [Shared Drive](https://support.google.com/a/users/answer/9310351) instead, select it from this list.",
+      description: "The drive to watch. Defaults to **My Drive**. To watch a [Shared Drive](https://support.google.com/a/users/answer/9310351), select it from this list.",
       optional: false,
-    },
-    watchForPropertiesChanges: {
-      propDefinition: [
-        googleDrive,
-        "watchForPropertiesChanges",
-      ],
+      default: MY_DRIVE_VALUE,
     },
     timer: {
       label: "Push notification renewal schedule",
@@ -29,8 +33,29 @@ export default {
         "The Google Drive API requires occasional renewal of push notification subscriptions. **This runs in the background, so you should not need to modify this schedule**.",
       type: "$.interface.timer",
       static: {
-        intervalSeconds: WEBHOOK_SUBSCRIPTION_RENEWAL_SECONDS,
+        intervalSeconds: WEBHOOK_TIMER_INTERVAL_SECONDS,
       },
+      hidden: true,
+    },
+    // Unused; kept so older deployments can still save
+    updateTypes: {
+      type: "string[]",
+      label: "Types of updates",
+      description: "Deprecated and ignored.",
+      optional: true,
+      hidden: true,
+    },
+    changesPageSize: {
+      propDefinition: [
+        googleDrive,
+        "changesPageSize",
+      ],
+    },
+    maxEmitsPerRun: {
+      propDefinition: [
+        googleDrive,
+        "maxEmitsPerRun",
+      ],
     },
   },
   hooks: {
@@ -72,6 +97,7 @@ export default {
     },
   },
   methods: {
+    ...commonDedupeChanges.methods,
     _getSubscription() {
       return this.db.get("subscription");
     },
@@ -90,49 +116,17 @@ export default {
     _setPageToken(pageToken) {
       this.db.set("pageToken", pageToken);
     },
-    isMyDrive(drive = this.drive) {
-      return googleDrive.methods.isMyDrive(drive);
+    _getBacklogHeaders() {
+      return this.db.get("backlogHeaders");
     },
-    getDriveId(drive = this.drive) {
-      return googleDrive.methods.getDriveId(drive);
+    _setBacklogHeaders(headers) {
+      this.db.set("backlogHeaders", headers);
     },
-    /**
-     * This method returns the types of updates/events from Google Drive that
-     * the event source should listen to. This base implementation returns an
-     * empty list, which means that any event source that extends this module
-     * and that does not refine this implementation will essentially ignore
-     * every incoming event from Google Drive.
-     *
-     * @returns
-     * @type {UpdateType[]}
-     */
-    getUpdateTypes() {
-      return [];
+    isSubscriptionExpiring(subscription) {
+      const expiration = Number(subscription?.expiration);
+      return !expiration || expiration - Date.now() < WEBHOOK_RENEWAL_WINDOW_MILLISECONDS;
     },
-    /**
-     * This method is responsible for processing a list of changed files
-     * according to the event source's purpose. As an abstract method, it must
-     * be implemented by every event source that extends this module.
-     *
-     * @param {object[]} [changedFiles] - the list of file changes, as [defined
-     * by the API](https://bit.ly/3h7WeUa)
-     * @param {object} [headers] - an object containing the request headers of
-     * the webhook call made by Google Drive
-     */
-    processChanges() {
-      throw new Error("processChanges is not implemented");
-    },
-  },
-  async run(event) {
-    // This function is polymorphic: it can be triggered as a cron job, to make
-    // sure we renew watch requests for specific files, or via HTTP request (the
-    // change payloads from Google)
-    const subscription = this._getSubscription();
-    const channelID = this._getChannelID();
-    const pageToken = this._getPageToken();
-
-    // Component was invoked by timer
-    if (event.timestamp) {
+    async renewSubscription(subscription, channelID, pageToken) {
       const {
         newChannelID,
         newPageToken,
@@ -152,7 +146,113 @@ export default {
       });
       this._setChannelID(newChannelID);
       this._setPageToken(newPageToken);
+      return newPageToken;
+    },
+    isMyDrive(drive = this.drive) {
+      return googleDrive.methods.isMyDrive(drive);
+    },
+    getDriveId(drive = this.drive) {
+      return googleDrive.methods.getDriveId(drive);
+    },
+    getListFilesOpts(args = {}) {
+      return getListFilesOpts(this.drive, {
+        q: "mimeType != 'application/vnd.google-apps.folder' and trashed = false",
+        ...args,
+      });
+    },
+    /**
+     * This method returns the types of updates/events from Google Drive that
+     * the event source should listen to. This base implementation returns an
+     * empty list, which means that any event source that extends this module
+     * and that does not refine this implementation will essentially ignore
+     * every incoming event from Google Drive.
+     *
+     * @returns
+     * @type {UpdateType[]}
+     */
+    getUpdateTypes() {
+      return [];
+    },
+    /**
+     * File fields to request per change; `undefined` returns the API's minimal fields.
+     */
+    getChangesFileFields() {
+      return undefined;
+    },
+    isRelevantChange() {
+      return true;
+    },
+    async getChangeFilter() {
+      return (change) => this.isRelevantChange(change);
+    },
+    // false: processChanges() ignores changedFiles, so run it once, not per page
+    consumesChangedFiles() {
+      return true;
+    },
+    /**
+     * This method is responsible for processing a list of changed files
+     * according to the event source's purpose. As an abstract method, it must
+     * be implemented by every event source that extends this module.
+     *
+     * @param {object[]} [changedFiles] - the list of file changes, as [defined
+     * by the API](https://bit.ly/3h7WeUa)
+     * @param {object} [headers] - an object containing the request headers of
+     * the webhook call made by Google Drive
+     * @returns {number} the number of events emitted
+     */
+    processChanges() {
+      throw new Error("processChanges is not implemented");
+    },
+    async processChangesFrom(pageToken, headers) {
+      this.resetFileIntervals();
+      // Thrown runs keep db writes, so flush intervals with the token
+      try {
+        const caughtUp = await this.googleDrive.processChangesPages({
+          pageToken,
+          driveId: this.getDriveId(),
+          pageSize: this.changesPageSize,
+          fileFields: this.getChangesFileFields(),
+          maxEmits: this.maxEmitsPerRun,
+          changeFilter: await this.getChangeFilter(),
+          processPage: (changedFiles) => this.processChanges(changedFiles, headers),
+          savePageToken: (nextPageToken) => this._setPageToken(nextPageToken),
+        });
+        this._setBacklogHeaders(caughtUp
+          ? null
+          : {
+            "x-goog-resource-state": headers["x-goog-resource-state"],
+            "x-goog-resource-uri": headers["x-goog-resource-uri"],
+            "x-goog-changed": headers["x-goog-changed"],
+          });
+      } finally {
+        this.flushFileIntervals();
+      }
+    },
+  },
+  async run(event) {
+    // This function is polymorphic: it can be triggered as a cron job, to make
+    // sure we renew watch requests for specific files, or via HTTP request (the
+    // change payloads from Google)
+    const subscription = this._getSubscription();
+    const channelID = this._getChannelID();
+    const pageToken = this._getPageToken();
+
+    // Component was invoked by timer
+    if (event.timestamp) {
+      const currentPageToken = this.isSubscriptionExpiring(subscription)
+        ? await this.renewSubscription(subscription, channelID, pageToken)
+        : pageToken;
+
+      const backlogHeaders = this._getBacklogHeaders();
+      if (backlogHeaders && this.consumesChangedFiles()) {
+        console.log("Resuming changes left by a capped run");
+        await this.processChangesFrom(currentPageToken, backlogHeaders);
+      }
       return;
+    } else {
+      this.http.respond({
+        status: 200,
+      });
     }
 
     const { headers } = event;
@@ -183,19 +283,12 @@ export default {
     }
 
     const driveId = this.getDriveId();
-    const changedFilesStream = this.googleDrive.listChanges(pageToken, driveId);
-    for await (const changedFilesPage of changedFilesStream) {
-      const {
-        changedFiles,
-        nextPageToken,
-      } = changedFilesPage;
-
-      // Process all the changed files retrieved from the current page
-      await this.processChanges(changedFiles, headers);
-
-      // After successfully processing the changed files, we store the page
-      // token of the next page
-      this._setPageToken(nextPageToken);
+    if (!this.consumesChangedFiles()) {
+      await this.processChanges([], headers);
+      this._setPageToken(await this.googleDrive.getPageToken(driveId));
+      return;
     }
+
+    await this.processChangesFrom(pageToken, headers);
   },
 };

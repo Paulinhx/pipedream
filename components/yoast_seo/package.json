@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/yoast_seo",
+  "version": "0.0.3",
+  "description": "Pipedream Yoast SEO Components",
+  "main": "yoast_seo.app.mjs",
+  "keywords": [
+    "pipedream",
+    "yoast_seo"
+  ],
+  "homepage": "https://pipedream.com/apps/yoast_seo",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

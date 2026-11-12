@@ -1,67 +1,125 @@
-// legacy_hash_id: a_bKiP4j
-import { axios } from "@pipedream/platform";
+import constants from "../../common/constants.mjs";
+import app from "../../trello.app.mjs";
 
 export default {
   key: "trello-create-checklist-item",
   name: "Create a Checklist Item",
-  description: "Creates a new checklist item in a card.",
-  version: "0.1.1",
+  description: "Creates a new checklist item in a card. [See the documentation](https://developer.atlassian.com/cloud/trello/rest/api-group-checklists/#api-checklists-id-checkitems-post).",
+  version: "0.3.5",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    trello: {
-      type: "app",
-      app: "trello",
+    app,
+    board: {
+      propDefinition: [
+        app,
+        "board",
+      ],
     },
-    id: {
+    card: {
+      propDefinition: [
+        app,
+        "cards",
+        ({ board }) => ({
+          board,
+          checklistCardsOnly: true,
+        }),
+      ],
       type: "string",
+      label: "Card",
+      description: "The ID of the Card that the checklist item should be added to",
+      optional: false,
+    },
+    checklistId: {
+      label: "Checklist ID",
       description: "ID of a checklist.",
+      propDefinition: [
+        app,
+        "checklist",
+        ({ card }) => ({
+          card,
+        }),
+      ],
     },
     name: {
       type: "string",
+      label: "Name",
       description: "The name of the new check item on the checklist. Should be a string of length 1 to 16384.",
     },
     pos: {
-      type: "string",
-      description: "The position of the check item in the checklist. One of: top, bottom, or a positive number.",
-      optional: true,
+      propDefinition: [
+        app,
+        "pos",
+      ],
     },
     checked: {
       type: "boolean",
+      label: "Checked",
       description: "Determines whether the check item is already checked when created.",
+      optional: true,
+    },
+    due: {
+      type: "string",
+      label: "Due Date",
+      description: "A due date for the checkitem. **Format: YYYY-MM-DDThh:mm:ss.sssZ**",
+      optional: true,
+    },
+    dueReminder: {
+      type: "string",
+      label: "Due Reminder",
+      description: "A dueReminder for the due date on the checkitem",
+      options: constants.DUE_REMINDER_OPTIONS,
+      optional: true,
+    },
+    idMember: {
+      propDefinition: [
+        app,
+        "member",
+        ({
+          board, card,
+        }) => ({
+          board,
+          card,
+          excludeCardMembers: true,
+        }),
+      ],
+      label: "Id Member",
+      description: "An ID of a member resource",
       optional: true,
     },
   },
   async run({ $ }) {
-    const oauthSignerUri = this.trello.$auth.oauth_signer_uri;
+    const {
+      checklistId,
+      name,
+      pos,
+      checked,
+      due,
+      dueReminder,
+      idMember,
+    } = this;
 
-    let id = this.id;
-    const trelloParams = [
-      "name",
-      "pos",
-      "checked",
-    ];
-    let p = this;
+    const response = await this.app.createChecklistItem({
+      $,
+      checklistId,
+      params: {
+        name,
+        pos,
+        checked,
+        due,
+        dueReminder: dueReminder
+          ? parseInt(dueReminder)
+          : undefined,
+        idMember,
+      },
+    });
 
-    const queryString = trelloParams.filter((param) => p[param]).map((param) => `${param}=${p[param]}`)
-      .join("&");
+    $.export("$summary", `Successfully created a checklist item with ID: ${response.id}`);
 
-    const config = {
-      url: `https://api.trello.com/1/checklists/${id}/checkItems?${queryString}`,
-      method: "POST",
-      data: "",
-    };
-
-    const token = {
-      key: this.trello.$auth.oauth_access_token,
-      secret: this.trello.$auth.oauth_refresh_token,
-    };
-
-    const signConfig = {
-      token,
-      oauthSignerUri,
-    };
-
-    const resp = await axios($, config, signConfig);
-    return resp;
+    return response;
   },
 };

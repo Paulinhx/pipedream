@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/sendoso",
+  "version": "0.2.1",
+  "description": "Pipedream Sendoso Components",
+  "main": "sendoso.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sendoso"
+  ],
+  "homepage": "https://pipedream.com/apps/sendoso",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

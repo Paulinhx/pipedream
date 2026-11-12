@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/watchsignals",
+  "version": "0.0.3",
+  "description": "Pipedream WatchSignals Components",
+  "main": "watchsignals.app.mjs",
+  "keywords": [
+    "pipedream",
+    "watchsignals"
+  ],
+  "homepage": "https://pipedream.com/apps/watchsignals",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

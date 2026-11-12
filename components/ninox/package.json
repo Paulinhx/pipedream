@@ -1,0 +1,24 @@
+{
+  "name": "@pipedream/ninox",
+  "version": "0.0.6",
+  "description": "Pipedream Ninox Components",
+  "main": "dist/app/ninox.app.mjs",
+  "keywords": [
+    "pipedream",
+    "ninox"
+  ],
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://pipedream.com/apps/ninox",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  },
+  "devDependencies": {
+    "@pipedream/types": "^0.3.2"
+  }
+}

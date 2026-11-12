@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/darwinbox",
+  "version": "0.0.4",
+  "description": "Pipedream Darwinbox Components",
+  "main": "darwinbox.app.mjs",
+  "keywords": [
+    "pipedream",
+    "darwinbox"
+  ],
+  "homepage": "https://pipedream.com/apps/darwinbox",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

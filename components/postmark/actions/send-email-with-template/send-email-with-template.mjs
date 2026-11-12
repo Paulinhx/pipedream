@@ -1,20 +1,44 @@
-import postmark from "../../postmark.app.mjs";
-import common from "../common.mjs";
+import common from "../common/common.mjs";
+
+const {
+  postmark, ...props
+} = common.props;
 
 export default {
   ...common,
   key: "postmark-send-email-with-template",
   name: "Send Email With Template",
-  description: "Send a single email with Postmark using a template [(See docs here)](https://postmarkapp.com/developer/api/templates-api#email-with-template)",
-  version: "0.0.1",
+  description: "Send a single email with Postmark using a template [See the documentation](https://postmarkapp.com/developer/api/templates-api#email-with-template)",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
-    ...common.props,
+    postmark,
     templateAlias: {
-      propDefinition: [
-        postmark,
-        "templateAlias",
-      ],
+      type: "string",
+      label: "Template",
+      description: "The template to use for this email.",
+      async options ({ page }) {
+        const data = await this.postmark.listTemplates(page);
+        const options = data.Templates?.map((obj) => {
+          return {
+            label: obj.Name,
+            value: obj.Alias,
+          };
+        }) ?? [];
+
+        return {
+          options,
+          context: {
+            page,
+          },
+        };
+      },
     },
     templateModel: {
       type: "object",
@@ -22,6 +46,7 @@ export default {
       description:
         "The model to be applied to the specified template to generate the email body and subject.",
     },
+    ...props,
     inlineCss: {
       type: "boolean",
       label: "Inline CSS",
@@ -32,12 +57,13 @@ export default {
   },
   async run({ $ }) {
     const data = {
-      ...this.getActionRequestCommonData(),
-      TemplateAlias: this.templateAlias,
-      TemplateModel: this.templateModel,
+      ...this.getTemplateRequestData(),
       InlineCSS: this.inlineCss,
     };
-    const response = await this.postmark.sendEmailWithTemplate($, data);
+    const response = await this.postmark.sendEmailWithTemplate({
+      $,
+      data,
+    });
     $.export("$summary", "Sent email with template successfully");
     return response;
   },

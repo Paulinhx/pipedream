@@ -8,24 +8,73 @@
 // 1) The HTTP requests tied to changes in the user's Google Drive
 // 2) A timer that runs on regular intervals, renewing the notification channel as needed
 
-import common from "../common-webhook.mjs";
 import {
+  CHANGE_FILTER_FILE_FIELDS,
+  GOOGLE_DRIVE_FOLDER_MIME_TYPE,
   GOOGLE_DRIVE_NOTIFICATION_ADD,
   GOOGLE_DRIVE_NOTIFICATION_CHANGE,
   GOOGLE_DRIVE_NOTIFICATION_UPDATE,
-} from "../../constants.mjs";
+} from "../../common/constants.mjs";
+import common from "../common-webhook.mjs";
+import md5 from "md5";
 
 export default {
   ...common,
   key: "google_drive-new-or-modified-folders",
-  name: "New or Modified Folders",
-  description:
-    "Emits a new event any time any folder in your linked Google Drive is added, modified, or deleted",
-  version: "0.0.9",
+  name: "New or Modified Folders (Instant)",
+  description: "Emit new event when a folder is created or modified in the selected Drive",
+  version: "1.0.0",
   type: "source",
   // Dedupe events based on the "x-goog-message-number" header for the target channel:
   // https://developers.google.com/drive/api/v3/push#making-watch-requests
   dedupe: "unique",
+  props: {
+    ...common.props,
+    folderId: {
+      propDefinition: [
+        common.props.googleDrive,
+        "folderId",
+        (c) => ({
+          drive: c.drive,
+        }),
+      ],
+      label: "Parent Folder",
+      description: "The ID of the parent folder which contains the folders. If not specified, it will watch all folders from the drive's top-level folder.",
+      optional: true,
+    },
+    includeSubfolders: {
+      type: "boolean",
+      label: "Include Subfolders",
+      description: "Whether to include subfolders of the parent folder in the changes.",
+      optional: true,
+    },
+  },
+  hooks: {
+    async deploy() {
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - 30);
+      const timeString = daysAgo.toISOString();
+
+      const args = this.getListFilesOpts({
+        q: `mimeType = "application/vnd.google-apps.folder" and modifiedTime > "${timeString}" and trashed = false`,
+        fields: `files(${CHANGE_FILTER_FILE_FIELDS})`,
+      });
+
+      const { files } = await this.googleDrive.listFilesInPage(null, args);
+
+      const changeFilter = await this.getChangeFilter();
+      const folders = [];
+      for (const file of files) {
+        if (folders.length < 5 && await changeFilter({
+          file,
+        })) {
+          folders.push(file);
+        }
+      }
+      await this.processChanges(folders);
+    },
+    ...common.hooks,
+  },
   methods: {
     ...common.methods,
     _getLastModifiedTimeForFile(fileId) {
@@ -41,46 +90,93 @@ export default {
         GOOGLE_DRIVE_NOTIFICATION_UPDATE,
       ];
     },
+    getChangesFileFields() {
+      return CHANGE_FILTER_FILE_FIELDS;
+    },
+    async getAllParents(folderId, parentsCache = new Map()) {
+      const allParents = [];
+      let currentId = folderId;
+
+      while (currentId) {
+        if (!parentsCache.has(currentId)) {
+          const { parents } = await this.googleDrive.getFile(currentId, {
+            fields: "parents",
+          });
+          parentsCache.set(currentId, parents?.[0]);
+        }
+        currentId = parentsCache.get(currentId);
+        if (currentId) {
+          allParents.push(currentId);
+        }
+      }
+
+      return allParents;
+    },
     generateMeta(data, ts) {
       const {
         id: fileId,
         name: summary,
       } = data;
       return {
-        id: `${fileId}-${ts}`,
+        id: md5(`${fileId}-${ts}`),
         summary,
         ts,
       };
     },
-    async processChanges(changedFiles, headers) {
-      const files = changedFiles.filter(
-        // API docs that define Google Drive folders:
-        // https://developers.google.com/drive/api/v3/folder
-        (file) => file.mimeType === "application/vnd.google-apps.folder",
-      );
-
-      for (const file of files) {
+    getChanges(headers) {
+      if (!headers) {
+        return {
+          change: { },
+        };
+      }
+      return {
+        change: {
+          state: headers["x-goog-resource-state"],
+          resourceURI: headers["x-goog-resource-uri"],
+          changed: headers["x-goog-changed"], // "Additional details about the changes. Possible values: content, parents, children, permissions"
+        },
+      };
+    },
+    async getChangeFilter() {
+      let targetId = this.folderId;
+      const parentsCache = new Map();
+      return async ({ file }) => {
         // The changelog is updated each time a folder is opened. Check the
         // folder's `modifiedTime` to see if the folder has been modified.
-        const fileInfo = await this.googleDrive.getFile(file.id);
-
-        const lastModifiedTimeForFile = this._getLastModifiedTimeForFile(file.id);
-        const modifiedTime = Date.parse(fileInfo.modifiedTime);
-        if (lastModifiedTimeForFile == modifiedTime) continue;
+        if (file.mimeType !== GOOGLE_DRIVE_FOLDER_MIME_TYPE
+          || this._getLastModifiedTimeForFile(file.id) == Date.parse(file.modifiedTime)) {
+          return false;
+        }
+        if (!targetId) {
+          ({ id: targetId } = await this.googleDrive.getFile(this.isMyDrive()
+            ? "root"
+            : this.drive, {
+            fields: "id",
+          }));
+        }
+        const allParents = this.includeSubfolders
+          ? await this.getAllParents(file.id, parentsCache)
+          : (file.parents ?? []).slice(0, 1);
+        return allParents.includes(targetId);
+      };
+    },
+    async processChanges(changedFiles, headers) {
+      const changes = this.getChanges(headers);
+      for (const { id } of changedFiles) {
+        const file = await this.googleDrive.getFile(id);
+        const modifiedTime = Date.parse(file.modifiedTime);
 
         const eventToEmit = {
           file,
-          change: {
-            state: headers["x-goog-resource-state"],
-            resourceURI: headers["x-goog-resource-uri"],
-            changed: headers["x-goog-changed"], // "Additional details about the changes. Possible values: content, parents, children, permissions"
-          },
+          ...changes,
         };
         const meta = this.generateMeta(file, modifiedTime);
+
         this.$emit(eventToEmit, meta);
 
         this._setModifiedTimeForFile(file.id, modifiedTime);
       }
+      return changedFiles.length;
     },
   },
 };

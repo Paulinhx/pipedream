@@ -1,0 +1,23 @@
+{
+  "name": "@pipedream/apify",
+  "version": "1.0.0",
+  "description": "Pipedream Apify Components",
+  "main": "apify.app.mjs",
+  "keywords": [
+    "pipedream",
+    "apify"
+  ],
+  "homepage": "https://pipedream.com/apps/apify",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@apify/consts": "^2.41.0",
+    "@pipedream/platform": "^3.1.1",
+    "apify-client": "^2.12.6"
+  },
+  "scripts": {
+    "lint:fix": "eslint . --fix"
+  }
+}

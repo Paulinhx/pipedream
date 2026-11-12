@@ -4,10 +4,10 @@ import constants from "../../common/constants.mjs";
 export default {
   ...common,
   key: "linear_app-issue-updated-instant",
-  name: "New Updated Issue (Instant)",
-  description: "Emit new event when an issue is updated. See the docs [here](https://developers.linear.app/docs/graphql/webhooks)",
+  name: "Issue Updated (Instant)",
+  description: "Emit new event when any issue is updated in Linear. Provides complete issue details with changes. Supports filtering by team and project. Includes all updates except status changes. See Linear docs for additional info [See the documentation](https://linear.app/developers/webhooks).",
   type: "source",
-  version: "0.1.1",
+  version: "0.3.27",
   dedupe: "unique",
   methods: {
     ...common.methods,
@@ -19,21 +19,42 @@ export default {
     getWebhookLabel() {
       return "Issue updated";
     },
-    getActions() {
-      return [
-        constants.ACTION.UPDATE,
-      ];
+    getResourcesFn() {
+      return this.linearApp.listIssues;
+    },
+    getResourcesFnArgs() {
+      return {
+        orderBy: "updatedAt",
+        filter: {
+          team: {
+            id: {
+              in: this.teamIds,
+            },
+          },
+          project: {
+            id: {
+              eq: this.projectId,
+            },
+          },
+        },
+      };
+    },
+    getResource(issue) {
+      return this.linearApp.getIssue({
+        issueId: issue.id,
+      });
     },
     getMetadata(resource) {
       const {
-        delivery,
+        title,
         data,
         updatedAt,
       } = resource;
+      const ts = Date.parse(data?.updatedAt || updatedAt);
       return {
-        id: delivery,
-        summary: `Issue Updated: ${data.title}`,
-        ts: Date.parse(updatedAt),
+        id: `${resource.id}-${ts}`,
+        summary: `Issue Updated: ${data?.title || title}`,
+        ts,
       };
     },
   },

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/orbisx",
+  "version": "0.0.3",
+  "description": "Pipedream OrbisX Components",
+  "main": "orbisx.app.mjs",
+  "keywords": [
+    "pipedream",
+    "orbisx"
+  ],
+  "homepage": "https://pipedream.com/apps/orbisx",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

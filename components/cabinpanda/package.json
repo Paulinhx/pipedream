@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/cabinpanda",
+  "version": "0.0.3",
+  "description": "Pipedream CabinPanda Components",
+  "main": "cabinpanda.app.mjs",
+  "keywords": [
+    "pipedream",
+    "cabinpanda"
+  ],
+  "homepage": "https://pipedream.com/apps/cabinpanda",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/gupshup",
+  "version": "0.2.0",
+  "description": "Pipedream Gupshup Components",
+  "main": "gupshup.app.mjs",
+  "keywords": [
+    "pipedream",
+    "gupshup"
+  ],
+  "homepage": "https://pipedream.com/apps/gupshup",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

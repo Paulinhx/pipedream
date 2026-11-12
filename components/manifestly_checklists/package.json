@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/manifestly_checklists",
+  "version": "0.0.3",
+  "description": "Pipedream Manifestly Checklists Components",
+  "main": "manifestly_checklists.app.mjs",
+  "keywords": [
+    "pipedream",
+    "manifestly_checklists"
+  ],
+  "homepage": "https://pipedream.com/apps/manifestly_checklists",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,62 +1,97 @@
-// legacy_hash_id: a_0MiokJ
-import { axios } from "@pipedream/platform";
+import { ConfigurationError } from "@pipedream/platform";
+import linkedin from "../../linkedin.app.mjs";
 
 export default {
   key: "linkedin-create-comment",
   name: "Create Comment",
-  description: "Create a comment on a share or user generated content post.",
-  version: "0.1.1",
+  description: "Create a comment on a share or user generated content post. [See the documentation](https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/network-update-social-actions#create-comment)",
+  version: "1.0.0",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    linkedin: {
-      type: "app",
-      app: "linkedin",
-    },
-    urn_to_comment: {
+    linkedin,
+    urnToComment: {
       type: "string",
+      label: "Urn to comment",
       description: "The share or user generated content post where the comment will be made.",
     },
     actor: {
       type: "string",
+      label: "Actor",
       description: "Entity which is authoring the comment, must be a person or an organization URN.",
     },
     message: {
       type: "string",
+      label: "Message",
       description: "Text of the comment. May contain attributes such as links to people and organizations.",
     },
     content: {
-      type: "any",
-      description: "Array of a media content entities.",
+      type: "string[]",
+      label: "Content",
+      description: "Array of media content entities, one JSON string per entry, e.g. `{\"entity\":{\"image\":\"urn:li:image:ABC123\"}}`.",
       optional: true,
     },
     parentComment: {
       type: "string",
+      label: "Parent Comment",
       description: "For nested comments, this is the urn of the parent comment. This is not available for first-level comments.",
       optional: true,
     },
   },
+  methods: {
+    // Also accepts the whole array as one JSON string (the pre-1.0 contract), and
+    // flattens an entry holding a JSON array of content entities.
+    parseContent(items) {
+      if (!items) {
+        return undefined;
+      }
+      const entries = (Array.isArray(items)
+        ? items
+        : [
+          items,
+        ])
+        .filter((item) => item !== undefined && item !== null && item !== "")
+        .flatMap((item) => {
+          if (typeof item !== "string") {
+            return item;
+          }
+          try {
+            return JSON.parse(item);
+          } catch (error) {
+            throw new ConfigurationError(`Content: \`${item}\` is not valid JSON`);
+          }
+        });
+      for (const entry of entries) {
+        if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+          throw new ConfigurationError(`Content: \`${JSON.stringify(entry)}\` is not a JSON object`);
+        }
+      }
+      return entries.length
+        ? entries
+        : undefined;
+    },
+  },
   async run({ $ }) {
-  //See the API docs here: https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/network-update-social-actions#create-comment
-
-    if (!this.urn_to_comment || !this.actor || !this.message) {
-      throw new Error("Must provide urn_to_comment, actor, and message parameters.");
-    }
-
-    return await axios($, {
-      method: "post",
-      url: `https://api.linkedin.com/v2/socialActions/${this.urn_to_comment}/comments`,
-      headers: {
-        Authorization: `Bearer ${this.linkedin.$auth.oauth_access_token}`,
+    const data = {
+      object: this.urnToComment,
+      actor: this.actor,
+      message: {
+        text: this.message,
       },
-      data: {
-        object: this.urn_to_comment,
-        actor: this.actor,
-        message: {
-          text: this.message,
-        },
-        content: this.content,
-        parentComment: this.parentComment,
-      },
+      content: this.parseContent(this.content),
+      parentComment: this.parentComment,
+    };
+    const response = await this.linkedin.createComment(encodeURIComponent(this.urnToComment), {
+      $,
+      data,
     });
+
+    $.export("$summary", "Successfully created comment");
+
+    return response;
   },
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/switchboard",
+  "version": "0.0.5",
+  "description": "Pipedream Switchboard Components",
+  "main": "switchboard.app.mjs",
+  "keywords": [
+    "pipedream",
+    "switchboard"
+  ],
+  "homepage": "https://pipedream.com/apps/switchboard",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

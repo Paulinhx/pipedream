@@ -1,31 +1,13 @@
 import { formatJsonDate } from "../../common/util.mjs";
-import xeroAccountingApi from "../../xero_accounting_api.app.mjs";
+import common from "../common/base-polling.mjs";
 
 export default {
+  ...common,
   key: "xero_accounting_api-new-updated-invoice",
   name: "New or updated invoice",
-  description:
-    "Emit new notifications when you create a new or update existing invoice",
-  version: "0.0.1",
+  description: "Emit new notifications when you create a new or update existing invoice",
+  version: "0.0.6",
   type: "source",
-  props: {
-    xeroAccountingApi,
-    tenantId: {
-      type: "string",
-      label: "Tenant ID",
-      description:
-        "Id of the organization tenant to use on the Xero Accounting API.  See [Get Tenant Connections](https://pipedream.com/@sergio/xero-accounting-api-get-tenant-connections-p_OKCzOgn/edit) for a workflow example on how to pull this data.",
-    },
-    timer: {
-      label: "Polling interval",
-      description: "Pipedream will poll Xero accounting API on this schedule",
-      type: "$.interface.timer",
-      default: {
-        intervalSeconds: 60 * 15,
-      },
-    },
-    db: "$.service.db",
-  },
   dedupe: "unique",
   async run() {
     let lastDateChecked = this.xeroAccountingApi.getLastDateChecked(this.db);
@@ -36,20 +18,22 @@ export default {
     }
 
     const invoices = (
-      await this.xeroAccountingApi.getInvoice(
-        null,
-        this.tenantId,
-        null,
-        lastDateChecked,
-      )
+      await this.xeroAccountingApi.getInvoice({
+        tenantId: this.tenantId,
+        modifiedSince: lastDateChecked.slice(0, 10),
+        headers: {
+          Accept: "application/json",
+        },
+      })
     )?.Invoices;
     invoices &&
       invoices.reverse().forEach((invoice) => {
-        const formatedDate = formatJsonDate(invoice.UpdatedDateUTC);
-        this.xeroAccountingApi.setLastDateChecked(this.db, formatedDate);
+        const formattedDate = formatJsonDate(invoice.UpdatedDateUTC);
+        this.xeroAccountingApi.setLastDateChecked(this.db, formattedDate);
         this.$emit(invoice, {
-          id: `${invoice.InvoiceID}D${formatedDate || ""}`,
+          id: `${invoice.InvoiceID}D${formattedDate || ""}`,
           summary: invoice.InvoiceID,
+          ts: Date.parse(invoice.DateString),
         });
       });
   },

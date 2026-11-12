@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/xendit",
+  "version": "0.1.0",
+  "description": "Pipedream Xendit Components",
+  "main": "xendit.app.mjs",
+  "keywords": [
+    "pipedream",
+    "xendit"
+  ],
+  "homepage": "https://pipedream.com/apps/xendit",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "uuid": "^11.1.0"
+  }
+}

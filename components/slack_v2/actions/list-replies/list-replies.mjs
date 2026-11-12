@@ -1,0 +1,70 @@
+import slack from "../../slack_v2.app.mjs";
+
+export default {
+  key: "slack_v2-list-replies",
+  name: "List Replies",
+  description: "Retrieve a thread of messages posted to a conversation. [See the documentation](https://api.slack.com/methods/conversations.replies)",
+  version: "0.0.43",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  type: "action",
+  ai: "optimized",
+  props: {
+    slack,
+    conversation: {
+      propDefinition: [
+        slack,
+        "conversation",
+      ],
+    },
+    timestamp: {
+      propDefinition: [
+        slack,
+        "messageTs",
+      ],
+    },
+    pageSize: {
+      propDefinition: [
+        slack,
+        "pageSize",
+      ],
+    },
+    numPages: {
+      propDefinition: [
+        slack,
+        "numPages",
+      ],
+    },
+  },
+  async run({ $ }) {
+    // conversations.replies only accepts a channel ID — resolve a name the same way
+    // every other AI-optimized tool in this app does.
+    const channel = await this.slack.resolveChannelId(this.conversation);
+    const replies = [];
+    const params = {
+      channel,
+      ts: this.timestamp,
+      limit: this.pageSize,
+    };
+    let page = 0;
+
+    do {
+      const {
+        messages, response_metadata: { next_cursor: nextCursor },
+      } = await this.slack.getConversationReplies(params);
+      replies.push(...messages);
+      params.cursor = nextCursor;
+      page++;
+    } while (params.cursor && page < this.numPages);
+
+    $.export("$summary", `Successfully retrieved ${replies.length} reply message${replies.length === 1
+      ? ""
+      : "s"}`);
+    return {
+      messages: replies,
+    };
+  },
+};

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/rudderstack_transformation",
+  "version": "0.0.3",
+  "description": "Pipedream RudderStack Transformation Components",
+  "main": "rudderstack_transformation.app.mjs",
+  "keywords": [
+    "pipedream",
+    "rudderstack_transformation"
+  ],
+  "homepage": "https://pipedream.com/apps/rudderstack_transformation",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

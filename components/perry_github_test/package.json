@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/perry_github_test",
+  "version": "0.0.3",
+  "description": "Pipedream github test app Components",
+  "main": "perry_github_test.app.mjs",
+  "keywords": [
+    "pipedream",
+    "perry_github_test"
+  ],
+  "homepage": "https://pipedream.com/apps/perry_github_test",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

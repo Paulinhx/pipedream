@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/jira_service_desk",
+  "version": "2.6.0",
+  "description": "Pipedream Jira Service Desk Components",
+  "main": "jira_service_desk.app.mjs",
+  "keywords": [
+    "pipedream",
+    "jira_service_desk"
+  ],
+  "homepage": "https://pipedream.com/apps/jira_service_desk",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.4.0",
+    "form-data": "^4.0.4"
+  }
+}

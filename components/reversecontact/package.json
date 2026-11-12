@@ -1,0 +1,22 @@
+{
+  "name": "@pipedream/reversecontact",
+  "version": "0.0.4",
+  "description": "Pipedream ReverseContact Components",
+  "main": "dist/app/reversecontact.app.mjs",
+  "keywords": [
+    "pipedream",
+    "reversecontact"
+  ],
+  "files": ["dist"],
+  "homepage": "https://pipedream.com/apps/reversecontact",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  },
+  "devDependencies": {
+    "@pipedream/types": "^0.3.2"
+  }
+}

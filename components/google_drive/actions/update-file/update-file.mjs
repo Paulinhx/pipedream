@@ -1,13 +1,19 @@
+import { getFileStream } from "@pipedream/platform";
+import { toSingleLineString } from "../../common/utils.mjs";
 import googleDrive from "../../google_drive.app.mjs";
-import { toSingleLineString } from "../../utils.mjs";
-import { getFileStream } from "../../utils.mjs";
 
 export default {
   key: "google_drive-update-file",
   name: "Update File",
-  description: "Update a file's metadata and/or content. [See the docs](https://developers.google.com/drive/api/v3/reference/files/update) for more information",
-  version: "0.0.4",
+  description: "Update a file's metadata and/or content. [See the documentation](https://developers.google.com/drive/api/v3/reference/files/update) for more information",
+  version: "2.0.22",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     googleDrive,
     drive: {
@@ -15,7 +21,6 @@ export default {
         googleDrive,
         "watchedDrive",
       ],
-
       optional: true,
     },
     fileId: {
@@ -28,23 +33,12 @@ export default {
       ],
       description: "The file to update",
     },
-    fileUrl: {
-      propDefinition: [
-        googleDrive,
-        "fileUrl",
-      ],
-      description: "The URL of the file to use to update content",
-    },
     filePath: {
       propDefinition: [
         googleDrive,
         "filePath",
       ],
-      description: toSingleLineString(`
-        The path to the file saved to the [\`/tmp\`
-        directory](https://pipedream.com/docs/workflows/steps/code/nodejs/working-with-files/#the-tmp-directory)
-        (e.g., \`/tmp/myFile.csv\`) with which to update content
-      `),
+      optional: true,
     },
     name: {
       propDefinition: [
@@ -102,19 +96,22 @@ export default {
     },
     advanced: {
       type: "object",
-      label: "Advanced Options",
+      label: "Additional Options",
       optional: true,
       description: toSingleLineString(`
-        Specify less-common properties that you want to use. See [Files: update]
-        (https://developers.google.com/drive/api/v3/reference/files/update#request-body) for a list
-        of supported properties.
+        Any additional parameters to pass in the request. [See the documentation](https://developers.google.com/drive/api/v3/reference/files/update#request-body) for all available parameters.
       `),
+    },
+    syncDir: {
+      type: "dir",
+      accessMode: "read",
+      sync: true,
+      optional: true,
     },
   },
   async run({ $ }) {
     const {
       fileId,
-      fileUrl,
       filePath,
       name,
       mimeType,
@@ -126,19 +123,11 @@ export default {
       advanced,
     } = this;
 
-    const fileStream =
-      fileUrl || filePath
-        ? await getFileStream({
-          $,
-          fileUrl,
-          filePath,
-        })
-        : undefined;
-
     // Update file content, if set, separately from metadata to prevent
     // multipart upload, which `google-apis-nodejs-client` doesn't seem to
     // support for [files.update](https://bit.ly/3lP5sWn)
-    if (fileStream) {
+    if (filePath) {
+      const fileStream = await getFileStream(filePath);
       await this.googleDrive.updateFileMedia(fileId, fileStream, {
         mimeType,
       });

@@ -78,6 +78,68 @@ const API = {
   },
 };
 
+const REPEAT_FREQUENCIES = {
+  DAILY: "day",
+  WEEKLY: "week",
+  MONTHLY: "month",
+  YEARLY: "year",
+};
+
+const WEBHOOK_SUBSCRIPTION_EXPIRATION_TIME_MILLISECONDS = 24 * 60 * 60 * 1000;
+const WEBHOOK_SUBSCRIPTION_RENEWAL_SECONDS =
+  (WEBHOOK_SUBSCRIPTION_EXPIRATION_TIME_MILLISECONDS * 0.95) / 1000;
+
+const DAYS_OF_WEEK = [
+  {
+    label: "Sunday",
+    value: "SU",
+  },
+  {
+    label: "Monday",
+    value: "MO",
+  },
+  {
+    label: "Tuesday",
+    value: "TU",
+  },
+  {
+    label: "Wednesday",
+    value: "WE",
+  },
+  {
+    label: "Thursday",
+    value: "TH",
+  },
+  {
+    label: "Friday",
+    value: "FR",
+  },
+  {
+    label: "Saturday",
+    value: "SA",
+  },
+  {
+    label: "Weekdays",
+    value: "MO,TU,WE,TH,FR",
+  },
+];
+
+// https://developers.google.com/calendar/api/v3/reference/events#transparency
+const TRANSPARENCY_OPTIONS = [
+  {
+    label: "Busy",
+    value: "opaque",
+  },
+  {
+    label: "Free",
+    value: "transparent",
+  },
+];
+
 export default {
   API,
+  REPEAT_FREQUENCIES,
+  WEBHOOK_SUBSCRIPTION_RENEWAL_SECONDS,
+  DAYS_OF_WEEK,
+  TRANSPARENCY_OPTIONS,
 };

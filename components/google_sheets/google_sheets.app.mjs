@@ -1,13 +1,18 @@
-import axios from "axios";
+// x-pd-ai: optimized
 import sheets from "@googleapis/sheets";
-import googleDrive from "../google_drive/google_drive.app.mjs";
-import {
-  INSERT_DATA_OPTION, VALUE_INPUT_OPTION,
-} from "./constants.mjs";
-import isArray from "lodash/isArray.js";
+import googleDrive from "@pipedream/google_drive";
 import get from "lodash/get.js";
-import isString from "lodash/isString.js";
+import isArray from "lodash/isArray.js";
 import isEmpty from "lodash/isEmpty.js";
+import isString from "lodash/isString.js";
+import {
+  IDEMPOTENT_HTTP_METHODS,
+  INSERT_DATA_OPTION,
+  RATE_LIMIT_ERROR_REASONS,
+  RETRY_OPTIONS,
+  RETRYABLE_SERVER_ERROR_CODES,
+  VALUE_INPUT_OPTION,
+} from "./common/constants.mjs";
 
 export default {
   ...googleDrive,
@@ -22,8 +27,7 @@ export default {
     cells: {
       type: "string[]",
       label: "Cells / Column Values",
-      description:
-        "Enter individual cell values or a custom expression to pass an array with each element representing a cell/column value.",
+      description: "Enter individual cell values or a custom expression to pass an array with each element representing a cell/column value.",
     },
     range: {
       type: "string",
@@ -43,35 +47,38 @@ export default {
     rows: {
       type: "string",
       label: "Row Values",
-      description:
-        "Provide an array of arrays. Each nested array should represent a row, with each element of the nested array representing a cell/column value (e.g., passing `[[\"Foo\",1,2],[\"Bar\",3,4]]` will insert two rows of data with three columns each). The most common pattern is to reference an array of arrays exported by a previous step (e.g., `{{steps.foo.$return_value}}`). You may also enter or construct a string that will `JSON.parse()` to an array of arrays.",
+      description: "Provide an array of arrays",
+    },
+    rowsDescription: {
+      type: "alert",
+      alertType: "neutral",
+      content: "Each nested array should represent a row, with each element of the nested array representing a cell/column value (e.g., passing `[[\"Foo\",1,2],[\"Bar\",3,4]]` will insert two rows of data with three columns each). The most common pattern is to reference an array of arrays exported by a previous step (e.g., `{{steps.foo.$return_value}}`). You may also enter or construct a string that will `JSON.parse()` to an array of arrays.",
+    },
+    headersDisplay: {
+      type: "alert",
+      alertType: "info",
+      content: "",
+      hidden: true,
     },
     sheetID: {
       type: "string",
-      label: "Spreadsheet",
-      description: "The Spreadsheet ID",
+      label: "Spreadsheet ID",
+      description: "Select a spreadsheet or provide a spreadsheet ID",
+      useQuery: true,
       options({
+        query,
         prevContext,
         driveId,
+        fetchOnlyOwned,
       }) {
         const { nextPageToken } = prevContext;
-        return this.listSheetsOptions(driveId, nextPageToken);
+        return this.listSheetsOptions(driveId, nextPageToken, query, fetchOnlyOwned);
       },
     },
-    sheetName: {
-      type: "string",
-      label: "Sheet Name",
-      description: "Your sheet name",
-      async options({ sheetId }) {
-        const { sheets } = await this.getSpreadsheet(sheetId);
-        return sheets.map((sheet) => sheet.properties.title);
-      },
-    },
-    // TODO: is this a duplicate of the prop above?
     worksheetIDs: {
-      type: "string[]",
-      label: "Worksheet(s)",
-      description: "The Worksheet ID",
+      type: "integer",
+      label: "Worksheet ID",
+      description: "Select a worksheet or provide a worksheet ID",
       async options({ sheetId }) {
         const { sheets } = await this.getSpreadsheet(sheetId);
 
@@ -93,6 +100,64 @@ export default {
   },
   methods: {
     ...googleDrive.methods,
+
+    /**
+     * Retrieves the sheet ID corresponding to the provided sheet name from a spreadsheet.
+     *
+     * @async
+     * @param {string} spreadsheetId - The ID of the target spreadsheet.
+     * @param {string} sheetName - The name of the sheet to retrieve the ID for.
+     * @returns {Promise<number>} The ID of the sheet matching the provided name.
+     * @throws Will throw an error if the sheet name is not found.
+     */
+    async _getSheetIdFromName(spreadsheetId, sheetName) {
+      const { sheets } = await this.getSpreadsheet(spreadsheetId);
+      for (let sheet of sheets) {
+        if (sheet.properties.title === sheetName) {
+          return sheet.properties.sheetId;
+        }
+      }
+      throw new Error("Sheet name not found");
+    },
+
+    /**
+     * Parses a range string into its components:
+     * sheet name, start column, end column, start row, and end row.
+     *
+     * @param {string} rangeStr - The range string in the format "SheetName!A1:B10".
+     * @returns {Object} An object with parsed components:
+     * { sheetName, startCol, endCol, startRow, endRow }.
+     */
+    _parseRangeString(rangeStr) {
+      // Remove any single quotes
+      const sanitizedRangeStr = rangeStr.replace(/'/g, "");
+
+      const [
+        sheetName,
+        range,
+      ] = sanitizedRangeStr.split("!");
+      const [
+        startCoord,
+        endCoord,
+      ] = range.split(":");
+      const startCol = startCoord.replace(/\d/g, "");
+      const endCol = endCoord
+        ? endCoord.replace(/\d/g, "")
+        : startCol;
+      const startRow = parseInt(startCoord.replace(/\D/g, ""), 10) - 1; // 0-based index
+      const endRow = endCoord
+        ? parseInt(endCoord.replace(/\D/g, ""), 10)
+        : startRow;
+
+      return {
+        sheetName,
+        startCol,
+        endCol,
+        startRow,
+        endRow,
+      };
+    },
+
     sanitizedArray(value) {
       if (isArray(value)) {
         return value.map((item) => get(item, "value", item));
@@ -145,7 +210,52 @@ export default {
       return sheets.sheets({
         version: "v4",
         auth,
+        retryConfig: {
+          retry: RETRY_OPTIONS.MAX_RETRIES,
+          // _shouldRetrySheetsRequest owns the backoff; these minimize gaxios' own delay
+          retryDelay: 0,
+          retryDelayMultiplier: 1,
+          shouldRetry: (error) => this._shouldRetrySheetsRequest(error),
+        },
       });
+    },
+    _isSheetsRateLimitError(error, statusCode) {
+      if (statusCode === 429) {
+        return true;
+      }
+      const errors = error.response?.data?.error?.errors || [];
+      return statusCode === 403
+        && errors.some(({ reason }) => RATE_LIMIT_ERROR_REASONS.includes(reason));
+    },
+    /**
+     * Retries rate limits on every request, and server or network errors only on idempotent
+     * methods so a POST (append, batchUpdate) can't be applied twice. Waits with jittered
+     * exponential backoff before resolving.
+     */
+    async _shouldRetrySheetsRequest(error) {
+      if (error.name === "AbortError" || error.code === "AbortError") {
+        return false;
+      }
+      const attempt = error.config?.retryConfig?.currentRetryAttempt || 0;
+      if (attempt >= RETRY_OPTIONS.MAX_RETRIES) {
+        return false;
+      }
+      const statusCode = error.response?.status;
+      const method = (error.config?.method || "GET").toUpperCase();
+      const isRetryable = this._isSheetsRateLimitError(error, statusCode)
+        || (IDEMPOTENT_HTTP_METHODS.includes(method)
+          && (!statusCode || RETRYABLE_SERVER_ERROR_CODES.includes(statusCode)));
+      if (!isRetryable) {
+        return false;
+      }
+      const delayMs = Math.min(
+        RETRY_OPTIONS.BASE_DELAY_MS * 2 ** attempt
+          + Math.floor(Math.random() * RETRY_OPTIONS.MAX_JITTER_MS),
+        RETRY_OPTIONS.MAX_DELAY_MS,
+      );
+      console.log(`Google Sheets ${method} failed with ${statusCode || error.code}. Retrying attempt ${attempt + 1}/${RETRY_OPTIONS.MAX_RETRIES} in ${delayMs}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return true;
     },
     /**
      * Builds a formula using the Google Sheets [MATCH
@@ -193,8 +303,14 @@ export default {
       }
       return sum;
     },
-    async listSheetsOptions(driveId, pageToken = null) {
-      const q = "mimeType='application/vnd.google-apps.spreadsheet'";
+    async listSheetsOptions(driveId, pageToken = null, query, fetchOnlyOwned,
+      limitToMyDrive = false) {
+      const searchQuery = query
+        ? ` and name contains '${query}'`
+        : "";
+      const q = fetchOnlyOwned
+        ? `mimeType='application/vnd.google-apps.spreadsheet'${searchQuery} and 'me' in owners`
+        : `mimeType='application/vnd.google-apps.spreadsheet'${searchQuery}`;
       let request = {
         q,
       };
@@ -203,6 +319,14 @@ export default {
           ...request,
           corpora: "drive",
           driveId,
+          pageToken,
+          includeItemsFromAllDrives: true,
+          supportsAllDrives: true,
+        };
+      } else if (!limitToMyDrive) {
+        request = {
+          ...request,
+          corpora: "allDrives",
           pageToken,
           includeItemsFromAllDrives: true,
           supportsAllDrives: true,
@@ -355,6 +479,46 @@ export default {
       return (await sheets.spreadsheets.sheets.copyTo(request)).data;
     },
     /**
+     * https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/insertDimension
+     *
+     * Inserts a dimension and returns the properties of the newly inserted dimension.
+     * @returns {object} Contains an instance of DimensionProperties.
+     * @param {string} spreadsheetId - ID of the spreadsheet in which to insert a dimension.
+     * @param {object} data - An object containing information about the dimension to insert.
+     */
+    async insertDimension(spreadsheetId, data = {}) {
+      return (await this.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              insertDimension: data,
+            },
+          ],
+        },
+      })).replies[0];
+    },
+    /**
+     * https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/moveDimension
+     *
+     * Moves a dimension and returns the properties of the newly moved dimension.
+     * @returns {object} Contains an instance of DimensionProperties.
+     * @param {string} spreadsheetId - ID of the spreadsheet in which to move a dimension.
+     * @param {object} data - An object containing information about the dimension to move.
+     */
+    async moveDimension(spreadsheetId, data = {}) {
+      return (await this.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              moveDimension: data,
+            },
+          ],
+        },
+      })).replies[0];
+    },
+    /**
      * https://developers.google.com/drive/api/v3/reference/files/copy
      *
      * Copies a spreadsheet and returns a Files resource in the response body.
@@ -391,26 +555,25 @@ export default {
     async addRowsToSheet({
       spreadsheetId, range, rows, params,
     }) {
-      const resp = await axios({
-        method: "POST",
-        url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append`,
-        headers: {
-          "Authorization": `Bearer ${this.$auth.oauth_access_token}`,
-        },
-        validateStatus: () => true,
-        params: {
+      const sheets = this.sheets();
+      try {
+        const { data } = await sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `${range}!A:A`,
           valueInputOption: VALUE_INPUT_OPTION.USER_ENTERED,
           insertDataOption: INSERT_DATA_OPTION.INSERT_ROWS,
           ...params,
-        },
-        data: {
-          values: rows,
-        },
-      });
-      if (resp.status >= 400) {
-        throw new Error(JSON.stringify(resp.data));
+          requestBody: {
+            values: rows,
+          },
+        });
+        return data.updates;
+      } catch (error) {
+        if (!error.response) {
+          throw error;
+        }
+        throw new Error(JSON.stringify(error.response.data));
       }
-      return resp.data.updates;
     },
     /**
    * https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/batchUpdate
@@ -539,6 +702,100 @@ export default {
           valueInputOption: VALUE_INPUT_OPTION.USER_ENTERED,
         },
       );
+    },
+
+    /**
+     * https://developers.google.com/sheets/api/samples/formatting
+     *
+     * Resets the format
+     * (line style, background, foreground color, font size,
+     * bold, italic, strikethrough, horizontalAlignment)
+     * of a specified range in a spreadsheet.
+     *
+     * @async
+     * @param {string} spreadsheetId - The ID of the target spreadsheet.
+     * @param {string} rangeStr - The range string in the format "SheetName!A1:B10".
+     * @param {Object} [opts={}] - Optional additional configurations for the batchUpdate request.
+     * @returns {Promise<Object>} The response data from the batchUpdate request.
+     */
+    async resetRowFormat(spreadsheetId, rangeStr, opts = {}) {
+      const {
+        sheetName,
+        startCol,
+        endCol,
+        startRow,
+        endRow,
+      } = this._parseRangeString(rangeStr);
+
+      // Get the sheetId using the parsed sheetName
+      const sheetId = await this._getSheetIdFromName(spreadsheetId, sheetName);
+      const sheets = this.sheets();
+
+      const range = {
+        sheetId: sheetId,
+        startRowIndex: startRow,
+        endRowIndex: endRow,
+        startColumnIndex: this._getColumnIndex(startCol) - 1,
+        endColumnIndex: this._getColumnIndex(endCol), // API end is exclusive
+      };
+      return (await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              updateBorders: {
+                range,
+                top: {
+                  style: "NONE",
+                },
+                bottom: {
+                  style: "NONE",
+                },
+                left: {
+                  style: "NONE",
+                },
+                right: {
+                  style: "NONE",
+                },
+                innerHorizontal: {
+                  style: "NONE",
+                },
+                innerVertical: {
+                  style: "NONE",
+                },
+              },
+            },
+            {
+              repeatCell: {
+                range,
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { // assuming white as the default background color
+                      red: 1,
+                      green: 1,
+                      blue: 1,
+                    },
+                    textFormat: {
+                      foregroundColor: { // assuming black as the default foreground color
+                        red: 0,
+                        green: 0,
+                        blue: 0,
+                      },
+                      fontSize: 10,  // Assuming 10 as the default font size
+                      bold: false,
+                      italic: false,
+                      strikethrough: false,
+                    },
+                    horizontalAlignment: "LEFT",  // Assuming LEFT as the default horizontal alignment
+                  },
+                },
+                fields: "userEnteredFormat(backgroundColor,textFormat.foregroundColor,textFormat.bold,textFormat.italic,textFormat.strikethrough,textFormat.fontSize,horizontalAlignment)",
+              },
+            },
+          ],
+          ...opts,
+        },
+      })).data;
     },
   },
 };

@@ -4,32 +4,25 @@ export default {
   name: "Post a Comment",
   description: "Posts a comment to a file. [See the docs here](https://www.figma.com/developers/api#post-comments-endpoint)",
   key: "figma-post-a-comment",
-  version: "0.0.1",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     figmaApp,
-    teamId: {
-      propDefinition: [
-        figmaApp,
-        "teamId",
-      ],
-    },
     projectId: {
       propDefinition: [
         figmaApp,
         "projectId",
-        ({ teamId }) => ({
-          teamId,
-        }),
       ],
     },
     fileId: {
       propDefinition: [
         figmaApp,
         "fileId",
-        ({ projectId }) => ({
-          projectId,
-        }),
       ],
     },
     message: {

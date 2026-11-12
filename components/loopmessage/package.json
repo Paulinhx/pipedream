@@ -1,0 +1,20 @@
+{
+  "name": "@pipedream/loopmessage",
+  "version": "0.4.0",
+  "description": "Pipedream LoopMessage Components",
+  "main": "loopmessage.app.mjs",
+  "keywords": [
+    "pipedream",
+    "loopmessage",
+    "imessage",
+    "blue"
+  ],
+  "homepage": "https://pipedream.com/apps/loopmessage",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

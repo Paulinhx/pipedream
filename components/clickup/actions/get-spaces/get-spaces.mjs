@@ -1,10 +1,15 @@
-import common from "../common/common.mjs";
+import common from "../common/workspace-prop.mjs";
 
 export default {
   key: "clickup-get-spaces",
   name: "Get Spaces",
-  description: "Get a list of spaces in a workplace. See the docs [here](https://clickup.com/api) in **Spaces  / Get Spaces** section.",
-  version: "0.0.1",
+  description: "Get a list of spaces in a workplace. [See the documentation](https://clickup.com/api) in **Spaces / Get Spaces** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     ...common.props,

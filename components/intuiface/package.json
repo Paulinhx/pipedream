@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/intuiface",
+  "version": "0.1.1",
+  "description": "Pipedream Intuiface Components",
+  "main": "intuiface.app.mjs",
+  "keywords": [
+    "pipedream",
+    "intuiface"
+  ],
+  "homepage": "https://pipedream.com/apps/intuiface",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

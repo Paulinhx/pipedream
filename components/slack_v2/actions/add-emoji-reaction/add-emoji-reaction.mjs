@@ -1,0 +1,51 @@
+import slack from "../../slack_v2.app.mjs";
+
+export default {
+  key: "slack_v2-add-emoji-reaction",
+  name: "Add Emoji Reaction",
+  description: "Add an emoji reaction to a message. [See the documentation](https://api.slack.com/methods/reactions.add)",
+  version: "0.0.34",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  type: "action",
+  ai: "optimized",
+  props: {
+    slack,
+    conversation: {
+      propDefinition: [
+        slack,
+        "conversation",
+      ],
+    },
+    timestamp: {
+      propDefinition: [
+        slack,
+        "messageTs",
+      ],
+      description: "Timestamp of the message to add reaction to. e.g. `1403051575.000407`.",
+    },
+    icon_emoji: {
+      propDefinition: [
+        slack,
+        "icon_emoji",
+      ],
+      description: "Provide an emoji to use as the icon for this reaction. E.g. `fire`",
+      optional: false,
+    },
+  },
+  async run({ $ }) {
+    // reactions.add only accepts a channel ID — resolve a name the same way every other
+    // AI-optimized tool in this app does.
+    const channel = await this.slack.resolveChannelId(this.conversation);
+    const response = await this.slack.addReactions({
+      channel,
+      timestamp: this.timestamp,
+      name: this.icon_emoji,
+    });
+    $.export("$summary", `Successfully added ${this.icon_emoji} emoji reaction.`);
+    return response;
+  },
+};

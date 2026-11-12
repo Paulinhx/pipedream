@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/idx_broker",
+  "version": "0.0.3",
+  "description": "Pipedream IDX Broker Components",
+  "main": "idx_broker.app.mjs",
+  "keywords": [
+    "pipedream",
+    "idx_broker"
+  ],
+  "homepage": "https://pipedream.com/apps/idx_broker",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

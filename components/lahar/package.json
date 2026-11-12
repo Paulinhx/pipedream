@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/lahar",
+  "version": "0.0.3",
+  "description": "Pipedream Lahar Components",
+  "main": "lahar.app.mjs",
+  "keywords": [
+    "pipedream",
+    "lahar"
+  ],
+  "homepage": "https://pipedream.com/apps/lahar",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

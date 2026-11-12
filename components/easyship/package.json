@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/easyship",
+  "version": "0.2.0",
+  "description": "Pipedream Easyship Components",
+  "main": "easyship.app.mjs",
+  "keywords": [
+    "pipedream",
+    "easyship"
+  ],
+  "homepage": "https://pipedream.com/apps/easyship",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

@@ -1,30 +1,48 @@
-on: 
+on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
   # See https://pnpm.io/continuous-integration#github-actions
   publish:
+    name: pnpm publish
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
     steps:
-      - uses: actions/checkout@v2.4.0
-      - uses: pnpm/action-setup@v2.0.1
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.1.0
         with:
-          version: 7.0.0
-      - uses: actions/setup-node@v3.3.0
+          version: 10.28.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
-          node-version: 14
+          node-version: 20
           registry-url: https://registry.npmjs.org/
           cache: 'pnpm'
-      - name: npm install
-        run: npm ci
-      - name: pnpm install
-        run: pnpm install -r
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Compile TypeScript
-        run: npm run build
+        run: pnpm run build
       # See https://pnpm.io/using-changesets
       - name: Setup npmrc for pnpm publish
         run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+      - name: pnpm publish (dry run)
+        if: github.ref != 'refs/heads/master'
+        run: pnpm publish -r --no-git-checks --dry-run
       - name: pnpm publish
+        if: github.ref == 'refs/heads/master'
         run: pnpm publish -r --no-git-checks

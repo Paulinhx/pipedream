@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/filestack",
+  "version": "1.0.2",
+  "description": "Pipedream FileStack Components",
+  "main": "filestack.app.mjs",
+  "keywords": [
+    "pipedream",
+    "filestack"
+  ],
+  "homepage": "https://pipedream.com/apps/filestack",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5"
+  }
+}

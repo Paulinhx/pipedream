@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/groundhogg",
+  "version": "0.0.4",
+  "description": "Pipedream GroundHogg Components",
+  "main": "groundhogg.app.mjs",
+  "keywords": [
+    "pipedream",
+    "groundhogg"
+  ],
+  "homepage": "https://pipedream.com/apps/groundhogg",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

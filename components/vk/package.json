@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/vk",
+  "version": "0.0.5",
+  "description": "Pipedream vk Components",
+  "main": "vk.app.mjs",
+  "keywords": [
+    "pipedream",
+    "vk"
+  ],
+  "homepage": "https://pipedream.com/apps/vk",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

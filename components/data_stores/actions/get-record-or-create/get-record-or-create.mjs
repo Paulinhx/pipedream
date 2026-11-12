@@ -4,7 +4,12 @@ export default {
   key: "data_stores-get-record-or-create",
   name: "Get record (or create one if not found)",
   description: "Get a single record in your [Pipedream Data Store](https://pipedream.com/data-stores/) or create one if it doesn't exist.",
-  version: "0.0.7",
+  version: "0.0.15",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     app,
@@ -30,29 +35,57 @@ export default {
         "addRecordIfNotFound",
       ],
     },
+    ttl: {
+      propDefinition: [
+        app,
+        "ttl",
+      ],
+    },
   },
   async additionalProps() {
+    const props = {};
     if (this.app.shouldAddRecord(this.addRecordIfNotFound)) {
-      return this.app.valueProp();
+      props.value = app.propDefinitions.value;
     }
-    return {};
+    return props;
   },
   async run({ $ }) {
     const record = await this.dataStore.get(this.key);
+    let summary, response;
 
-    if (record) {
-      $.export("$summary", "Found data for the key, `" + this.key + "`.");
-    } else {
-      if (this.app.shouldAddRecord(this.addRecordIfNotFound)) {
-        const parsedValue = this.app.parseValue(this.value);
-        await this.dataStore.set(this.key, parsedValue);
-        $.export("$summary", "Successfully added a new record with the key, `" + this.key + "`.");
-        return this.dataStore.get(this.key);
+    if (record !== undefined) {
+      summary = `Found data for the key, \`${this.key}\`.`;
+      response = record;
+    }
+    else if (!this.app.shouldAddRecord(this.addRecordIfNotFound)) {
+      summary = `No data found for key, \`${this.key}\`.`;
+    }
+    else {
+      const parsedValue = this.app.parseValue(this.value);
+
+      if (this.ttl) {
+        await this.dataStore.set(this.key, parsedValue, {
+          ttl: this.ttl,
+        });
+        summary = `Successfully added a new record with the key, \`${this.key}\` (expires in ${this.app.formatTtl(this.ttl)}).`;
       } else {
-        $.export("$summary", "No data found for key, `" + this.key + "`.");
+        await this.dataStore.set(this.key, parsedValue);
+        summary = `Successfully added a new record with the key, \`${this.key}\`.`;
+      }
+
+      response = parsedValue;
+
+      // Include TTL information in the return value if it was set
+      if (this.ttl) {
+        response = {
+          value: parsedValue,
+          ttl: this.ttl,
+        };
       }
     }
 
-    return record;
+    $.export("$summary", summary);
+    $.export("key", this.key);
+    return response;
   },
 };

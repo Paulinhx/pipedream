@@ -1,33 +1,19 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/folder-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-get-lists",
   name: "Get Lists",
-  description: "Get a list of lists. See the docs [here](https://clickup.com/api) in **Lists  / Get Lists** section.",
-  version: "0.0.1",
+  description: "Get a list of lists. [See the documentation](https://clickup.com/api) in **Lists / Get Lists** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
-    folderId: {
-      propDefinition: [
-        clickup,
-        "folders",
-        (c) => ({
-          spaceId: c.spaceId,
-        }),
-      ],
-    },
     archived: {
       type: "boolean",
       label: "Archived",

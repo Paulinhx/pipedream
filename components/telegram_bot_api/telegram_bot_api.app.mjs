@@ -1,5 +1,10 @@
-import "./env.mjs";
-import TelegramBot from "node-telegram-bot-api";
+import "./common/env.mjs";
+// Pinned to 1.2.0. The component builder resolves npm dependencies from the
+// import specifier alone (never from package.json), so an unpinned specifier
+// installs the `latest` dist-tag. node-telegram-bot-api 2.0.0 removed the
+// default export and replaced the `TelegramBot` class with a new `Bot`/`Api`
+// design, so every build since 2026-08-16 failed to load this module.
+import TelegramBot from "node-telegram-bot-api@1.2.0";
 import { axios } from "@pipedream/platform";
 import {
   TELEGRAM_BOT_API_UI_MEDIA_AUDIO,
@@ -10,9 +15,9 @@ import {
   TELEGRAM_BOT_API_UI_MEDIA_STICKER,
   TELEGRAM_BOT_API_UI_MEDIA_VOICE,
   TELEGRAM_BOT_API_FORMATTING_MODES,
-} from "./constants.mjs";
-import updateTypes from "./update-types.mjs";
-import { toSingleLineString } from "./utils.mjs";
+} from "./common/constants.mjs";
+import updateTypes from "./common/update-types.mjs";
+import { toSingleLineString } from "./common/utils.mjs";
 
 export default {
   type: "app",
@@ -62,10 +67,13 @@ export default {
       `),
       optional: true,
     },
-    disable_web_page_preview: {
-      type: "boolean",
-      label: "Disable Link Previews",
-      description: "Choose if to disable link previews for links in this message.",
+    link_preview_options: {
+      type: "string",
+      label: "Link Preview Options",
+      description: toSingleLineString(`
+        Link preview generation options for the message. Enter additional interface options that are a JSON-serialized object, 
+        e.g. \`{"is_disabled":false,"url":"https://botpress.org","prefer_small_media":true,"prefer_large_media":false,"show_above_text":false}\`
+      `),
       optional: true,
     },
     reply_to_message_id: {
@@ -251,6 +259,21 @@ export default {
       `),
       optional: true,
     },
+    commands: {
+      label: "Commands",
+      description: "List of commands. E.g. `[\"/hi\", \"/hello\"]`",
+      type: "string[]",
+      async options() {
+        const commands = await this.getMyCommands();
+
+        return commands.map(({
+          command, description,
+        }) => ({
+          label: `${command} - ${description}`,
+          value: `/${command}`,
+        }));
+      },
+    },
   },
   methods: {
     _getBaseUrl() {
@@ -273,14 +296,15 @@ export default {
         polling: false,
       });
     },
-    async createHook(url, allowedUpdates) {
+    async createHook(url, allowedUpdates, secret) {
       const config = {
         method: "POST",
         url: `${this._getBaseUrl()}/setWebhook`,
         headers: this._getHeaders(),
         data: {
-          url: `${url}/${this.$auth.token}`,
+          url,
           allowed_updates: allowedUpdates,
+          secret_token: secret,
         },
       };
       return axios(this, config);
@@ -289,6 +313,14 @@ export default {
       const config = {
         method: "GET",
         url: `${await this._getBaseUrl()}/deleteWebhook`,
+        headers: await this._getHeaders(),
+      };
+      return axios(this, config);
+    },
+    async getWebhookInfo() {
+      const config = {
+        method: "GET",
+        url: `${await this._getBaseUrl()}/getWebhookInfo`,
         headers: await this._getHeaders(),
       };
       return axios(this, config);
@@ -407,6 +439,22 @@ export default {
       return this.sdk().unpinChatMessage(chatId, {
         message_id: messageId,
       });
+    },
+    /**
+     * Use this method to set default chat permissions for all members.
+     * The bot must be an administrator in the group or a supergroup for this
+     * to work and must have the can_restrict_members administrator rights.
+     * Returns True on success.
+     *
+     * @param {Number|String} chatId - Unique identifier for the message
+     * recipient
+     * @param {TelegramBot.ChatPermissions} [chatPermissions] -
+     * A JSON-serialized object for new default chat permissions
+     * [the API docs](https://core.telegram.org/bots/api#setchatpermissions)
+     * @return `True` on success
+     */
+    async setChatPermissions(chatId, chatPermissions) {
+      return this.sdk().setChatPermissions(chatId, chatPermissions);
     },
     /**
      * Send a file (Document/Image, Photo, Audio, Video, Video Note, Voice,
@@ -677,6 +725,15 @@ export default {
     */
     async createChatInviteLink(chatId, opts) {
       return this.sdk().createChatInviteLink(chatId, opts);
+    },
+    async getMyCommands() {
+      return this.sdk().getMyCommands();
+    },
+    async getFile(fileId) {
+      return this.sdk().getFile(fileId);
+    },
+    async getFileLink(fileId) {
+      return this.sdk().getFileLink(fileId);
     },
   },
 };

@@ -1,4 +1,4 @@
-import axios from "axios";
+import { axios } from "@pipedream/platform";
 import parseLinkHeader from "parse-link-header";
 import { createHmac } from "crypto";
 import utils from "./common/utils.mjs";
@@ -19,6 +19,27 @@ export default {
           next,
         } = await this._propDefinitionsOptions(url, params, context);
         const options = data.map(this._organizationObjectToOption);
+        return {
+          options,
+          context: {
+            nextPage: next,
+          },
+        };
+      },
+    },
+    projectSlugs: {
+      type: "string[]",
+      label: "Projects",
+      description: "Only consider issue events from these projects, matched by project slug (e.g. `my-backend`). Leave empty to consider every project in the organization.",
+      optional: true,
+      async options(context) {
+        const { organizationSlug } = context;
+        const url = this._organizationProjectsEndpoint(organizationSlug);
+        const {
+          data,
+          next,
+        } = await this._propDefinitionsOptions(url, {}, context);
+        const options = data.map(this._projectObjectToOption);
         return {
           options,
           context: {
@@ -83,7 +104,14 @@ export default {
       label: "Max Results",
       description: "The maximum number of registers to return. Defaults to `1000`.",
       optional: true,
+      default: 1000,
       max: 10000,
+    },
+    full: {
+      type: "boolean",
+      label: "Full",
+      description: "If this is set to true then the event payload will include the full event body, including the stacktrace. Set to true to enable.",
+      optional: true,
     },
   },
   methods: {
@@ -93,6 +121,10 @@ export default {
     _organizationsEndpoint() {
       const baseUrl = this._apiUrl();
       return `${baseUrl}/organizations/`;
+    },
+    _organizationProjectsEndpoint(organizationSlug) {
+      const baseUrl = this._organizationsEndpoint();
+      return `${baseUrl}${organizationSlug}/projects/`;
     },
     _integrationsEndpoint(integrationSlug) {
       const baseUrl = this._apiUrl();
@@ -149,6 +181,17 @@ export default {
         value: slug,
       };
     },
+    _projectObjectToOption(project) {
+      const {
+        name,
+        slug,
+      } = project;
+      const label = `${name} (${slug})`;
+      return {
+        label,
+        value: slug,
+      };
+    },
     async _propDefinitionsOptions(
       url,
       params, {
@@ -165,7 +208,7 @@ export default {
           ...requestConfig,
           params,
         };
-      } else if (prevContext.nextPage) {
+      } else if (String(prevContext.nextPage.results).toLowerCase() === "true") { // sentry returns this field as a string... so adding this in case they change it to a boolean
         // Retrieve next page of options.
         url = prevContext.nextPage.url;
       } else {
@@ -178,7 +221,11 @@ export default {
       const {
         data,
         headers: { link },
-      } = await axios.get(url, requestConfig);
+      } = await axios(this, {
+        url,
+        returnFullResponse: true,
+        ...requestConfig,
+      });
       const { next } = parseLinkHeader(link);
 
       return {
@@ -202,36 +249,52 @@ export default {
     async createIntegration(eventSourceName, organization, webhookUrl) {
       const url = this._integrationsEndpoint();
       const name = utils.formatIntegrationName(eventSourceName);
-      const requestData = {
+      const data = {
         ...this._baseIntegrationParams(),
         name,
         organization,
         webhookUrl,
       };
       const requestConfig = this._makeRequestConfig();
-      const { data } = await axios.post(url, requestData, requestConfig);
-      return data;
+      return axios(this, {
+        url,
+        method: "post",
+        data,
+        ...requestConfig,
+      });
     },
     async deleteIntegration(integrationSlug) {
       const url = this._integrationsEndpoint(integrationSlug);
       const requestConfig = this._makeRequestConfig();
-      await axios.delete(url, requestConfig);
+      await axios(this, {
+        url,
+        method: "delete",
+        ...requestConfig,
+      });
     },
     async disableIntegration(integrationSlug) {
       const url = this._integrationsEndpoint(integrationSlug);
       const requestConfig = this._makeRequestConfig();
-      const requestData = {
+      const data = {
         events: null,
         isAlertable: false,
         name: "pipedream (disabled)",
         webhookUrl: null,
       };
-      await axios.put(url, requestData, requestConfig);
+      await axios(this, {
+        url,
+        method: "put",
+        data,
+        ...requestConfig,
+      });
     },
     async getClientSecret(integrationSlug) {
       const url = this._integrationsEndpoint(integrationSlug);
       const requestConfig = this._makeRequestConfig();
-      const { data } = await axios.get(url, requestConfig);
+      const data = await axios(this, {
+        url,
+        ...requestConfig,
+      });
       return data.clientSecret;
     },
     isValidSource(event, clientSecret) {
@@ -247,44 +310,73 @@ export default {
     async listUserProjects(cursor) {
       const url = `${this._apiUrl()}/projects/`;
       const requestConfig = this._makeRequestConfig();
-      return axios.get(url, {
+      return axios(this, {
         ...requestConfig,
+        url,
         params: {
           cursor,
         },
+        returnFullResponse: true,
       });
     },
     async listProjectEvents(organizationSlug, projectSlug, params, cursor) {
       const url = `${this._apiUrl()}/projects/${organizationSlug}/${projectSlug}/events/`;
       const requestConfig = this._makeRequestConfig();
-      return axios.get(url, {
+      return axios(this, {
         ...requestConfig,
+        url,
         params: {
           ...params,
           cursor,
         },
+        returnFullResponse: true,
       });
     },
     async listProjectIssues(organizationSlug, projectSlug, params, cursor) {
       const url = `${this._apiUrl()}/projects/${organizationSlug}/${projectSlug}/issues/`;
       const requestConfig = this._makeRequestConfig();
-      return axios.get(url, {
+      return axios(this, {
         ...requestConfig,
+        url,
         params: {
           ...params,
           cursor,
         },
+        returnFullResponse: true,
       });
     },
     async listOrganizationUser(organizationSlug) {
       const url = `${this._apiUrl()}/organizations/${organizationSlug}/users/`;
       const requestConfig = this._makeRequestConfig();
-      return axios.get(url, requestConfig);
+      return axios(this, {
+        url,
+        returnFullResponse: true,
+        ...requestConfig,
+      });
     },
     async updateIssue(issueId, data) {
       const url = `${this._apiUrl()}/issues/${issueId}/`;
       const requestConfig = this._makeRequestConfig();
-      return axios.put(url, data, requestConfig);
+      return axios(this, {
+        url,
+        method: "put",
+        data,
+        returnFullResponse: true,
+        ...requestConfig,
+      });
+    },
+    async listIssueEvents(issueId, params, cursor) {
+      const url = `${this._apiUrl()}/issues/${issueId}/events/`;
+      const requestConfig = this._makeRequestConfig();
+      return axios(this, {
+        ...requestConfig,
+        url,
+        params: {
+          ...params,
+          cursor,
+        },
+        returnFullResponse: true,
+      });
     },
   },
 };

@@ -1,8 +1,8 @@
 import { axios } from "@pipedream/platform";
-import querystring from "querystring";
-import resourceTypes from "./resource-types.mjs";
-import colors from "./colors.mjs";
+import querystring from "query-string";
 import { v4 as uuid } from "uuid";
+import colors, { numericToString } from "./common/colors.mjs";
+import resourceTypes from "./common/resource-types.mjs";
 
 export default {
   type: "app",
@@ -18,112 +18,136 @@ export default {
       },
     },
     selectProjects: {
-      type: "integer[]",
+      type: "string[]",
       label: "Select Projects",
       description:
         "Filter for events that match one or more projects. Leave this blank to emit results for any project.",
       optional: true,
       async options() {
-        return (await this.getProjects({})).map((project) => ({
+        const { results } = await this.getProjects({});
+        return results?.map((project) => ({
           label: project.name,
           value: project.id,
-        }));
+        })) || [];
       },
     },
     project: {
-      type: "integer",
+      type: "string",
       label: "Project",
       description: "Select a project to filter results by",
       optional: true,
       async options() {
-        return (await this.getProjects({})).map((project) => ({
+        const { results } = await this.getProjects({});
+        return (results || []).map((project) => ({
           label: project.name,
           value: project.id,
         }));
       },
     },
     section: {
-      type: "integer",
+      type: "string",
       label: "Section",
       description: "Select a section to filter results by",
       optional: true,
       async options({ project }) {
-        return (await this.getSections({
+        const { results } = await this.getSections({
           params: {
             project_id: project,
           },
-        })).map((section) => ({
+        });
+        return (results || []).map((section) => ({
           label: section.name,
           value: section.id,
         }));
       },
     },
     label: {
-      type: "integer",
+      type: "string",
       label: "Label",
       description: "Select a label to filter results by",
       optional: true,
       async options() {
-        return (await this.getLabels({})).map((label) => ({
+        const { results } = await this.getLabels({});
+        return (results || []).map((label) => ({
           label: label.name,
           value: label.id,
         }));
       },
     },
+    labelString: {
+      type: "string[]",
+      label: "Labels",
+      description: "Select labels to add to the task.",
+      optional: true,
+      async options() {
+        const { results } = await this.getLabels({});
+        return (results || []).map((label) => label.name);
+      },
+    },
     task: {
-      type: "integer",
+      type: "string",
       label: "Task",
       description: "Select a task to filter results by",
       async options({
         project, section,
       }) {
-        return (await this.getActiveTasks({
+        const { results } = await this.getActiveTasks({
           params: {
             project_id: project,
             section_id: section,
           },
-        })).map((task) => ({
+        });
+        return (results || []).map((task) => ({
           label: task.content,
           value: task.id,
         }));
       },
     },
     completedTask: {
-      type: "integer",
+      type: "string",
       label: "Completed Task",
       description: "Select the task to reopen",
       async options({
         project, prevContext,
       }) {
-        const { offset = 0 } = prevContext;
+        const { cursor } = prevContext;
         const limit = 30;
+        const now = new Date();
+        const sinceDate = new Date(now);
+        sinceDate.setMonth(sinceDate.getMonth() - 3);
         const params = {
-          offset,
           limit,
+          since: sinceDate.toISOString(),
+          until: now.toISOString(),
         };
+        if (cursor) {
+          params.cursor = cursor;
+        }
         if (project) {
           params.project_id = project;
         }
-        const tasks = (await this.getCompletedTasks({
+        const response = await this.getCompletedTasks({
           params,
-        })).map((task) => ({
+        });
+        const tasks = response.items.map((task) => ({
           label: task.content,
-          value: task.task_id,
+          value: task.id,
         }));
         return {
           options: tasks,
           context: {
-            offset: offset + limit,
+            cursor: response.next_cursor,
           },
         };
       },
     },
     assignee: {
-      type: "integer",
+      type: "string",
       label: "Assignee",
       description: "The responsible user (if set, and only for shared tasks)",
       async options({ project }) {
-        return (await this.getProjectCollaborators(project)).map((assignee) => ({
+        const { results } = await this.getProjectCollaborators(project);
+        return (results || []).map((assignee) => ({
           label: assignee.name,
           value: assignee.id,
         }));
@@ -131,7 +155,7 @@ export default {
       optional: true,
     },
     filter: {
-      type: "integer",
+      type: "string",
       label: "Filter",
       description: "Select the filter to update",
       async options() {
@@ -147,7 +171,7 @@ export default {
       description: "Enter the new name",
     },
     commentId: {
-      type: "integer",
+      type: "string",
       label: "Comment ID",
       description: "Select a comment",
       async options({
@@ -156,12 +180,13 @@ export default {
         if (!project && !task) {
           return [];
         }
-        return (await this.getComments({
+        const { results } = await this.getComments({
           params: {
             project_id: project,
             task_id: task,
           },
-        })).map((comment) => ({
+        });
+        return (results || []).map((comment) => ({
           label: comment.content,
           value: comment.id,
         }));
@@ -176,7 +201,7 @@ export default {
     color: {
       type: "integer",
       label: "Color",
-      description: "A numeric ID representing a color. Refer to the id column in the [Colors](https://developer.todoist.com/guides/#colors) guide for more info.",
+      description: "A numeric ID representing a color (automatically converted to v1 API format). Refer to the id column in the [Colors](https://developer.todoist.com/guides/#colors) guide for more info.",
       options: colors,
       optional: true,
     },
@@ -246,15 +271,16 @@ export default {
     },
     path: {
       type: "string",
-      label: "File Path",
-      description: "Path to .csv file containing task data. Enter a static value (e.g., `/tmp/myFile.csv`) or reference prior step exports via the `steps` object (e.g., `{{steps.export_tasks.$return_value}}`).",
+      label: "File Path or URL",
+      description: "The .csv file to upload. Provide either a file URL or a path to a file in the `/tmp` directory (for example, `/tmp/myFile.csv`)",
+      format: "file-ref",
     },
   },
   methods: {
     /**
      * Make a request to Todoist's sync API.
      * @params {Object} opts - An object representing the configuration options for this method
-     * @params {String} [opts.path=/sync/v8/sync] - The path for the sync request
+     * @params {String} [opts.path=/sync/v9/sync] - The path for the sync request
      * @params {String} opts.payload - The data to send in the API request at the POST body.
      * This data will converted to `application/x-www-form-urlencoded`
      * @returns {Object} When the request succeeds, an HTTP 200 response with
@@ -263,7 +289,7 @@ export default {
     async _makeSyncRequest(opts) {
       const {
         $,
-        path = "/sync/v8/sync",
+        path = "/api/v1/sync",
       } = opts;
       delete opts.path;
       delete opts.$;
@@ -293,7 +319,7 @@ export default {
       } = opts;
       delete opts.path;
       delete opts.$;
-      opts.url = `https://api.todoist.com/rest/v1${path[0] === "/"
+      opts.url = `https://api.todoist.com/api/v1${path[0] === "/"
         ? ""
         : "/"}${path}`;
       opts.headers = {
@@ -318,7 +344,7 @@ export default {
       db.set("syncToken", syncToken);
     },
     /**
-     * Check whether an array of project IDs contains the given proejct ID. This method is
+     * Check whether an array of project IDs contains the given project ID. This method is
      * used in multiple sources to validate if an event matches the selection in the project filter.
      * @params {Integer} project_id - The ID for a Todoist project
      * @params {Array} selectedProjectIds - An array of Todoist project IDs
@@ -328,7 +354,7 @@ export default {
     isProjectInList(projectId, selectedProjectIds) {
       return (
         selectedProjectIds.length === 0 ||
-        selectedProjectIds.includes(projectId)
+        selectedProjectIds.map((pId) => pId.toString()).includes(projectId)
       );
     },
     /**
@@ -342,7 +368,7 @@ export default {
     }) {
       return this._makeSyncRequest({
         $,
-        path: "/sync/v8/sync",
+        path: "/api/v1/sync",
         method: "POST",
         payload: opts,
       });
@@ -384,7 +410,7 @@ export default {
      * Get project by ID or get all projects if no ID specified
      * @params {Object} opts - An object representing configuration options for this method
      * @params {Integer} [opts.id = ""] - A project ID
-     * @returns {Obect|Array} A project object related to the given ID or all user projects
+     * @returns {Object|Array} A project object related to the given ID or all user projects
      * if no ID specified
      */
     async getProjects(opts) {
@@ -394,7 +420,9 @@ export default {
       } = opts;
       return this._makeRestRequest({
         $,
-        path: `/projects/${id}`,
+        path: id
+          ? `/projects/${id}`
+          : "/projects",
         method: "GET",
       });
     },
@@ -410,6 +438,10 @@ export default {
         $,
         data = {},
       } = opts;
+      // Transform numeric color to string for v1 API
+      if (data.color && typeof data.color === "number") {
+        data.color = numericToString(data.color);
+      }
       return this._makeRestRequest({
         $,
         path: "/projects",
@@ -430,6 +462,10 @@ export default {
       } = opts;
       const { projectId } = data;
       delete data.projectId;
+      // Transform numeric color to string for v1 API
+      if (data.color && typeof data.color === "number") {
+        data.color = numericToString(data.color);
+      }
       return this._makeRestRequest({
         $,
         path: `/projects/${projectId}`,
@@ -488,7 +524,9 @@ export default {
      */
     async getProjectCollaborators(projectId) {
       if (!projectId) {
-        return [];
+        return {
+          results: [],
+        };
       }
       return this._makeRestRequest({
         path: `/projects/${projectId}/collaborators`,
@@ -511,7 +549,9 @@ export default {
       delete params.section_id;
       return this._makeRestRequest({
         $,
-        path: `/sections/${id}`,
+        path: id
+          ? `/sections/${id}`
+          : "/sections",
         method: "GET",
         params,
       });
@@ -587,7 +627,9 @@ export default {
       } = opts;
       return this._makeRestRequest({
         $,
-        path: `/labels/${id}`,
+        path: id
+          ? `/labels/${id}`
+          : "/labels",
         method: "GET",
       });
     },
@@ -602,6 +644,10 @@ export default {
         $,
         data = {},
       } = opts;
+      // Transform numeric color to string for v1 API
+      if (data.color && typeof data.color === "number") {
+        data.color = numericToString(data.color);
+      }
       return this._makeRestRequest({
         $,
         path: "/labels",
@@ -622,6 +668,10 @@ export default {
       } = opts;
       const { labelId } = data;
       delete data.labelId;
+      // Transform numeric color to string for v1 API
+      if (data.color && typeof data.color === "number") {
+        data.color = numericToString(data.color);
+      }
       return this._makeRestRequest({
         $,
         path: `/labels/${labelId}`,
@@ -669,7 +719,9 @@ export default {
       delete params.comment_id;
       return this._makeRestRequest({
         $,
-        path: `/comments/${id}`,
+        path: id
+          ? `/comments/${id}`
+          : "/comments",
         method: "GET",
         params,
       });
@@ -748,7 +800,9 @@ export default {
       delete params.task_id;
       return this._makeRestRequest({
         $,
-        path: `/tasks/${id}`,
+        path: id
+          ? `/tasks/${id}`
+          : "/tasks",
         method: "GET",
         params,
       });
@@ -764,12 +818,34 @@ export default {
         $,
         params = {},
       } = opts;
-      return (await this._makeSyncRequest({
+      return this._makeRestRequest({
         $,
-        path: "/sync/v8/completed/get_all",
-        method: "POST",
-        payload: params,
-      })).items;
+        path: "/tasks/completed/by_completion_date",
+        method: "GET",
+        params,
+      });
+    },
+    /**
+     * Get activity log events from the Todoist v1 Activity Log endpoint.
+     * Supports filtering by object_event_types (e.g. ["item:completed"]),
+     * a date_from/date_to ISO 8601 window, cursor-based pagination, and a
+     * limit (1-200, default 50).
+     * @params {Object} opts - An object representing configuration options for this method
+     * @params {Object} [opts.params = {}] - Query params: object_event_types (JSON-stringified
+     * array), date_from, date_to (ISO 8601), cursor, limit
+     * @returns {Object} JSON object with a results array and optional next_cursor
+     */
+    async getActivityLogs(opts) {
+      const {
+        $,
+        params = {},
+      } = opts;
+      return this._makeRestRequest({
+        $,
+        path: "/activities",
+        method: "GET",
+        params,
+      });
     },
     /**
      * Create a new task
@@ -824,7 +900,7 @@ export default {
     /**
      * Moves tasks to new parent_id, section_id, or project_id
      * @params {Object} opts - An object representing configuration options for this method
-     * @retursn {Object} - An array of responses, one per batch of tasks
+     * @returns {Object} - An array of responses, one per batch of tasks
     */
     async moveTasks(opts) {
       const {
@@ -882,7 +958,7 @@ export default {
       const { taskId } = params;
       return this._makeRestRequest({
         $,
-        path: `tasks/${taskId}/close`,
+        path: `/tasks/${taskId}/close`,
         method: "POST",
       });
     },
@@ -900,7 +976,7 @@ export default {
       const { taskId } = params;
       return this._makeRestRequest({
         $,
-        path: `tasks/${taskId}/reopen`,
+        path: `/tasks/${taskId}/reopen`,
         method: "POST",
       });
     },
@@ -918,7 +994,7 @@ export default {
       const { taskId } = data;
       return this._makeRestRequest({
         $,
-        path: `tasks/${taskId}`,
+        path: `/tasks/${taskId}`,
         method: "DELETE",
       });
     },
@@ -1013,6 +1089,10 @@ export default {
         $,
         data = {},
       } = opts;
+      // Transform numeric color to string for v1 API
+      if (data.color && typeof data.color === "number") {
+        data.color = numericToString(data.color);
+      }
       const commands = [
         {
           type: "filter_add",
@@ -1039,6 +1119,10 @@ export default {
         $,
         data = {},
       } = opts;
+      // Transform numeric color to string for v1 API
+      if (data.color && typeof data.color === "number") {
+        data.color = numericToString(data.color);
+      }
       const commands = [
         {
           type: "filter_update",

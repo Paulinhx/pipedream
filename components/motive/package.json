@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/motive",
+  "version": "0.2.0",
+  "description": "Pipedream Motive Components",
+  "main": "motive.app.mjs",
+  "keywords": [
+    "pipedream",
+    "motive"
+  ],
+  "homepage": "https://pipedream.com/apps/motive",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "uuid": "^11.0.4"
+  }
+}

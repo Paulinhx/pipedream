@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/octopus_deploy",
+  "version": "0.0.3",
+  "description": "Pipedream Octopus Deploy Components",
+  "main": "octopus_deploy.app.mjs",
+  "keywords": [
+    "pipedream",
+    "octopus_deploy"
+  ],
+  "homepage": "https://pipedream.com/apps/octopus_deploy",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

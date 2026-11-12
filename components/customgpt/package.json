@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/customgpt",
+  "version": "0.2.1",
+  "description": "Pipedream CustomGPT Components",
+  "main": "customgpt.app.mjs",
+  "keywords": [
+    "pipedream",
+    "customgpt"
+  ],
+  "homepage": "https://pipedream.com/apps/customgpt",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5"
+  }
+}

@@ -1,36 +1,55 @@
-import common from "../common.mjs";
-import { monthAgo } from "../../common/utils.mjs";
+import { DEFAULT_LIMIT } from "../../common/constants.mjs";
+import { EMAIL_EVENT_TYPES } from "../../common/object-types.mjs";
+import common from "../common/common.mjs";
+import sampleEmit from "./test-event.mjs";
 
 export default {
   ...common,
   key: "hubspot-new-email-event",
   name: "New Email Event",
-  description: "Emit new event for each new Hubspot email event.",
-  version: "0.0.4",
+  description: "Emit new event for each new HubSpot email event.",
+  version: "0.0.51",
   dedupe: "unique",
   type: "source",
-  hooks: {},
+  props: {
+    ...common.props,
+    type: {
+      type: "string",
+      label: "Event Type",
+      description: "Filter results by the email event type",
+      options: EMAIL_EVENT_TYPES,
+      optional: true,
+    },
+  },
   methods: {
     ...common.methods,
+    getTs({ created }) {
+      // The API returns epoch ms; Date.parse(number) is NaN.
+      return typeof created === "number"
+        ? created
+        : Date.parse(created);
+    },
     generateMeta(emailEvent) {
       const {
-        id,
-        recipient,
-        type,
-        created,
+        id, recipient, type,
       } = emailEvent;
-      const ts = Date.parse(created);
+      const ts = this.getTs(emailEvent);
       return {
         id,
         summary: `${recipient} - ${type}`,
         ts,
       };
     },
-    getParams() {
-      const startTimestamp = Date.parse(monthAgo());
+    getParams(after) {
+      const params = {
+        limit: DEFAULT_LIMIT,
+        startTimestamp: after,
+      };
+      if (this.type) {
+        params.eventType = this.type;
+      }
       return {
-        limit: 100,
-        startTimestamp,
+        params,
       };
     },
     async processResults(after, params) {
@@ -38,7 +57,9 @@ export default {
         params,
         this.hubspot.getEmailEvents.bind(this),
         "events",
+        after,
       );
     },
   },
+  sampleEmit,
 };

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/weaviate",
+  "version": "0.2.0",
+  "description": "Pipedream Weaviate Components",
+  "main": "weaviate.app.mjs",
+  "keywords": [
+    "pipedream",
+    "weaviate"
+  ],
+  "homepage": "https://pipedream.com/apps/weaviate",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

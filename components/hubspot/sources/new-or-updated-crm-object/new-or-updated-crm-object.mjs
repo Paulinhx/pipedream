@@ -1,11 +1,13 @@
-import common from "../common.mjs";
+import { DEFAULT_LIMIT } from "../../common/constants.mjs";
+import common from "../common/common.mjs";
+import sampleEmit from "./test-event.mjs";
 
 export default {
   ...common,
   key: "hubspot-new-or-updated-crm-object",
   name: "New or Updated CRM Object",
   description: "Emit new event each time a CRM Object of the specified object type is updated.",
-  version: "0.0.1",
+  version: "0.0.48",
   dedupe: "unique",
   type: "source",
   props: {
@@ -17,15 +19,14 @@ export default {
       ],
     },
   },
-  hooks: {},
   methods: {
     ...common.methods,
+    getTs(object) {
+      return Date.parse(object.updatedAt);
+    },
     generateMeta(object) {
-      const {
-        id,
-        updatedAt,
-      } = object;
-      const ts = Date.parse(updatedAt);
+      const { id } = object;
+      const ts = this.getTs(object);
       return {
         id: `${id}${ts}`,
         summary: `Record ID: ${id}`,
@@ -33,32 +34,37 @@ export default {
       };
     },
     isRelevant(object, updatedAfter) {
-      return Date.parse(object.updatedAt) > updatedAfter;
+      return this.getTs(object) > updatedAfter;
     },
     getParams() {
       return null;
     },
-    getObjectParams(object) {
-      const propertyName = (object == "contacts")
-        ? "lastmodifieddate"
-        : "hs_lastmodifieddate";
-      return {
-        limit: 100,
-        sorts: [
-          {
-            propertyName,
-            direction: "DESCENDING",
-          },
-        ],
+    getObjectParams(object, after) {
+      const propertyName =
+        object == "contacts"
+          ? "lastmodifieddate"
+          : "hs_lastmodifieddate";
+      return this.addDateFilter({
+        data: {
+          limit: DEFAULT_LIMIT,
+          sorts: [
+            {
+              propertyName,
+              direction: "DESCENDING",
+            },
+          ],
+        },
         object,
-      };
+      }, propertyName, after);
     },
     async processResults(after) {
-      const object = (this.objectType == "company")
-        ? "companies"
-        : `${this.objectType}s`;
-      const params = this.getObjectParams(object);
+      const object =
+        this.objectType == "company"
+          ? "companies"
+          : `${this.objectType}s`;
+      const params = this.getObjectParams(object, after);
       await this.searchCRM(params, after);
     },
   },
+  sampleEmit,
 };

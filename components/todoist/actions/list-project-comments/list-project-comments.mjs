@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-list-project-comments",
   name: "List Project Comments",
-  description: "Returns a list of comments for a project. [See the docs here](https://developer.todoist.com/rest/v1/#get-all-comments)",
-  version: "0.0.1",
+  description: "Returns a list of comments for a project. [See the documentation](https://developer.todoist.com/api/v1#tag/Comments/operation/get_comments_api_v1_comments_get)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     todoist,
@@ -24,9 +29,9 @@ export default {
       $,
       params,
     });
-    $.export("$summary", `Successfully retrieved ${resp.length} comment${resp.length === 1
+    $.export("$summary", `Successfully retrieved ${resp?.results?.length} comment${resp?.results?.length === 1
       ? ""
       : "s"}`);
-    return resp;
+    return resp?.results;
   },
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/api_void",
+  "version": "0.0.3",
+  "description": "Pipedream Api Void Components",
+  "main": "api_void.app.mjs",
+  "keywords": [
+    "pipedream",
+    "api_void"
+  ],
+  "homepage": "https://pipedream.com/apps/api_void",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

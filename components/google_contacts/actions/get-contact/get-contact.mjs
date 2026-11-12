@@ -4,9 +4,15 @@ export default {
   ...common,
   key: "google_contacts-get-contact",
   name: "Get Contact",
-  description: "Get information about a contact. [See the docs here](https://developers.google.com/people/api/rest/v1/people/get)",
-  version: "0.0.1",
+  description: "Get information about a contact. [See the documentation](https://developers.google.com/people/api/rest/v1/people/get)",
+  version: "0.0.10",
+  annotations: {
+    "destructiveHint": false,
+    "openWorldHint": true,
+    "readOnlyHint": true,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     ...common.props,
     resourceName: {
@@ -30,7 +36,7 @@ export default {
       });
     },
     emitSummary($) {
-      $.export("$summary", "Successfully retrieved contact");
+      $.export("$summary", `Successfully retrieved contact with ID ${this.resourceName.split("/").pop()}`);
     },
   },
 };

@@ -1,0 +1,46 @@
+on:
+  push:
+    branches:
+      - master
+      - labeled
+      - assigned
+      - unlabeled
+      
+    paths:
+      - 'components/**'
+
+jobs:
+  publish-components:
+    name: Publish Marketplace Content to Pipedream
+    runs-on: linux-xarm92
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v9
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v8.1.0
+        with:
+          version: 10.30.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v8
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Get Changed Files
+        id: files
+        uses: Ana06/get-changed-files@v2.6.0
+        with:
+          format: 'csv'
+      - name: Publish changes to marketplace content
+        id: publish
+        env:
+          PD_API_KEY: ${{ secrets.PD_API_KEY }}
+          ENDPOINT: ${{ secrets.ENDPOINT }}
+        shell: bash {0} # don't fast fail
+        run: |
+          printf -v added_modified_renamed_files '%s,%s' '${{ steps.files.outputs.added_modified }}' '${{ steps.files.outputs.renamed }}'
+          pnpm dlx tsx scripts/updateMarketplaceReadme.mts $added_modified_renamed_files

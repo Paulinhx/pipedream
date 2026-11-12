@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/signwell",
+  "version": "0.0.5",
+  "description": "Pipedream SignWell  Components",
+  "main": "signwell.app.mjs",
+  "keywords": [
+    "pipedream",
+    "signwell"
+  ],
+  "homepage": "https://pipedream.com/apps/signwell",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

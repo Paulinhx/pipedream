@@ -2,6 +2,7 @@ import "isomorphic-fetch";
 import { Client } from "@microsoft/microsoft-graph-client";
 import get from "lodash.get";
 import mimeTypes from "./sources/common/mime-types.mjs";
+import httpRequest from "./common/httpRequest.mjs";
 
 export default {
   type: "app",
@@ -10,39 +11,69 @@ export default {
     folder: {
       type: "string",
       label: "Folder",
-      description: "The folder to watch for new files",
+      description: "The folder to watch for new files. Use the \"Load More\" button to load subfolders.",
       async options({
         driveId, folderId, prevContext,
       }) {
-        const drivePath = this._getDrivePath(driveId);
-        const driveItemPath = this._getDriveItemPath(folderId);
-        const firstLink = drivePath + driveItemPath + "/children";
-        const url = get(prevContext, "nextLink", firstLink);
+        const responses = await Promise.all((prevContext.options ?? [
+          {
+            value: folderId,
+          },
+        ]).map(async ({
+          label, value,
+        }) => {
+          const drivePath = this._getDrivePath(driveId);
+          const driveItemPath = this._getDriveItemPath(value);
+          const firstLink = drivePath + driveItemPath + "/children";
+          const url = get(prevContext, "nextLink", firstLink);
 
-        const response = await this.client()
-          .api(url)
-          .select(
-            "folder",
-            "id",
-            "name",
-          )
-          .orderby("name")
-          .get();
+          try {
+            const response = await this.client()
+              .api(url)
+              .select(
+                "folder",
+                "id",
+                "name",
+              )
+              .orderby("name")
+              .get();
 
-        const {
-          "@odata.nextLink": nextLink,
-          "value": children,
-        } = response;
+            const {
+              "@odata.nextLink": nextLink,
+              "value": children,
+            } = response;
 
-        const folders = children.filter((child) => !!child.folder);
+            const folders = children.filter((child) => !!child.folder);
+
+            const options = folders.map((folder) => ({
+              value: folder.id,
+              label: (label
+                ? `${label} > `
+                : "") + folder.name,
+            }));
+
+            return {
+              options,
+              context: {
+                nextLink,
+                options,
+              },
+            };
+
+          } catch (error) {
+            console.error("Error listing folders:", error);
+            return {
+              options: [],
+              context: {},
+            };
+          }
+        }));
 
         return {
-          options: folders.map((folder) => ({
-            value: folder.id,
-            label: folder.name,
-          })),
+          options: responses.flatMap(({ options }) => options),
           context: {
-            nextLink,
+            nextLink: responses.find(({ context }) => !!context.nextLink)?.context.nextLink,
+            options: responses.flatMap(({ context }) => context.options),
           },
         };
       },
@@ -51,10 +82,130 @@ export default {
       type: "string[]",
       label: "File Types",
       description: "The types of files to watch for",
+      optional: true,
       options: mimeTypes,
+    },
+    sharedFolderReference: {
+      type: "string",
+      label: "Shared Folder Reference",
+      description: "The reference of the shared folder which the the new folder should be created.\n\nE.g. `/drives/{driveId}/items/{folderId}/children`",
+      async options() {
+        const { value } = await this.httpRequest({
+          url: "/sharedWithMe",
+        });
+        return value.map((shared) => ({
+          label: shared.name,
+          value: `/drives/${shared.remoteItem.parentReference.driveId}/items/${shared.remoteItem.id}/children`,
+        }));
+      },
+    },
+    fileId: {
+      type: "string",
+      label: "File ID",
+      description: "The file to download. You can either search for the file here, provide a custom *File ID*, or use the `File Path` prop to specify the path directly.",
+      useQuery: true,
+      async options({
+        query, excludeFolders = true,
+      }) {
+        const response = query
+          ? await this.httpRequest({
+            url: `/search(q='${query}')?select=folder,name,id`,
+          })
+          : await this.listDriveItems();
+        const values = excludeFolders
+          ? response.value.filter(({ folder }) => !folder)
+          : response.value;
+        return values
+          .map(({
+            name, id,
+          }) => ({
+            label: name,
+            value: id,
+          }));
+      },
+    },
+    excelFileId: {
+      type: "string",
+      label: "Spreadsheet",
+      description: "**Search for the file by name.** Only xlsx files are supported.",
+      useQuery: true,
+      async options({ query }) {
+        const response = await this.httpRequest({
+          url: `/search(q='${query ?? ""} .xlsx')?select=name,id`,
+        });
+        return response.value
+          .filter(({ name }) => name.endsWith(".xlsx"))
+          .map(({
+            name, id,
+          }) => ({
+            label: name,
+            value: id,
+          }));
+      },
+    },
+    tableName: {
+      type: "string",
+      label: "Table name",
+      description: "This is set in the **Table Design** tab of the ribbon.",
+      async options({ itemId }) {
+        const response = await this.httpRequest({
+          url: `/items/${itemId}/workbook/tables?$select=name`,
+        });
+        return response.value.map(({ name }) => name);
+      },
+    },
+    excludeFolders: {
+      type: "boolean",
+      label: "Exclude Folders?",
+      description: "Set to `true` to return only files in the response. Defaults to `false`",
+      optional: true,
+    },
+    drive: {
+      type: "string",
+      label: "Drive",
+      description: "Select a drive to monitor. Defaults to the personal OneDrive if not specified.",
+      optional: true,
+      async options() {
+        let options = [];
+
+        try {
+          const { value: drives } = await this.listDrives();
+
+          options = drives
+            .filter((drive) => drive.owner?.user?.email)
+            .map(({
+              id, description, name, driveType,
+            }) => ({
+              label: `${description || name} (${driveType})`,
+              value: id,
+            }));
+        } catch (error) {
+          console.error("Error listing drives:", error);
+        }
+
+        try {
+          const { value: sharedFiles } = await this.listSharedFiles();
+
+          const sharedDriveOptions = sharedFiles
+            .map(({ remoteItem }) => ({
+              label: `${remoteItem.parentReference.driveId} (${remoteItem.parentReference.driveType})`,
+              value: remoteItem.parentReference.driveId,
+            }));
+
+          options = [
+            ...options,
+            ...sharedDriveOptions,
+          ];
+        } catch (error) {
+          console.error("Error listing shared files:", error);
+        }
+
+        return options;
+      },
     },
   },
   methods: {
+    httpRequest,
     /**
      * @returns Microsoft Graph Client instance
      */
@@ -263,6 +414,148 @@ export default {
 
         url = nextLink;
       }
+    },
+    createLink({
+      driveItemId, ...args
+    } = {}) {
+      const client = this.client();
+      return client
+        .api(`/me/drive/items/${driveItemId}/createLink`)
+        .post(args);
+    },
+    createFolder({
+      folderName, parentFolderId, sharedFolderReference,
+    }) {
+      let url = "/root/children";
+      if (parentFolderId) {
+        url = `/items/${parentFolderId}/children`;
+      }
+      if (sharedFolderReference) {
+        url = sharedFolderReference;
+      }
+      return this.httpRequest({
+        url,
+        useSharedDrive: !!sharedFolderReference,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        data: {
+          name: folderName,
+          folder: {},
+          ["@microsoft.graph.conflictBehavior"]: "rename",
+        },
+        method: "POST",
+      });
+    },
+    getExcelTable({
+      itemId, tableName, ...args
+    }) {
+      return this.httpRequest({
+        url: `/items/${itemId}/workbook/tables/${tableName}/range`,
+        ...args,
+      });
+    },
+    uploadFile({
+      uploadFolderId, name, ...args
+    }) {
+      return this.httpRequest({
+        url: `/items/${uploadFolderId}:/${encodeURI(name)}:/content`,
+        headers: {
+          "Content-Type": "application/octet-stream",
+        },
+        method: "PUT",
+        ...args,
+      });
+    },
+    listDriveItems(args = {}) {
+      const client = this.client();
+      return client
+        .api("/me/drive/root/children")
+        .get(args);
+    },
+    listDrives() {
+      const client = this.client();
+      return client
+        .api("/drives")
+        .select("id", "description", "name", "driveType", "owner")
+        .get();
+    },
+    _normalizeDrive(drive) {
+      return {
+        id: drive.id,
+        name: drive.name ?? "",
+        driveType: drive.driveType ?? "personal",
+        ...(drive.owner && {
+          owner: drive.owner,
+        }),
+        ...(drive.quota && {
+          quota: drive.quota,
+        }),
+      };
+    },
+    /**
+     * Get all drives the signed-in user has access to, including the personal
+     * OneDrive. Returns a list of drives with id, name, driveType, owner, and
+     * quota information. Handles pagination via @odata.nextLink for users with
+     * multiple pages of drives.
+     *
+     * @returns {Promise<Array>} Array of drive objects
+     * @see https://learn.microsoft.com/en-us/graph/api/drive-list
+     */
+    async listMyDrives() {
+      const client = this.client();
+
+      let personalDriveResponse = null;
+      try {
+        personalDriveResponse = await client
+          .api("/me/drive")
+          .select("id", "name", "driveType", "owner", "quota")
+          .get();
+      } catch (error) {
+        const status = error?.statusCode ?? error?.status ?? error?.response?.status;
+        if (status !== 404) {
+          throw error;
+        }
+      }
+
+      const allDriveItems = [];
+      let nextLink = null;
+
+      do {
+        let drivesResponse;
+        if (nextLink) {
+          const url = new URL(nextLink);
+          const path = url.pathname.replace(/^\/v\d+\.\d+/, "") + url.search;
+          drivesResponse = await client.api(path).get();
+        } else {
+          drivesResponse = await client
+            .api("/me/drives")
+            .select("id", "name", "driveType", "owner", "quota")
+            .get();
+        }
+
+        allDriveItems.push(...(drivesResponse.value ?? []));
+        nextLink = drivesResponse["@odata.nextLink"];
+      } while (nextLink);
+
+      const drives = allDriveItems.map((drive) => this._normalizeDrive(drive));
+
+      if (personalDriveResponse) {
+        const personalDrive = this._normalizeDrive(personalDriveResponse);
+        const driveIds = new Set(drives.map((d) => d.id));
+        if (!driveIds.has(personalDrive.id)) {
+          drives.push(personalDrive);
+        }
+      }
+
+      return drives;
+    },
+    listSharedFiles() {
+      const client = this.client();
+      return client
+        .api("/me/drive/sharedWithMe")
+        .select("name", "remoteItem", "folder")
+        .get();
     },
   },
 };

@@ -3,8 +3,13 @@ import mailerlite from "../../mailerlite.app.mjs";
 export default {
   key: "mailerlite-update-subscriber",
   name: "Update Subscriber",
-  description: "Updates single active subscriber. [See docs](https://developers.mailerlite.com/reference/update-subscriber)",
-  version: "0.0.1",
+  description: "Updates single active subscriber. [See the documentation](https://developers.mailerlite.com/docs/subscribers.html#create-update-subscriber)",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     mailerlite,
@@ -22,6 +27,8 @@ export default {
           type: "update",
         }),
       ],
+      description: "Subscriber type",
+      default: "",
     },
     fields: {
       propDefinition: [
@@ -34,6 +41,9 @@ export default {
   },
   async additionalProps() {
     const props = {};
+    if (!this.fields?.length) {
+      return props;
+    }
     for (const field of this.fields) {
       props[field.value] = {
         type: "string",
@@ -45,14 +55,22 @@ export default {
   },
   async run({ $ }) {
     const fields = {};
-    for (const field of this.fields) {
-      fields[field.value] = this[field.value];
+    if (this.fields?.length) {
+      for (const field of this.fields) {
+        fields[field.value] = this[field.value];
+      }
     }
     const data = {
-      type: this.type,
       fields,
     };
-    const resp = await this.mailerlite.updateSubscriber(data, this.subscriber);
+    if (this.type && this.type !== "") {
+      data.status = this.type;
+    }
+    const resp = await this.mailerlite.updateSubscriber({
+      $,
+      subscriber: this.subscriber,
+      data,
+    });
     $.export("$summary", "Successfully updated subscriber");
     return resp;
   },

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/moonmail",
+  "version": "0.0.3",
+  "description": "Pipedream MoonMail Components",
+  "main": "moonmail.app.mjs",
+  "keywords": [
+    "pipedream",
+    "moonmail"
+  ],
+  "homepage": "https://pipedream.com/apps/moonmail",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

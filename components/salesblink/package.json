@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/salesblink",
+  "version": "0.0.5",
+  "description": "Pipedream SalesBlink Components",
+  "main": "salesblink.app.mjs",
+  "keywords": [
+    "pipedream",
+    "salesblink"
+  ],
+  "homepage": "https://pipedream.com/apps/salesblink",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

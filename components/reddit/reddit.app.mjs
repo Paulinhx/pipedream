@@ -1,8 +1,8 @@
-import axios from "axios";
-import qs from "qs";
-import isNil from "lodash/isNil.js";
+import { axios } from "@pipedream/platform";
 import retry from "async-retry";
 import get from "lodash/get.js";
+import isNil from "lodash/isNil.js";
+import qs from "qs";
 
 export default {
   type: "app",
@@ -28,19 +28,34 @@ export default {
       label: "Post",
       description: "Select a subreddit post or enter a custom expression to reference a specific Post ID in [base36](http://en.wikipedia.org/wiki/Base36) (for example, `15bfi0`).",
       optional: false,
+      useQuery: true,
       withLabel: true,
       async options({
         subreddit,
+        query,
         prevContext,
       }) {
         const params = {
           limit: 50,
           after: prevContext?.after,
         };
-        const links = await this.getNewSubredditLinks(
-          get(subreddit, "value", subreddit),
-          params,
-        );
+        let links = [];
+
+        if (query) {
+          links = await this.searchSubredditLinks(
+            get(subreddit, "value", subreddit),
+            {
+              ...params,
+              q: query,
+            },
+          );
+        } else {
+          links = await this.getNewSubredditLinks(
+            get(subreddit, "value", subreddit),
+            params,
+          );
+        }
+
         const posts = get(links, "data.children", []);
         const options = posts.map((item) => ({
           label: item.data.title,
@@ -91,6 +106,9 @@ export default {
         query,
         prevContext,
       }) {
+        if (!query) {
+          return [];
+        }
         const res = await this.searchSubreddits({
           after: prevContext?.after,
           q: query,
@@ -187,7 +205,6 @@ export default {
     _getHeaders() {
       return {
         "authorization": `Bearer ${this._accessToken()}`,
-        "user-agent": "@PipedreamHQ/pipedream v0.1",
       };
     },
     _accessToken() {
@@ -205,22 +222,24 @@ export default {
         )));
       }
     },
-    async _makeRequest(opts) {
+    async _makeRequest({
+      $ = this, ...opts
+    }) {
       if (!opts.headers) opts.headers = {};
       opts.headers.authorization = `Bearer ${this._accessToken()}`;
-      opts.headers["user-agent"] = "@PipedreamHQ/pipedream v0.1";
       const { path } = opts;
       delete opts.path;
       opts.url = `${this._apiUrl()}${path[0] === "/" ?
         "" :
         "/"}${path}`;
-      return (await axios(opts)).data;
+      return axios($, opts);
     },
-    _isRetriableStatusCode(statusCode) {[
-      408,
-      429,
-      500,
-    ].includes(statusCode);
+    _isRetriableStatusCode(statusCode) {
+      return [
+        408,
+        429,
+        500,
+      ].includes(statusCode);
     },
     async _withRetries(apiCall) {
       const retryOpts = {
@@ -282,6 +301,21 @@ export default {
           params,
         }));
     },
+    async searchSubredditLinks(subreddit, opts) {
+      const params = {
+        limit: 100,
+        ...opts,
+      };
+
+      return await this._withRetries(() =>
+        this._makeRequest({
+          path: `/r/${subreddit}/search`,
+          params: {
+            ...params,
+            restrict_sr: true,
+          },
+        }));
+    },
     async getNewSubredditLinks(subreddit, opts) {
       const params = {
         limit: 100,
@@ -310,7 +344,7 @@ export default {
         sr_detail: includeSubredditDetails,
         theme: "default",
         threaded: true,
-        trucate: 0,
+        truncate: 0,
       };
 
       const [
@@ -454,6 +488,13 @@ export default {
           params: {
             comment,
           },
+        }));
+    },
+    getPrivateMessages(opts = { }) {
+      return this._withRetries(() =>
+        this._makeRequest({
+          path: "/message/inbox",
+          ...opts,
         }));
     },
   },

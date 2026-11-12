@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/klipfolio",
+  "version": "0.2.0",
+  "description": "Pipedream Klipfolio Components",
+  "main": "klipfolio.app.mjs",
+  "keywords": [
+    "pipedream",
+    "klipfolio"
+  ],
+  "homepage": "https://pipedream.com/apps/klipfolio",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

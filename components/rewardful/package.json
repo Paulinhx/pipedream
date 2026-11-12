@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/rewardful",
+  "version": "0.0.5",
+  "description": "Pipedream Rewardful Components",
+  "main": "rewardful.app.mjs",
+  "keywords": [
+    "pipedream",
+    "rewardful"
+  ],
+  "homepage": "https://pipedream.com/apps/rewardful",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

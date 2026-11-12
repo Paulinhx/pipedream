@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/botbaba",
+  "version": "0.0.4",
+  "description": "Pipedream Botbaba Components",
+  "main": "botbaba.app.mjs",
+  "keywords": [
+    "pipedream",
+    "botbaba"
+  ],
+  "homepage": "https://pipedream.com/apps/botbaba",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

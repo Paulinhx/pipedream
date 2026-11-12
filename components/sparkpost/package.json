@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/sparkpost",
+  "version": "0.2.0",
+  "description": "Pipedream SparkPost Components",
+  "main": "sparkpost.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sparkpost"
+  ],
+  "homepage": "https://pipedream.com/apps/sparkpost",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.2"
+  }
+}

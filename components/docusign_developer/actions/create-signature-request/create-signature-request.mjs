@@ -1,13 +1,24 @@
 import docusign from "../../docusign_developer.app.mjs";
-import common from "../../../docusign/actions/create-signature-request/common.mjs";
+import common from "@pipedream/docusign/actions/common/common.mjs";
 
 export default {
   ...common,
   key: "docusign_developer-create-signature-request",
-  version: "0.0.1",
+  version: "0.1.3",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   name: "Create Signature Request",
-  description: "Creates a signature request from a template [See the docs here](https://developers.docusign.com/docs/esign-rest-api/reference/envelopes/envelopes/create)",
+  description: "Creates a signature request from a template [See the documentation](https://developers.docusign.com/docs/esign-rest-api/reference/envelopes/envelopes/create)",
   type: "action",
+  methods: {
+    ...common.methods,
+    _getStatusType() {
+      return "sent";
+    },
+  },
   props: {
     ...common.props,
     docusign,
@@ -25,6 +36,7 @@ export default {
           account: c.account,
         }),
       ],
+      reloadProps: true,
     },
     emailSubject: {
       propDefinition: [
@@ -36,28 +48,6 @@ export default {
       propDefinition: [
         docusign,
         "emailBlurb",
-      ],
-    },
-    recipientEmail: {
-      propDefinition: [
-        docusign,
-        "recipientEmail",
-      ],
-    },
-    recipientName: {
-      propDefinition: [
-        docusign,
-        "recipientName",
-      ],
-    },
-    role: {
-      propDefinition: [
-        docusign,
-        "role",
-        (c) => ({
-          account: c.account,
-          template: c.template,
-        }),
       ],
     },
   },

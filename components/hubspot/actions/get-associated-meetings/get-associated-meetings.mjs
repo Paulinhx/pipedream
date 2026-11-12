@@ -1,0 +1,374 @@
+import { ConfigurationError } from "@pipedream/platform";
+import { DEFAULT_MEETING_PROPERTIES } from "../../common/constants.mjs";
+import { OBJECT_TYPE } from "../../common/object-types.mjs";
+import hubspot from "../../hubspot.app.mjs";
+
+// ISO 8601 date or date-time (optional time, optional Z / ±hh:mm offset), capturing
+// year/month/day. Date.parse alone is too lenient — it accepts `01/02/2025` and
+// `March 5 2025`, and rolls impossible dates like `2025-02-30` forward to Mar 2.
+const ISO_DATE_RE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+export default {
+  key: "hubspot-get-associated-meetings",
+  name: "Get Associated Meetings",
+  description:
+    "List meetings associated with a contact, company, or deal in HubSpot. Set **From Object Type** and **Object ID** (for contacts you may pass an email instead of the numeric id). Optionally narrow with **Timeframe** (today, this_week, this_month, last_month, or custom with **Start/End Date**), or set **Most Recent** to return only the latest meeting. Returns up to 100 meetings with default meeting properties. Example: From Object Type `contacts`, Object ID `ada@example.com`, Timeframe `this_month`. [See the documentation](https://developers.hubspot.com/docs/reference/api/crm/associations/association-details)",
+  version: "1.0.2",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  type: "action",
+  ai: "optimized",
+  props: {
+    hubspot,
+    objectType: {
+      propDefinition: [
+        hubspot,
+        "objectType",
+        () => ({
+          includeCustom: true,
+        }),
+      ],
+      label: "From Object Type",
+      description: "The type of the object being associated",
+    },
+    objectId: {
+      type: "string",
+      label: "Object ID",
+      description:
+        "The ID of the object to get associated meetings for. For contacts, you can search by email.",
+      propDefinition: [
+        hubspot,
+        "objectIds",
+        ({ objectType }) => ({
+          objectType,
+        }),
+      ],
+    },
+    timeframe: {
+      propDefinition: [
+        hubspot,
+        "timeframe",
+      ],
+    },
+    mostRecent: {
+      propDefinition: [
+        hubspot,
+        "mostRecent",
+      ],
+    },
+    additionalProperties: {
+      type: "string[]",
+      label: "Additional Properties",
+      description: "Additional properties to retrieve for the meetings",
+      optional: true,
+    },
+    startDate: {
+      type: "string",
+      label: "Start Date",
+      description:
+        "Start of the date range (ISO 8601, e.g. `2025-01-01T00:00:00Z`). Required when **Timeframe** is `custom`.",
+      optional: true,
+    },
+    endDate: {
+      type: "string",
+      label: "End Date",
+      description:
+        "End of the date range (ISO 8601, e.g. `2025-01-31T23:59:59Z`). Required when **Timeframe** is `custom`.",
+      optional: true,
+    },
+  },
+  methods: {
+    getMeetingTimeFilter(timeframe, startDate, endDate) {
+      const now = new Date();
+      const startOfDay = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+          0,
+          0,
+          0,
+          0,
+        ),
+      ).toISOString();
+      const endOfDay = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+          23,
+          59,
+          59,
+          999,
+        ),
+      ).toISOString();
+
+      switch (timeframe) {
+      case "today":
+        return {
+          hs_meeting_start_time: {
+            operator: "GTE",
+            value: startOfDay,
+          },
+          hs_meeting_end_time: {
+            operator: "LTE",
+            value: endOfDay,
+          },
+        };
+      case "this_week": {
+        const dayOfWeek = now.getUTCDay();
+        const startOfWeek = new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() - dayOfWeek,
+            0,
+            0,
+            0,
+            0,
+          ),
+        ).toISOString();
+        const endOfWeek = new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() + (6 - dayOfWeek),
+            23,
+            59,
+            59,
+            999,
+          ),
+        ).toISOString();
+        return {
+          hs_meeting_start_time: {
+            operator: "GTE",
+            value: startOfWeek,
+          },
+          hs_meeting_end_time: {
+            operator: "LTE",
+            value: endOfWeek,
+          },
+        };
+      }
+      case "this_month": {
+        const startOfMonth = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+        ).toISOString();
+        const endOfMonth = new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999,
+          ),
+        ).toISOString();
+        return {
+          hs_meeting_start_time: {
+            value: startOfMonth,
+            operator: "GTE",
+          },
+          hs_meeting_end_time: {
+            value: endOfMonth,
+            operator: "LTE",
+          },
+        };
+      }
+      case "last_month": {
+        const startOfLastMonth = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0, 0),
+        ).toISOString();
+        const endOfLastMonth = new Date(
+          Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            0,
+            23,
+            59,
+            59,
+            999,
+          ),
+        ).toISOString();
+        return {
+          hs_meeting_start_time: {
+            operator: "GTE",
+            value: startOfLastMonth,
+          },
+          hs_meeting_end_time: {
+            operator: "LTE",
+            value: endOfLastMonth,
+          },
+        };
+      }
+      case "custom":
+        return {
+          hs_meeting_start_time: {
+            operator: "LTE",
+            value: startDate,
+          },
+          hs_meeting_end_time: {
+            operator: "GTE",
+            value: endDate,
+          },
+        };
+      default:
+        return {};
+      }
+    },
+    async getAssociatedMeetings({
+      $,
+      objectType,
+      objectId,
+      timeframe,
+      startDate,
+      endDate,
+      mostRecent,
+    }) {
+      const { results: associations } = await this.hubspot.getAssociations({
+        $,
+        objectType,
+        objectId,
+        toObjectType: OBJECT_TYPE.MEETING,
+      });
+
+      if (!associations?.length) {
+        return [];
+      }
+
+      const meetingIds = associations.map(({ toObjectId }) => toObjectId);
+
+      const timeFilter = this.getMeetingTimeFilter(
+        timeframe,
+        startDate,
+        endDate,
+      );
+
+      const { results } = await this.hubspot.searchMeetings({
+        $,
+        data: {
+          properties: [
+            ...DEFAULT_MEETING_PROPERTIES,
+            ...(this.additionalProperties || []),
+          ],
+          filterGroups: [
+            {
+              filters: [
+                {
+                  propertyName: "id",
+                  operator: "IN",
+                  values: meetingIds,
+                },
+                ...Object.entries(timeFilter).map(
+                  ([
+                    propertyName,
+                    filterProps,
+                  ]) => ({
+                    propertyName,
+                    ...filterProps,
+                  }),
+                ),
+              ],
+            },
+          ],
+          sorts: [
+            {
+              propertyName: "hs_meeting_start_time",
+              direction: "DESCENDING",
+            },
+          ],
+          limit: mostRecent
+            ? 1
+            : 100,
+        },
+      });
+
+      return results;
+    },
+  },
+  async run({ $ }) {
+    if (this.timeframe === "custom") {
+      if (!this.startDate || !this.endDate) {
+        throw new ConfigurationError(
+          "Both **Start Date** and **End Date** are required when **Timeframe** is `custom`.",
+        );
+      }
+      const parseCustomDate = (value, label) => {
+        const m = ISO_DATE_RE.exec(value);
+        const ms = Date.parse(value);
+        if (!m || !Number.isFinite(ms)) {
+          throw new ConfigurationError(
+            `**${label}** must be a valid ISO 8601 date (e.g. \`2025-01-01T00:00:00Z\`) when **Timeframe** is \`custom\`.`,
+          );
+        }
+        // Reject impossible calendar dates (Date.parse rolls 2025-02-30 forward).
+        const y = +m[1], mo = +m[2], d = +m[3];
+        const rt = new Date(Date.UTC(y, mo - 1, d));
+        if (rt.getUTCFullYear() !== y || rt.getUTCMonth() + 1 !== mo || rt.getUTCDate() !== d) {
+          throw new ConfigurationError(
+            `**${label}** is not a real calendar date.`,
+          );
+        }
+        return ms;
+      };
+      const start = parseCustomDate(this.startDate, "Start Date");
+      const end = parseCustomDate(this.endDate, "End Date");
+      if (start >= end) {
+        throw new ConfigurationError(
+          "**Start Date** must be earlier than **End Date** when **Timeframe** is `custom`.",
+        );
+      }
+    }
+    let resolvedObjectId = this.objectId;
+    // Accept an email for contacts whether the object type is given as "contact" or "contacts".
+    const isContactType = String(this.objectType)
+      .toLowerCase()
+      .startsWith("contact");
+    if (isContactType && this.objectId.includes("@")) {
+      const { results } = await this.hubspot.searchCRM({
+        $,
+        object: OBJECT_TYPE.CONTACT,
+        data: {
+          filterGroups: [
+            {
+              filters: [
+                {
+                  propertyName: "email",
+                  operator: "EQ",
+                  value: this.objectId,
+                },
+              ],
+            },
+          ],
+        },
+      });
+      if (!results?.length) {
+        throw new Error(`No contact found with email: ${this.objectId}`);
+      }
+      resolvedObjectId = results[0].id;
+    }
+
+    const meetings = await this.getAssociatedMeetings({
+      $,
+      objectType: this.objectType,
+      objectId: resolvedObjectId,
+      timeframe: this.timeframe,
+      startDate: this.startDate,
+      endDate: this.endDate,
+      mostRecent: this.mostRecent,
+    });
+
+    const summary = this.mostRecent
+      ? "Successfully retrieved most recent meeting"
+      : `Successfully retrieved ${meetings.length} meeting(s)`;
+
+    $.export("$summary", summary);
+
+    return meetings;
+  },
+};

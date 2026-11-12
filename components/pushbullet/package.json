@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/pushbullet",
+  "version": "0.8.0",
+  "description": "Pipedream pushbullet Components",
+  "main": "pushbullet.app.mjs",
+  "keywords": [
+    "pipedream",
+    "pushbullet"
+  ],
+  "homepage": "https://pipedream.com/apps/pushbullet",
+  "author": "Pipedream support@pipedream.com (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "form-data": "^4.0.4"
+  }
+}

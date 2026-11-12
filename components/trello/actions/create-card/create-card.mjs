@@ -1,23 +1,30 @@
-import common from "../common.js";
+import { getFileStreamAndMetadata } from "@pipedream/platform";
+import FormData from "form-data";
+import constants from "../../common/constants.mjs";
+import app from "../../trello.app.mjs";
 
 export default {
-  ...common,
   key: "trello-create-card",
   name: "Create Card",
-  description: "Creates a new card. [See the docs here](https://developer.atlassian.com/cloud/trello/rest/api-group-cards/#api-cards-post)",
-  version: "0.0.1",
+  description: "Creates a new card. [See the documentation](https://developer.atlassian.com/cloud/trello/rest/api-group-cards/#api-cards-post).",
+  version: "1.0.9",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    ...common.props,
+    app,
     board: {
       propDefinition: [
-        common.props.trello,
+        app,
         "board",
       ],
     },
     name: {
       propDefinition: [
-        common.props.trello,
+        app,
         "name",
       ],
       description: "The name of the card.",
@@ -25,31 +32,32 @@ export default {
     },
     desc: {
       propDefinition: [
-        common.props.trello,
+        app,
         "desc",
       ],
     },
     pos: {
       propDefinition: [
-        common.props.trello,
+        app,
         "pos",
       ],
+      description: "The position of the new card. `top`, `bottom`, or a positive float",
     },
     due: {
       propDefinition: [
-        common.props.trello,
+        app,
         "due",
       ],
     },
     dueComplete: {
       propDefinition: [
-        common.props.trello,
+        app,
         "dueComplete",
       ],
     },
     idList: {
       propDefinition: [
-        common.props.trello,
+        app,
         "lists",
         (c) => ({
           board: c.board,
@@ -62,7 +70,7 @@ export default {
     },
     idMembers: {
       propDefinition: [
-        common.props.trello,
+        app,
         "member",
         (c) => ({
           board: c.board,
@@ -75,7 +83,7 @@ export default {
     },
     idLabels: {
       propDefinition: [
-        common.props.trello,
+        app,
         "label",
         (c) => ({
           board: c.board,
@@ -87,27 +95,28 @@ export default {
       optional: true,
     },
     urlSource: {
-      propDefinition: [
-        common.props.trello,
-        "url",
-      ],
+      type: "string",
+      label: "URL Attachment",
+      description: "A URL to attach as a link on the card. Must start with `http://` or `https://`.",
       optional: true,
     },
-    fileSource: {
+    file: {
       type: "string",
-      label: "File Attachment Contents",
-      description: "Value must be in binary format",
+      label: "File Path or URL",
+      description: "Provide either a file URL or a path to a file in the /tmp directory (for example, /tmp/myFile.pdf).",
+      format: "file-ref",
       optional: true,
     },
     mimeType: {
       propDefinition: [
-        common.props.trello,
+        app,
         "mimeType",
       ],
+      optional: true,
     },
     idCardSource: {
       propDefinition: [
-        common.props.trello,
+        app,
         "cards",
         (c) => ({
           board: c.board,
@@ -115,41 +124,102 @@ export default {
       ],
       type: "string",
       label: "Copy Card",
-      description: "Specify an existing card to copy contents from",
+      description: "Specify an existing card to copy contents from. Keep in mind that if you copy a card, the **File Attachment Path**, **File Attachment URL** and **File Attachment Type** fields will be ignored.",
+      reloadProps: true,
     },
     keepFromSource: {
       type: "string[]",
       label: "Copy From Source",
       description: "Specify which properties to copy from the source card",
-      options: [
-        "all",
-        "attachments",
-        "checklists",
-        "comments",
-        "due",
-        "labels",
-        "members",
-        "stickers",
-      ],
+      options: constants.CARD_KEEP_FROM_SOURCE_PROPERTIES,
       optional: true,
+      hidden: true,
     },
     address: {
       propDefinition: [
-        common.props.trello,
+        app,
         "address",
       ],
     },
     locationName: {
       propDefinition: [
-        common.props.trello,
+        app,
         "locationName",
       ],
     },
     coordinates: {
       propDefinition: [
-        common.props.trello,
+        app,
         "coordinates",
       ],
+    },
+    customFieldIds: {
+      propDefinition: [
+        app,
+        "customFieldIds",
+        (c) => ({
+          boardId: c.board,
+        }),
+      ],
+      reloadProps: true,
+    },
+    syncDir: {
+      type: "dir",
+      accessMode: "read",
+      sync: true,
+      optional: true,
+    },
+  },
+  async additionalProps(existingProps) {
+    const props = {};
+
+    existingProps.keepFromSource.hidden = !this.idCardSource;
+
+    if (!this.customFieldIds?.length) {
+      return props;
+    }
+    for (const customFieldId of this.customFieldIds) {
+      const customField = await this.app.getCustomField({
+        customFieldId,
+      });
+      props[customFieldId] = {
+        type: "string",
+        label: `Value for Custom Field - ${customField.name}`,
+      };
+      if (customField.type === "list") {
+        props[customFieldId].options = customField.options?.map((option) => ({
+          value: option.id,
+          label: option.value.text,
+        })) || [];
+      }
+    }
+    return props;
+  },
+  methods: {
+    async getCustomFieldItems($) {
+      const customFieldItems = [];
+      for (const customFieldId of this.customFieldIds) {
+        const customField = await this.app.getCustomField({
+          $,
+          customFieldId,
+        });
+        const customFieldItem = {
+          idCustomField: customFieldId,
+        };
+        if (customField.type === "list") {
+          customFieldItem.idValue = this[customFieldId];
+        } else if (customField.type === "checkbox") {
+          customFieldItem.value = {
+            checked: this[customFieldId],
+          };
+        } else {
+          customFieldItem.value = {
+            [customField.type]: this[customFieldId],
+          };
+        }
+        customFieldItems.push(customFieldItem);
+      }
+      return customFieldItems;
     },
   },
   async run({ $ }) {
@@ -163,15 +233,18 @@ export default {
       idMembers,
       idLabels,
       urlSource,
-      fileSource,
       mimeType,
+      file,
       idCardSource,
       keepFromSource,
       address,
       locationName,
       coordinates,
+      customFieldIds,
     } = this;
-    const res = await this.trello.createCard({
+
+    let response;
+    const params = {
       name,
       desc,
       pos,
@@ -181,15 +254,51 @@ export default {
       idMembers,
       idLabels,
       urlSource,
-      fileSource,
       mimeType,
       idCardSource,
       keepFromSource: keepFromSource?.join(","),
       address,
       locationName,
       coordinates,
-    }, $);
-    $.export("$summary", `Successfully created card ${res.id}`);
-    return res;
+    };
+
+    if (file) {
+      const form = new FormData();
+      const {
+        stream, metadata,
+      } = await getFileStreamAndMetadata(file);
+      form.append("fileSource", stream, {
+        contentType: metadata.contentType,
+        knownLength: metadata.size,
+        filename: metadata.name,
+      });
+      response = await this.app.createCard({
+        $,
+        params,
+        headers: form.getHeaders(),
+        data: form,
+      });
+    } else {
+      response = await this.app.createCard({
+        $,
+        params,
+      });
+    }
+
+    if (customFieldIds) {
+      const customFieldItems = await this.getCustomFieldItems($);
+      const customFields = await this.app.updateCustomFields({
+        $,
+        cardId: response.id,
+        data: {
+          customFieldItems,
+        },
+      });
+      response.customFields = customFields;
+    }
+
+    $.export("$summary", `Successfully created card \`${response.id}\`.`);
+
+    return response;
   },
 };

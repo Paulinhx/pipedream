@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/httpsms",
+  "version": "0.0.2",
+  "description": "Pipedream httpSMS Components",
+  "main": "httpsms.app.mjs",
+  "keywords": [
+    "pipedream",
+    "httpsms"
+  ],
+  "homepage": "https://pipedream.com/apps/httpsms",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/cdr_platform",
+  "version": "0.0.3",
+  "description": "Pipedream CDR Platform Components",
+  "main": "cdr_platform.app.mjs",
+  "keywords": [
+    "pipedream",
+    "cdr_platform"
+  ],
+  "homepage": "https://pipedream.com/apps/cdr_platform",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

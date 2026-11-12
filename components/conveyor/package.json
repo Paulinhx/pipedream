@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/conveyor",
+  "version": "0.0.4",
+  "description": "Pipedream Conveyor Components",
+  "main": "conveyor.app.mjs",
+  "keywords": [
+    "pipedream",
+    "conveyor"
+  ],
+  "homepage": "https://pipedream.com/apps/conveyor",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,120 +1,284 @@
 import { axios } from "@pipedream/platform";
 
+// Sources run in Pipedream's workflow builder (not MCP), so they keep
+// auto-populating dropdowns via async `options()`. Their propDefinitions are
+// suffixed `Async` and kept separate from the static, MCP-safe ones actions use.
+const DEFAULT_LIMIT = 25;
+
 export default {
   type: "app",
   app: "asana",
   propDefinitions: {
     organizations: {
       label: "Organizations",
-      description: "List of organizations. This field use the organization GID.",
+      description: "List of organizations. This field uses the organization GID.",
       type: "string[]",
+      // Only used by sources (workflow builder), never by MCP actions, so an
+      // auto-populating dropdown is safe here.
       async options() {
         const organizations = await this.getOrganizations();
-        
-        return organizations.map((organization) => ({
+        return organizations?.map((organization) => ({
           label: organization.name,
           value: organization.gid,
-        }));
+        })) || [];
       },
     },
     workspaces: {
       label: "Workspaces",
-      description: "List of workspaces. This field use the workspace GID.",
+      description: "List of workspaces. This field uses the workspace GID (e.g. `1200123456789012`). Use the **List Workspaces** action to retrieve available workspace GIDs.",
       type: "string[]",
-      async options() {
-        const workspaces = await this.getWorkspaces();
-
-        return workspaces.map((workspace) => ({
+    },
+    workspacesAsync: {
+      label: "Workspaces",
+      description: "List of workspaces. This field uses the workspace GID (e.g. `1200123456789012`).",
+      type: "string[]",
+      async options({ prevContext }) {
+        const params = {
+          limit: DEFAULT_LIMIT,
+        };
+        if (prevContext?.offset) {
+          params.offset = prevContext.offset;
+        }
+        const {
+          data: workspaces, next_page: next,
+        } = await this.getWorkspaces({
+          params,
+        });
+        const options = workspaces?.map((workspace) => ({
           label: workspace.name,
           value: workspace.gid,
-        }));
+        })) || [];
+        return {
+          options,
+          context: {
+            offset: next?.offset,
+          },
+        };
       },
     },
     teams: {
       label: "Teams",
-      description: "List of teams. This field use the team GID.",
+      description: "List of teams. Use the **List Teams** action to retrieve available team GIDs.",
       type: "string[]",
-      async options() {
-        const teams = await this.getTeams();
-
-        return teams.map((team) => ({
-          label: team.name,
-          value: team.gid,
-        }));
-      },
     },
     projects: {
       label: "Projects",
-      description: "List of projects. This field use the project GID.",
+      description: "List of projects. This field uses the project GID (e.g. `1204567890123456`). Use **Search Projects** to find available project GIDs (the `gid` field).",
       type: "string[]",
-      async options({ workspace }) {
-        const projects = await this.getProjects(workspace);
-
-        return projects.map((tag) => ({
+    },
+    projectsAsync: {
+      label: "Projects",
+      description: "List of projects. This field uses the project GID (e.g. `1204567890123456`).",
+      type: "string[]",
+      async options({
+        workspace, prevContext,
+      }) {
+        const params = {
+          workspace,
+          limit: DEFAULT_LIMIT,
+        };
+        if (prevContext?.offset) {
+          params.offset = prevContext.offset;
+        }
+        const {
+          data: projects, next_page: next,
+        } = await this.getProjects({
+          params,
+        });
+        const options = projects?.map((tag) => ({
           label: tag.name,
           value: tag.gid,
-        }));
+        })) || [];
+        return {
+          options,
+          context: {
+            offset: next?.offset,
+          },
+        };
       },
     },
     tags: {
       label: "Tags",
-      description: "List of tags. This field use the tag GID.",
+      description: "List of tags. This field uses the tag GID (e.g. `1202345678901234`). Use **List Tags** to find available tag GIDs (the `gid` field).",
       type: "string[]",
-      async options() {
-        const tags = await this.getTags();
-
-        return tags.map((tag) => {
-          return {
-            label: tag.name,
-            value: tag.gid,
-          };
+    },
+    tagsAsync: {
+      label: "Tags",
+      description: "List of tags. This field uses the tag GID (e.g. `1202345678901234`).",
+      type: "string[]",
+      async options({
+        prevContext, workspace,
+      }) {
+        const params = {
+          limit: DEFAULT_LIMIT,
+          workspace,
+        };
+        if (prevContext?.offset) {
+          params.offset = prevContext.offset;
+        }
+        const {
+          data: tags, next_page: next,
+        } = await this.getTags({
+          params,
         });
+        const options = tags?.map((tag) => ({
+          label: tag.name,
+          value: tag.gid,
+        })) || [];
+        return {
+          options,
+          context: {
+            offset: next?.offset,
+          },
+        };
       },
     },
     users: {
       label: "Users",
-      description: "List of users. This field use the user GID.",
+      description: "List of users. This field uses the user `gid` (e.g. `1198765432109876`). Use the **List Users** action to retrieve available user GIDs.",
       type: "string[]",
-      async options() {
-        const users = await this.getUsers();
-
-        return users.map((user) => ({
+    },
+    usersAsync: {
+      label: "Users",
+      description: "List of users. This field uses the user `gid` (e.g. `1198765432109876`).",
+      type: "string[]",
+      async options({
+        prevContext, workspace,
+      }) {
+        const params = {
+          limit: DEFAULT_LIMIT,
+          workspace,
+        };
+        if (prevContext?.offset) {
+          params.offset = prevContext.offset;
+        }
+        const {
+          data: users, next_page: next,
+        } = await this.getUsers({
+          params,
+        });
+        const options = users?.map((user) => ({
           label: user.name,
           value: user.gid,
-        }));
+        })) || [];
+        return {
+          options,
+          context: {
+            offset: next?.offset,
+          },
+        };
       },
     },
     tasks: {
       label: "Tasks",
-      description: "List of tasks. This field use the task GID.",
+      description: "List of tasks. This field uses the task GID (e.g. `1202345678901234`). Use **Search Tasks** to find available task GIDs (the `gid` field). Requires a project GID from **Search Projects**.",
       type: "string[]",
-      async options({ project }) {
-        const tasks = await this.getTasks({
+    },
+    tasksAsync: {
+      label: "Tasks",
+      description: "List of tasks. This field uses the task GID (e.g. `1202345678901234`).",
+      type: "string[]",
+      async options({
+        project, prevContext,
+      }) {
+        if (!project) {
+          return [];
+        }
+        const params = {
           project,
+          limit: DEFAULT_LIMIT,
+        };
+        if (prevContext?.offset) {
+          params.offset = prevContext.offset;
+        }
+        const {
+          data: tasks, next_page: next,
+        } = await this.getTasks({
+          params,
         });
-
-        return tasks.map((task) => {
-          return {
-            label: task.name,
-            value: task.gid,
-          };
-        });
+        const options = tasks?.map(({
+          name: label, gid: value,
+        }) => ({
+          label,
+          value,
+        })) || [];
+        return {
+          options,
+          context: {
+            offset: next?.offset,
+          },
+        };
       },
     },
     sections: {
       label: "Sections",
-      description: "List of sections. This field use the section GID.",
+      description: "List of sections. This field uses the section GID (e.g. `1203456789012345`). Use **Search Sections** to find available section GIDs (the `gid` field). Requires a project GID from **Search Projects**.",
       type: "string[]",
-      async options({ project }) {
-        const sections = await this.getSections(project);
-
-        return sections.map((section) => {
-          return {
-            label: section.name,
-            value: section.gid,
-          };
-        });
-      },
+    },
+    taskFields: {
+      label: "Task Fields",
+      description: "List of task fields that will emit events when updated.",
+      type: "string[]",
+      // Asana task fields that can be reported as changed by a webhook event
+      // (developers.asana.com/reference/task). Many of these — custom_fields,
+      // tags, followers, dependencies, dependents, parent, memberships — are
+      // omitted from a task's default GET response unless explicitly
+      // requested via opt_fields, so this is a fixed catalog rather than
+      // anything derived from a live task sample.
+      options: [
+        "approval_status",
+        "assignee",
+        "assignee_section",
+        "assignee_status",
+        "actual_time_minutes",
+        "completed",
+        "completed_at",
+        "custom_fields",
+        "dependencies",
+        "dependents",
+        "due_at",
+        "due_on",
+        "external",
+        "followers",
+        "html_notes",
+        "is_rendered_as_separator",
+        "liked",
+        "memberships",
+        "name",
+        "notes",
+        "num_subtasks",
+        "parent",
+        "projects",
+        "start_at",
+        "start_on",
+        "tags",
+        "workspace",
+      ],
+    },
+    taskTemplate: {
+      type: "string",
+      label: "Task Template",
+      description: "The GID of a task template, e.g. `1205678901234567`. Use **List Task Templates** to find available template GIDs (the `gid` field).",
+    },
+    maxResults: {
+      type: "integer",
+      label: "Max Results",
+      description: "The maximum total number of results to return across all paginated API calls. Each page fetches up to 100 items (Asana's maximum); this cap is applied after auto-pagination completes.",
+      default: 100,
+      min: 1,
+      max: 9999,
+      optional: true,
+    },
+    optFields: {
+      type: "string[]",
+      label: "Opt Fields",
+      description: "Optional properties to include in the response, as a list of field paths. Nested paths are allowed (e.g. `owner.name`, `custom_fields.name`); `gid` is always returned. [See the documentation](https://developers.asana.com/docs/inputoutput-options)",
+      optional: true,
+    },
+    portfolioId: {
+      type: "string",
+      label: "Portfolio",
+      description: "The portfolio GID. Use the **List Portfolios** action to find available portfolio GIDs.",
     },
   },
   methods: {
@@ -144,31 +308,33 @@ export default {
      * Make a requests with pre defined options.
      *
      * @param {string} path - The path to make the request.
-     * @param {object} options - A default Axios options object.
+     * @param {object} opts - A default Axios options object.
      *
      * @returns {string} The request result data.
      */
-    async _makeRequest(path, options = {}, $ = this) {
-      return axios($, {
+    _makeRequest({
+      path, $ = this, ...opts
+    }) {
+      const config = {
         url: `${this._apiUrl()}/${path}`,
         headers: this._headers(),
-        ...options,
-      });
+        ...opts,
+      };
+      return axios($, config);
     },
     /**
      * Create a webhook
      *
-     * @param {string} body - The body that will be send on request.
+     * @param {string} opts.data - The body that will be send on request.
      *
-     * @returns {object} A Asana Webhook.
+     * @returns {object} An Asana Webhook.
      */
-    async createWebHook(body) {
-      const authorization = await this._makeRequest("webhooks", {
+    async createWebHook(opts = {}) {
+      return this._makeRequest({
+        path: "webhooks",
         method: "post",
-        data: body,
+        ...opts,
       });
-
-      return authorization.data;
     },
     /**
      * Remove a Webhook.
@@ -176,7 +342,8 @@ export default {
      * @param {string} hookId - The Asana Webhook GID.
      */
     async deleteWebhook(hookId) {
-      await this._makeRequest(`webhooks/${hookId}`, {
+      await this._makeRequest({
+        path: `webhooks/${hookId}`,
         method: "delete",
       });
     },
@@ -187,32 +354,47 @@ export default {
      *
      * @returns {string} An Asana Workspace.
      */
-    async getWorkspace(workspaceId) {
-      return (await this._makeRequest(`workspaces/${workspaceId}`)).data;
+    getWorkspace({
+      workspaceId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `workspaces/${workspaceId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Workspace list.
      *
      * @returns {string} An Asana Workspace object list.
      */
-    async getWorkspaces() {
-      return (await this._makeRequest("workspaces")).data;
+    getWorkspaces(opts = {}) {
+      return this._makeRequest({
+        path: "workspaces",
+        ...opts,
+      });
     },
     /**
      * Get an Asana Organizations list.
      *
      * @returns {string} An Asana Organizations list.
      */
-    async getOrganizations() {
-      const workspaces = await this.getWorkspaces();
+    async getOrganizations({ $ } = {}) {
+      const params = {
+        opt_fields: "is_organization,name",
+      };
+      const workspaces = [];
+      do {
+        const {
+          data, next_page: next,
+        } = await this.getWorkspaces({
+          params,
+          $,
+        });
+        workspaces.push(...data);
+        params.offset = next?.offset;
+      } while (params.offset);
 
-      const organizations = workspaces.filter(async (workspace) => {
-        workspace = await this.getWorkspace(workspace.gid);
-
-        return workspace.is_organization;
-      });
-
-      return organizations;
+      return workspaces.filter((workspace) => workspace.is_organization);
     },
     /**
      * Get an Asana Project.
@@ -221,23 +403,65 @@ export default {
      *
      * @returns {string} An Asana Project.
      */
-    async getProject(projectId) {
-      return (await this._makeRequest(`projects/${projectId}`)).data;
+    getProject({
+      projectId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `projects/${projectId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Project list.
      *
-     * @param {string} workspaceId - The Workspace GID.
+     * @returns {string} An Asana Project list.
+     */
+    getProjects(opts = {}) {
+      return this._makeRequest({
+        path: "projects",
+        ...opts,
+      });
+    },
+    /**
+     * Get an Asana Portfolio.
+     *
+     * @param {string} portfolioId - The portfolio GID.
+     *
+     * @returns {string} An Asana Portfolio.
+     */
+    getPortfolio({
+      portfolioId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `portfolios/${portfolioId}`,
+        ...opts,
+      });
+    },
+    /**
+     * Get an Asana Portfolio list.
+     *
+     * @returns {string} An Asana Portfolio list.
+     */
+    getPortfolios(opts = {}) {
+      return this._makeRequest({
+        path: "portfolios",
+        ...opts,
+      });
+    },
+    /**
+     * Get the items in an Asana Portfolio.
+     *
+     * @param {string} portfolioId - The portfolio GID.
      *
      * @returns {string} An Asana Project list.
      */
-    async getProjects(workspaceId, params = {}, $) {
-      return (await this._makeRequest("projects", {
-        params: {
-          workspace: workspaceId,
-          ...params,
-        },
-      }, $)).data;
+    getPortfolioItems({
+      portfolioId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `portfolios/${portfolioId}/items`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Story.
@@ -246,8 +470,13 @@ export default {
      *
      * @returns {string} An Asana Story.
      */
-    async getStory(storyId) {
-      return (await this._makeRequest(`stories/${storyId}`)).data;
+    getStory({
+      storyId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `stories/${storyId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Task.
@@ -256,32 +485,57 @@ export default {
      *
      * @returns {string} An Asana Task.
      */
-    async getTask(taskId, $) {
-      return (await this._makeRequest(`tasks/${taskId}`), {}, $).data;
+    getTask({
+      taskId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `tasks/${taskId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Task list.
      *
-     * @param {string} params - The params to filter tasks.
+     * @param {string} opts - The params to filter tasks.
      *
      * @returns {string} An Asana Task list.
      */
-    async getTasks(params, $) {
-      const response = await this._makeRequest("tasks", params, $);
-
-      return response.data;
+    getTasks(opts = {}) {
+      return this._makeRequest({
+        path: "tasks",
+        ...opts,
+      });
+    },
+    /**
+     * Search for tasks in a workspace.
+     *
+     * @param {string} workspace - The workspace GID.
+     * @param {object} opts - The params to filter tasks.
+     *
+     * @returns {string} An Asana Task list.
+     */
+    searchTasks({
+      workspace, ...opts
+    }) {
+      return this._makeRequest({
+        path: `workspaces/${workspace}/tasks/search`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Section list.
      *
-     * @param {string} project - A Project GID.
+     * @param {string} projectId - A Project GID.
      *
      * @returns {string} An Asana Section list.
      */
-    async getSections(project, $) {
-      const response = await this._makeRequest(`projects/${project}/sections`, {}, $);
-
-      return response.data ?? [];
+    getSections({
+      project, ...opts
+    }) {
+      return this._makeRequest({
+        path: `projects/${project}/sections`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Tag.
@@ -290,16 +544,24 @@ export default {
      *
      * @returns {string} An Asana Tag.
      */
-    async getTag(tagId) {
-      return (await this._makeRequest(`tags/${tagId}`)).data;
+    getTag({
+      tagId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `tags/${tagId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Tag list.
      *
      * @returns {string} An Asana Tag list.
      */
-    async getTags() {
-      return (await this._makeRequest("tags")).data;
+    getTags(opts = {}) {
+      return this._makeRequest({
+        path: "tags",
+        ...opts,
+      });
     },
     /**
      * Get an Asana Team.
@@ -308,8 +570,13 @@ export default {
      *
      * @returns {string} An Asana Team.
      */
-    async getTeam(teamId) {
-      return (await this._makeRequest(`teams/${teamId}`)).data;
+    getTeam({
+      teamId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `teams/${teamId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana Team list.
@@ -326,22 +593,44 @@ export default {
       let teams = [];
 
       for (const workspace of workspaces) {
-        const response = (await this._makeRequest(`organizations/${workspace}/teams`));
-
-        teams = teams.concat(response.data);
+        const { data } = (await this._makeRequest({
+          path: `workspaces/${workspace}/teams`,
+        }));
+        teams = teams.concat(data);
       }
 
       return teams;
     },
     /**
+     * Get an Asana Team list for a workspace.
+     *
+     * @param {string} workspace - A Workspace GID.
+     * @param {object} opts - The params to filter the teams.
+     *
+     * @returns {string} An Asana Team list.
+     */
+    async getTeamsForWorkspace({
+      workspace, ...opts
+    }) {
+      return this._makeRequest({
+        path: `workspaces/${workspace}/teams`,
+        ...opts,
+      });
+    },
+    /**
      * Get an Asana Workspace Membership.
      *
-     * @param {string} membership - A Workspace Membership GID.
+     * @param {string} membershipId - A Workspace Membership GID.
      *
      * @returns {string} A Workspace Membership.
      */
-    async getWorkspaceMembership(membership) {
-      return (await this._makeRequest(`workspace_memberships/${membership}`)).data;
+    getWorkspaceMembership({
+      membershipId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `workspace_memberships/${membershipId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana User.
@@ -350,28 +639,70 @@ export default {
      *
      * @returns {string} An Asana User.
      */
-    async getUser(userId) {
-      return (await this._makeRequest(`users/${userId}`)).data;
+    getUser({
+      userId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `users/${userId}`,
+        ...opts,
+      });
     },
     /**
      * Get an Asana User list.
      *
-     * @param {string} params - The params to filter the users.
+     * @param {string} opts.params - The params to filter the users.
      *
      * @returns {string} An Asana User list.
      */
-    async getUsers(params = {}) {
-      const {
-        workspace,
-        team,
-      } = params;
-
-      return (await this._makeRequest("users", {
-        params: {
-          workspace,
-          team,
-        },
-      })).data;
+    getUsers(opts = {}) {
+      return this._makeRequest({
+        path: "users",
+        ...opts,
+      });
+    },
+    getUserTaskList({
+      userId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `users/${userId}/user_task_list`,
+        ...opts,
+      });
+    },
+    async getTasksFromUserTaskList({
+      params, $,
+    }) {
+      const { data: taskList } = await this.getUserTaskList({
+        userId: "me",
+        params,
+        $,
+      });
+      return this._makeRequest({
+        path: `user_task_lists/${taskList.gid}/tasks`,
+        $,
+      });
+    },
+    getTasksForUserTaskList({
+      userTaskListId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `user_task_lists/${userTaskListId}/tasks`,
+        ...opts,
+      });
+    },
+    listTaskTemplates(opts = {}) {
+      return this._makeRequest({
+        path: "task_templates",
+        ...opts,
+      });
+    },
+    createTaskFromTemplate({
+      taskTemplateId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "POST",
+        path: `task_templates/${taskTemplateId}/instantiateTask`,
+        ...opts,
+      });
     },
   },
 };

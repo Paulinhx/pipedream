@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/grafbase",
+  "version": "0.0.3",
+  "description": "Pipedream Grafbase Components",
+  "main": "grafbase.app.mjs",
+  "keywords": [
+    "pipedream",
+    "grafbase"
+  ],
+  "homepage": "https://pipedream.com/apps/grafbase",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

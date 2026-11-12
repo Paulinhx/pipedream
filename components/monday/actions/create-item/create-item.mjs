@@ -1,12 +1,20 @@
 import monday from "../../monday.app.mjs";
+import commonCreateItem from "../common/common-create-item.mjs";
 import utils from "../../common/utils.mjs";
 
 export default {
+  ...commonCreateItem,
   key: "monday-create-item",
   name: "Create Item",
-  description: "Creates an item. [See the docs here](https://api.developer.monday.com/docs/items-queries#create-an-item)",
+  description: "Create an item (a row) on a board. Use for a top-level row; use **Create Subitem** for a row nested under an existing item. Set `Board ID` and `Item Name`, and optionally `Group ID` and `Column Values`. Call **List Columns** first to get the column IDs and the labels a `status` or `dropdown` column accepts. Example: Item Name `Website redesign`, Column Values `{ \"status\": \"Working on it\", \"date4\": \"2026-09-02\", \"numbers\": 42 }`. Set `Item Create Labels` to `true` to allow missing `status`/`dropdown` labels to be created, which requires permission to change the board structure. Returns the new item's ID as a string (e.g. `9876543210`). [See the documentation](https://developer.monday.com/api-reference/reference/items#create-an-item)",
   type: "action",
-  version: "0.0.1",
+  ai: "optimized",
+  version: "0.1.9",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   props: {
     monday,
     boardId: {
@@ -30,45 +38,27 @@ export default {
         "itemName",
       ],
     },
-    columnValues: {
-      propDefinition: [
-        monday,
-        "itemColumnValues",
-      ],
-    },
     createLabels: {
       propDefinition: [
         monday,
         "itemCreateLabels",
       ],
     },
+    ...commonCreateItem.props,
   },
-  async run({ $ }) {
-    const {
-      data,
-      errors,
-      error_message: errorMessage,
-    } =
-      await this.monday.createItem({
+  methods: {
+    ...commonCreateItem.methods,
+    sendRequest({ columnValues }) {
+      return this.monday.createItem({
         boardId: +this.boardId,
         groupId: utils.emptyStrToUndefined(this.groupId),
         itemName: utils.emptyStrToUndefined(this.itemName),
-        columnValues: utils.strinfied(this.columnValues),
+        columnValues: utils.strinfied(columnValues),
         createLabels: utils.emptyStrToUndefined(this.createLabels),
       });
-
-    if (errors) {
-      throw new Error(`Failed to create item: ${errors[0].message}`);
-    }
-
-    if (errorMessage) {
-      throw new Error(`Failed to create item: ${errorMessage}`);
-    }
-
-    const { id: itemId } = data.create_item;
-
-    $.export("$summary", `Successfully created a new item with ID: ${itemId}`);
-
-    return itemId;
+    },
+    getItemId(data) {
+      return data.create_item.id;
+    },
   },
 };

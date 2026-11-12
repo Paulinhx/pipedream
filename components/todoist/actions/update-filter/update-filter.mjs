@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-update-filter",
   name: "Update Filter",
-  description: "Updates a filter. [See the docs here](https://developer.todoist.com/sync/v8/#update-a-filter)",
-  version: "0.0.1",
+  description: "Updates a filter. [See the documentation](https://developer.todoist.com/api/v1#tag/Sync/Filters/Update-a-filter)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,
@@ -62,9 +67,7 @@ export default {
       query,
       color,
       item_order: order,
-      is_favorite: favorite
-        ? 1
-        : 0,
+      is_favorite: favorite,
     };
     const resp = await this.todoist.updateFilter({
       $,

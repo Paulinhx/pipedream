@@ -1,120 +1,152 @@
-/* eslint-disable camelcase */
-import axios from "axios";
-import zoom from "../../zoom.app.mjs";
+import common from "../common/common.mjs";
+import constants from "../common/constants.mjs";
 
 export default {
+  ...common,
   key: "zoom-recording-completed",
-  name: "Recording Completed",
-  description:
-    "Emits an event each time a new recording completes for a meeting or webinar where you're the host",
-  version: "0.0.5",
+  name: "Recording Completed (Instant)",
+  description: "Emit new event each time a new recording completes for a meeting or webinar where you're the host",
+  version: "0.1.13",
+  type: "source",
+  dedupe: "unique",
   props: {
-    zoom,
-    zoomApphook: {
-      type: "$.interface.apphook",
-      appProp: "zoom",
-      eventNames: [
-        "recording.completed",
-      ],
-    },
+    ...common.props,
     meetingIds: {
       type: "integer[]",
       label: "Meeting Filter",
-      description: "Optionally filter for events for one or more meetings.",
-      async options({ page }) {
-        const data = await this.listMeetings(page);
-        return data.meetings.map((meeting) => {
-          return {
-            label: `${meeting.topic} (${meeting.id})`,
-            value: meeting.id,
-          };
-        });
-      },
-      optional: true,
+      description: "Optionally filter for events for one or more meetings",
+      propDefinition: [
+        common.props.app,
+        "meetingId",
+      ],
     },
     includeAudioRecordings: {
-      type: "boolean",
-      label: "Include Audio Recordings",
-      description:
-        "This source emits video (MP4) recordings only by default. Set this prop to true to include audio recordings",
-      optional: true,
-      default: false,
+      propDefinition: [
+        common.props.app,
+        "includeAudioRecordings",
+      ],
     },
     includeChatTranscripts: {
-      type: "boolean",
-      label: "Include Chat Transcripts",
-      description:
-        "This source emits video (MP4) recordings only by default. Set this prop to `true` to include chat transcripts",
-      optional: true,
-      default: false,
+      propDefinition: [
+        common.props.app,
+        "includeChatTranscripts",
+      ],
+    },
+    // eslint-disable-next-line pipedream/props-label, pipedream/props-description
+    apphook: {
+      type: "$.interface.apphook",
+      appProp: "app",
+      eventNames() {
+        return [
+          constants.CUSTOM_EVENT_TYPES.RECORDING_COMPLETED,
+        ];
+      },
+    },
+  },
+  hooks: {
+    async deploy() {
+      const { meetings } = await this.app.listRecordings({
+        params: {
+          from: this.monthAgo(),
+          to: new Date().toISOString()
+            .slice(0, 10),
+          page_size: 25,
+        },
+      });
+      if (!meetings || meetings.length === 0) {
+        return;
+      }
+      for (const meeting of meetings) {
+        if (!this.isMeetingRelevant(meeting)) {
+          continue;
+        }
+        for (const file of meeting.recording_files) {
+          if (!this.isFileRelevant(file)) {
+            continue;
+          }
+          this.emitEvent(file, meeting);
+        }
+      }
     },
   },
   methods: {
-    async listMeetings({ page }) {
-      const config = {
-        method: "get",
-        url: "https://api.zoom.us/v2//users/me/meetings",
-        headers: {
-          Authorization: `Bearer ${this.zoom.$auth.oauth_access_token}`,
-        },
-        params: {
-          page_number: page + 1,
-        },
-      };
-      return (await axios(config)).data;
+    ...common.methods,
+    isMeetingRelevant(meeting) {
+      const {
+        id, recording_files,
+      } = meeting;
+
+      if (!recording_files || recording_files.length === 0) {
+        console.log("No files in recording. Exiting");
+        return false;
+      }
+
+      if (this.meetingIds && this.meetingIds.length > 0 && !this.meetingIds.includes(id)) {
+        console.log("Meeting ID does not match the filter rules.");
+        return false;
+      }
+      return true;
     },
-  },
-  async run(event) {
-    if (event.event !== "recording.completed") {
-      console.log("Not a recording.completed event. Exiting");
-      return;
-    }
-    const { payload } = event;
-    const {
-      object,
-      download_token,
-    } = payload;
-    const {
-      recording_files,
-      host_id,
-      host_email,
-    } = object;
-    if (!recording_files || recording_files.length === 0) {
-      console.log("No files in recording. Exiting");
-      return;
-    }
-
-    if (this.meetingIds && this.meetingIds.length > 0 && !this.meetingIds.includes(object.id)) {
-      console.log("Meeting ID does not match the filter rules.");
-      return;
-    }
-
-    for (const file of recording_files) {
-      if (file.status !== "completed") continue;
-
-      if (file.file_type === "M4A" && !this.includeAudioRecordings) {
-        continue;
-      }
-      if (file.file_type === "CHAT" && !this.includeChatTranscripts) {
-        continue;
-      }
-
+    isFileRelevant(file) {
+      return !((file.status !== "completed")
+        || (file.file_type === "M4A" && !this.includeAudioRecordings)
+        || (file.file_type === "CHAT" && !this.includeChatTranscripts));
+    },
+    emitEvent(file, meeting, downloadToken = null) {
       this.$emit(
         {
-          download_url_with_token: `${file.download_url}?access_token=${download_token}`,
-          download_token,
+          // Only compose the pre-signed URL when both a token and a download URL are
+          // present. The `deploy()` backfill has no token, and on-premise recordings can
+          // omit `download_url` — either case produced a URL that looked usable but
+          // always failed. `download_token` is always emitted separately, for consumers
+          // that use the recommended `Authorization: Bearer <download_token>` header.
+          ...(downloadToken && file.download_url && {
+            download_url_with_token: `${file.download_url}?access_token=${downloadToken}`,
+          }),
+          download_token: downloadToken,
           ...file,
-          meeting_id_long: object.id, // Long ID is necessary for certain API operations
-          meeting_topic: object.topic,
-          host_id,
-          host_email,
+          meeting_id_long: meeting.id, // Long ID is necessary for certain API operations
+          meeting_topic: meeting.topic,
+          host_id: meeting.host_id,
+          host_email: meeting.host_email,
         },
         {
-          summary: `${object.topic} — ${file.file_type}`,
           id: file.id,
+          summary: `${meeting.topic} — ${file.file_type}`,
           ts: +new Date(file.recording_end),
         },
       );
+    },
+  },
+  async run(event) {
+    if (event.event !== constants.CUSTOM_EVENT_TYPES.RECORDING_COMPLETED) {
+      console.log("Not a recording.completed event. Exiting");
+      return;
+    }
+    // Zoom documents `download_token` at the top level of the webhook body, but this
+    // source has always read it from `payload`. Accept either, so the token is picked up
+    // regardless of which location is correct.
+    const {
+      payload,
+      download_token: topLevelToken,
+    } = event;
+    const {
+      object,
+      download_token: payloadToken,
+    } = payload;
+    const downloadToken = topLevelToken ?? payloadToken ?? null;
+    const { recording_files: recordingFiles } = object;
+
+    if (!this.isMeetingRelevant(object)) {
+      return;
+    }
+
+    for (const file of recordingFiles) {
+      if (!this.isFileRelevant(file)) {
+        continue;
+      }
+
+      this.emitEvent(file, object, downloadToken);
     }
   },
 };

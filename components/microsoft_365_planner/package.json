@@ -1,0 +1,20 @@
+{
+  "name": "@pipedream/microsoft_365_planner",
+  "version": "0.4.1",
+  "description": "Pipedream Microsoft 365 Planner Components",
+  "main": "microsoft_365_planner.app.mjs",
+  "keywords": [
+    "pipedream",
+    "microsoft_365_planner"
+  ],
+  "homepage": "https://pipedream.com/apps/microsoft_365_planner",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@pipedream/platform": "^3.2.2",
+    "isomorphic-fetch": "^3.0.0"
+  }
+}

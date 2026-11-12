@@ -7,31 +7,17 @@ export default {
     teamId: {
       type: "string",
       label: "Team Id",
-      description: "Your team Id. It is not currently possible to programmatically obtain the team id of a user just from a token. To obtain a team id, navigate to a team page of a team you are a part of. The team id will be present in the URL after the word team and before your team name.",
+      description: "Navigate to a team page of a team which you are a part of. You can find your Team ID between `/team` and your team name. If your team URL is `https://www.figma.com/files/team/1227693318965186187/Test's-team?fuid=234562`, enter `1227693318965186187` here.",
     },
     projectId: {
       type: "string",
       label: "Project Id",
-      description: "Id of the project to list files from",
-      async options({ teamId }) {
-        const projects = await this.listTeamProjects(teamId);
-        return projects.map((item) => ({
-          label: item.name,
-          value: item.id,
-        }));
-      },
+      description: "Navigate to your project in Figma. You can find your Project ID in the URL between `/project/` and the project name. For example, if your project URL is `https://www.figma.com/files/team/1562118717370912711/project/478297666/Team-project?fuid=1562118714608714352`, enter `478297666` here.",
     },
     fileId: {
       type: "string",
       label: "File Id",
-      description: "Id of the file to perform your action.",
-      async options({ projectId }) {
-        const files = await this.listProjectFiles(projectId);
-        return files.map((item) => ({
-          label: item.name,
-          value: item.key,
-        }));
-      },
+      description: "Navigate to your file in Figma and open it. You can find your File ID in the URL after `/file/`. For example, if your file URL is `https://www.figma.com/file/ABC123xyz456/My-Design-File`, enter `ABC123xyz456` here.",
     },
     commentId: {
       type: "string",
@@ -63,6 +49,9 @@ export default {
         "Authorization": `Bearer ${this.$auth.oauth_access_token}`,
       };
     },
+    _getTeamId() {
+      return this.$auth.team_id;
+    },
     _getAxiosParams(opts = {}) {
       const res = {
         ...opts,
@@ -70,20 +59,6 @@ export default {
         headers: this._getHeaders(),
       };
       return res;
-    },
-    async listTeamProjects(teamId, ctx = this) {
-      const res = await axios(ctx, this._getAxiosParams({
-        method: "GET",
-        path: `/v1/teams/${teamId}/projects`,
-      }));
-      return res?.projects || [];
-    },
-    async listProjectFiles(projectId, ctx = this) {
-      const res = await axios(ctx, this._getAxiosParams({
-        method: "GET",
-        path: `/v1/projects/${projectId}/files`,
-      }));
-      return res?.files || [];
     },
     async listFileComments(fileId, ctx = this) {
       const res = await axios(ctx, this._getAxiosParams({
@@ -97,6 +72,36 @@ export default {
         method: "POST",
         path: `/v1/files/${fileId}/comments`,
         data,
+      }));
+    },
+    async deleteComment(fileId, commentId, ctx = this) {
+      return axios(ctx, this._getAxiosParams({
+        method: "DELETE",
+        path: `/v1/files/${fileId}/comments/${commentId}`,
+      }));
+    },
+    async createHook(
+      eventType,
+      teamId,
+      endpoint,
+      passcode,
+    ) {
+      const hook = await axios(this, this._getAxiosParams({
+        method: "POST",
+        path: "/v2/webhooks",
+        data: {
+          event_type: eventType,
+          team_id: teamId,
+          endpoint,
+          passcode,
+        },
+      }));
+      return hook.id;
+    },
+    async deleteHook(hookId) {
+      return axios(this, this._getAxiosParams({
+        method: "DELETE",
+        path: `/v2/webhooks/${hookId}`,
       }));
     },
   },

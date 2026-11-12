@@ -1,22 +1,24 @@
-import common from "../common.mjs";
+import common from "../common/common.mjs";
 
 export default {
   type: "source",
   key: "webflow-new-site-published",
-  name: "New site published",
-  description: "Emit new event when a site is published. [See the docs here](https://developers.webflow.com/#trigger-types)",
-  version: "0.1.1",
+  name: "Site Published",
+  description: "Emit new event when a site is published. [See the documentation](https://developers.webflow.com/data/reference/webhooks/events/site-publish)",
+  version: "2.0.0",
   ...common,
   methods: {
     ...common.methods,
     getWebhookTriggerType() {
       return "site_publish";
     },
-    generateMeta(data) {
+    generateMeta({
+      siteId, publishedOn,
+    }) {
       return {
-        id: `${data.site}-${data.publishTime}`,
-        summary: `The site ${data.site} has been published.`,
-        ts: data.publishTime,
+        id: `${siteId}-${publishedOn}`,
+        summary: `Site published: ${siteId}`,
+        ts: Date.parse(publishedOn),
       };
     },
   },

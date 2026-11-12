@@ -1,19 +1,19 @@
 {
-  "name": "pipedream/mysql",
-  "version": "0.0.1",
-  "description": "Pipedream Mysql Components",
+  "name": "@pipedream/mysql",
+  "version": "2.5.0",
+  "description": "Pipedream MySQL Components",
   "main": "mysql.app.mjs",
   "keywords": [
     "pipedream",
     "mysql"
   ],
   "homepage": "https://pipedream.com/apps/mysql",
-  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "mysql2-promise": "^0.1.4",
+    "@pipedream/platform": "^2.0.2",
+    "mysql2": "^3.9.2",
     "uuid": "^8.3.2"
   }
 }

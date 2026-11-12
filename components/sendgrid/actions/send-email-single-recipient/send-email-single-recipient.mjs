@@ -1,12 +1,19 @@
+import { getFileStream } from "@pipedream/platform";
+import mime from "mime";
 import validate from "validate.js";
-import common from "../common.mjs";
+import common from "../common/common.mjs";
 
 export default {
   ...common,
   key: "sendgrid-send-email-single-recipient",
   name: "Send Email Single Recipient",
   description: "This action sends a personalized e-mail to the specified recipient. [See the docs here](https://docs.sendgrid.com/api-reference/mail-send/mail-send)",
-  version: "0.0.1",
+  version: "0.1.3",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
@@ -37,7 +44,7 @@ export default {
       type: "string",
       label: "CC",
       description:
-      "An array of recipients who will receive a copy of your email. Each object in this array must contain the recipient's email address. Each object in the array may optionally contain the recipient's name. Alternatively, provide a string that will `JSON.parse` to an array of recipient objects. Example: `[{\"email\":\"email@example.com\",\"name\":\"Example Recipient\"}]`",
+        "An array of recipients who will receive a copy of your email. Each object in this array must contain the recipient's email address. Each object in the array may optionally contain the recipient's name. Alternatively, provide a string that will `JSON.parse` to an array of recipient objects. Example: `[{\"email\":\"email@example.com\",\"name\":\"Example Recipient\"}]`",
       optional: true,
     },
     bcc: {
@@ -59,9 +66,16 @@ export default {
       optional: true,
     },
     dynamicTemplateData: {
-      type: "string",
+      type: "object",
       label: "Dynamic Template Data",
       description: "Dynamic template data is available using Handlebars syntax in Dynamic Transactional Templates. This field should be used in combination with a Dynamic Transactional Template, which can be identified by a template_id starting with d-. This field is a collection of key/value pairs following the pattern `\"variable_name\":\"value to insert\"`",
+      optional: true,
+    },
+    templateId: {
+      propDefinition: [
+        common.props.sendgrid,
+        "templateId",
+      ],
       optional: true,
     },
     replyToEmail: {
@@ -87,12 +101,7 @@ export default {
         common.props.sendgrid,
         "content",
       ],
-    },
-    attachments: {
-      propDefinition: [
-        common.props.sendgrid,
-        "attachments",
-      ],
+      optional: true,
     },
     headers: {
       propDefinition: [
@@ -124,6 +133,18 @@ export default {
         "asm",
       ],
     },
+    asmGroupId: {
+      propDefinition: [
+        common.props.sendgrid,
+        "asmGroupId",
+      ],
+    },
+    asmGroupsToDisplay: {
+      propDefinition: [
+        common.props.sendgrid,
+        "asmGroupsToDisplay",
+      ],
+    },
     ipPoolName: {
       propDefinition: [
         common.props.sendgrid,
@@ -142,10 +163,45 @@ export default {
         "trackingSettings",
       ],
     },
+    numberOfAttachments: {
+      propDefinition: [
+        common.props.sendgrid,
+        "numberOfAttachments",
+      ],
+      optional: true,
+    },
+    syncDir: {
+      type: "dir",
+      accessMode: "read",
+      sync: true,
+      optional: true,
+    },
+  },
+  async additionalProps() {
+    const props = {};
+    if (this.numberOfAttachments) {
+      for (let i = 1; i <= this.numberOfAttachments; i++) {
+        props[`attachmentsName${i}`] = {
+          type: "string",
+          label: `Attachment File Name ${i}`,
+          description: "The name of the file.",
+          optional: true,
+        };
+        props[`attachmentsPath${i}`] = {
+          type: "string",
+          label: `Attachment File Path or URL ${i}`,
+          description: "The file to upload. Provide either a file URL or a path to a file in the `/tmp` directory (for example, `/tmp/myFile.txt`).",
+          format: "file-ref",
+          optional: true,
+        };
+      }
+    }
+    return props;
   },
   async run({ $ }) {
     //Performs validation on parameters.
     validate.validators.arrayValidator = this.validateArray; //custom validator for object arrays
+    validate.validators.asmValidator = this.validateAsm; //custom validator for asm object
     //Defines constraints for required parameters
     const constraints = {
       toEmail: {
@@ -172,16 +228,32 @@ export default {
         },
       };
     }
-    let attachments = this.convertEmptyStringToUndefined(this.attachments);
-    if (this.attachments) {
-      constraints.attachments = {
-        arrayValidator: {
-          value: this.attachments,
-          key: "attachments",
+    if (this.asm || this.asmGroupsToDisplay) {
+      constraints.asm = {
+        asmValidator: {
+          asm: this.asm,
+          asmGroupId: this.asmGroupId,
+          asmGroupsToDisplay: this.asmGroupsToDisplay,
         },
       };
-      attachments = this.getArrayObject(this.attachments);
     }
+    const attachments = [];
+    for (let i = 1; i <= this.numberOfAttachments; i++) {
+      const filepath = this["attachmentsPath" + i];
+      const stream = await getFileStream(filepath);
+      const chunks = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      const content = Buffer.concat(chunks).toString("base64");
+      const type = mime.getType(filepath);
+      attachments.push({
+        content,
+        type,
+        filename: this[`attachmentsName${i}`],
+      });
+    }
+
     if (this.categories) {
       constraints.categories = {
         type: "array",
@@ -192,8 +264,8 @@ export default {
         email: true,
       };
     }
-    this.sendAt = this.convertEmptyStringToUndefined(this.sendAt);
-    if (this.sendAt != null) {
+    this.sendAt = this.convertEmptyStringToUndefined(Date.parse(this.sendAt));
+    if (this.sendAt) {
       constraints.sendAt = this.getIntegerGtZeroConstraint();
     }
     //Executes validation
@@ -225,10 +297,18 @@ export default {
       personalizations[0].to[0].name = this.toName;
     }
     if (this.cc) {
-      personalizations[0].cc = this.getArrayObject(this.cc);
+      const ccArray = this.getArrayObject(this.cc);
+
+      if (ccArray?.length) {
+        personalizations[0].cc = ccArray;
+      }
     }
     if (this.bcc) {
-      personalizations[0].bcc = this.getArrayObject(this.bcc);
+      const bccArray = this.getArrayObject(this.bcc);
+
+      if (bccArray?.length) {
+        personalizations[0].bcc = bccArray;
+      }
     }
     if (this.personalizationHeaders) {
       personalizations[0].headers = this.convertEmptyStringToUndefined(this.personalizationHeaders);
@@ -237,7 +317,7 @@ export default {
       personalizations[0].substitutions = this.substitutions;
     }
     if (this.dynamicTemplateData) {
-      personalizations[0].dynamicTemplateData = this.dynamicTemplateData;
+      personalizations[0].dynamic_template_data = this.dynamicTemplateData;
     }
     //Set ups the `from` object, where `email`, `name` of the mail sender are specified, with
     //`email` being required.
@@ -251,18 +331,21 @@ export default {
     //specified, with `email` being required.
     let replyTo = undefined;
     if (this.replyToEmail) {
-      replyTo.email = this.replyToEmail;
+      replyTo = {
+        email: this.replyToEmail,
+      };
       if (this.replyToName) {
         replyTo.name = this.replyToName;
       }
     }
+
     //Prepares and sends the request configuration
     const config = this.omitEmptyStringValues({
       personalizations,
       from,
       reply_to: replyTo,
       subject: this.subject,
-      content: [
+      content: this.content && [
         {
           type: "text/html",
           value: this.content,
@@ -273,10 +356,11 @@ export default {
       categories: this.categories,
       custom_args: this.customArgs,
       send_at: this.sendAt,
-      asm: this.asm,
+      asm: this.getAsmConfig(),
       ip_pool_name: this.ipPoolName,
       mail_settings: this.mailSettings,
       tracking_settings: this.trackingSettings,
+      template_id: this.templateId,
     });
     const resp = await this.sendgrid.sendEmail(config);
     $.export("$summary", "Email successfully sent");

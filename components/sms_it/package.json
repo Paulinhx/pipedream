@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/sms_it",
+  "version": "0.0.3",
+  "description": "Pipedream SMS-IT Components",
+  "main": "sms_it.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sms_it"
+  ],
+  "homepage": "https://pipedream.com/apps/sms_it",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

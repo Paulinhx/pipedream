@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/signalwire",
+  "version": "0.1.1",
+  "description": "Pipedream SignalWire Components",
+  "main": "signalwire.app.mjs",
+  "keywords": [
+    "pipedream",
+    "signalwire"
+  ],
+  "homepage": "https://pipedream.com/apps/signalwire",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

@@ -5,8 +5,14 @@ export default {
   name: "Upload a Gif",
   description: "Uploads a Gif or video file up to 100MB programmatically on GIPHY.com [See the docs here](https://developers.giphy.com/docs/api/endpoint#upload).",
   key: "giphy-upload-gif",
-  version: "0.0.1",
+  version: "0.0.3",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     giphyApp,
     imgUrl: {

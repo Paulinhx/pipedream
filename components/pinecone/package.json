@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/pinecone",
+  "version": "0.1.1",
+  "description": "Pipedream Pinecone Components",
+  "main": "pinecone.app.mjs",
+  "keywords": [
+    "pipedream",
+    "pinecone"
+  ],
+  "homepage": "https://pipedream.com/apps/pinecone",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8",
+    "qs": "^6.16.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

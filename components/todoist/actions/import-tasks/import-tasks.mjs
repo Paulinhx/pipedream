@@ -1,12 +1,17 @@
-import todoist from "../../todoist.app.mjs";
-import fs from "fs";
+import { getFileStream } from "@pipedream/platform";
 import converter from "json-2-csv";
+import todoist from "../../todoist.app.mjs";
 
 export default {
   key: "todoist-import-tasks",
   name: "Import Tasks",
-  description: "Import tasks into a selected project. [See Docs](https://developer.todoist.com/sync/v8/#add-an-item)",
-  version: "0.0.1",
+  description: "Import tasks into a selected project. [See the documentation](https://developer.todoist.com/api/v1#tag/Tasks/operation/create_task_api_v1_tasks_post)",
+  version: "0.1.8",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,
@@ -23,6 +28,12 @@ export default {
       ],
       description: "Project to import tasks into",
     },
+    syncDir: {
+      type: "dir",
+      accessMode: "read",
+      sync: true,
+      optional: true,
+    },
   },
   methods: {
     exportSummary($, tasks) {
@@ -37,8 +48,13 @@ export default {
       project,
     } = this;
 
-    const fileContents = (await fs.promises.readFile(path)).toString();
-    const tasks = await converter.csv2jsonAsync(fileContents);
+    const stream = await getFileStream(path);
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const fileContents = Buffer.concat(chunks).toString();
+    const tasks = converter.csv2json(fileContents);
     // CREATE TASKS
     const data = tasks.map((task) => ({
       content: task.content,

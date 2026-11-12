@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/openum",
+  "version": "0.2.1",
+  "description": "Pipedream Openum Components",
+  "main": "openum.app.mjs",
+  "keywords": [
+    "pipedream",
+    "openum"
+  ],
+  "homepage": "https://pipedream.com/apps/openum",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.4.0"
+  }
+}

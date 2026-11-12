@@ -9,11 +9,26 @@ export default {
       label: "Collection ID",
       description: "The collection ID",
       async options() {
-        const { items } = await this.getCollections();
-        return items.map((e) => ({
+        let { items } = await this.getCollections();
+        items = items.map((e) => ({
           value: e._id,
           label: e.title,
         }));
+        items.unshift(
+          {
+            value: 0,
+            label: "All Bookmarks",
+          },
+          {
+            value: -1,
+            label: "Unsorted",
+          },
+          {
+            value: -99,
+            label: "Trash",
+          },
+        );
+        return items;
       },
     },
     raindropId: {
@@ -38,6 +53,15 @@ export default {
             page: page + 1,
           },
         };
+      },
+    },
+    tags: {
+      type: "string[]",
+      label: "Tags",
+      description: "Emit events when the specified tags are added to a bookmark",
+      async options({ collectionId }) {
+        const { items } = await this.getTags(this, collectionId);
+        return items?.map(({ _id: id }) => id) || [];
       },
     },
     expanded: {
@@ -145,6 +169,11 @@ export default {
       return this._makeRequest($, {
         path: `/raindrops/${collectionId}`,
         params,
+      });
+    },
+    async getTags($, collectionId) {
+      return this._makeRequest($, {
+        path: `/tags/${collectionId}`,
       });
     },
     async postBookmark($, bookmarkData) {

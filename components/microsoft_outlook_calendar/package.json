@@ -1,0 +1,27 @@
+{
+  "name": "@pipedream/microsoft_outlook_calendar",
+  "version": "8.5.3",
+  "description": "Pipedream Microsoft Outlook Calendar Components",
+  "main": "microsoft_outlook_calendar.app.mjs",
+  "keywords": [
+    "pipedream",
+    "microsoft_outlook_calendar",
+    "microsoft",
+    "outlook"
+  ],
+  "homepage": "https://pipedream.com/apps/microsoft_outlook_calendar",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@pipedream/microsoft_outlook": "^1.7.3",
+    "@pipedream/pipedream": "^0.4.2",
+    "@pipedream/platform": "^3.1.1",
+    "isomorphic-fetch": "^3.0.0",
+    "lodash.pickby": "^4.6.0",
+    "luxon": "^3.7.2",
+    "windows-iana": "^5.1.0"
+  }
+}

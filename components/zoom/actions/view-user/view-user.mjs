@@ -5,7 +5,12 @@ export default {
   key: "zoom-view-user",
   name: "View User",
   description: "View your user information",
-  version: "0.1.1",
+  version: "0.1.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     zoom: {

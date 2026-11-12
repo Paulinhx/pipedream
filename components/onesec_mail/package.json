@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/onesec_mail",
+  "version": "0.0.3",
+  "description": "Pipedream 1sec Mail Components",
+  "main": "onesec_mail.app.mjs",
+  "keywords": [
+    "pipedream",
+    "onesec_mail"
+  ],
+  "homepage": "https://pipedream.com/apps/onesec_mail",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

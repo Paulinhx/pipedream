@@ -1,28 +1,23 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/task-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-delete-checklist",
   name: "Delete Checklist",
-  description: "Deletes a checklist in a task. See the docs [here](https://clickup.com/api) in **Checklists  / Delete Checklist** section.",
-  version: "0.0.1",
+  description: "Deletes a checklist in a task. [See the documentation](https://clickup.com/api) in **Checklists / Delete Checklist** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
     folderId: {
       propDefinition: [
-        clickup,
-        "folders",
+        common.props.clickup,
+        "folderId",
         (c) => ({
           spaceId: c.spaceId,
         }),
@@ -31,43 +26,40 @@ export default {
     },
     listId: {
       propDefinition: [
-        clickup,
-        "lists",
+        common.props.clickup,
+        "listId",
         (c) => ({
-          spaceId: c.spaceId,
           folderId: c.folderId,
+          spaceId: c.spaceId,
         }),
       ],
-      optional: true,
     },
     taskId: {
       propDefinition: [
-        clickup,
-        "tasks",
+        common.props.clickup,
+        "taskId",
         (c) => ({
           listId: c.listId,
+          useCustomTaskIds: c.useCustomTaskIds,
         }),
       ],
     },
     checklistId: {
       propDefinition: [
-        clickup,
-        "checklists",
+        common.props.clickup,
+        "checklistId",
         (c) => ({
           taskId: c.taskId,
+          useCustomTaskIds: c.useCustomTaskIds,
         }),
       ],
     },
   },
   async run({ $ }) {
-    const {
-      taskId,
-      checklistId,
-    } = this;
+    const { checklistId } = this;
 
     const response = await this.clickup.deleteChecklist({
       $,
-      taskId,
       checklistId,
     });
 

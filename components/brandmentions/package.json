@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/brandmentions",
+  "version": "0.0.3",
+  "description": "Pipedream BrandMentions Components",
+  "main": "brandmentions.app.mjs",
+  "keywords": [
+    "pipedream",
+    "brandmentions"
+  ],
+  "homepage": "https://pipedream.com/apps/brandmentions",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

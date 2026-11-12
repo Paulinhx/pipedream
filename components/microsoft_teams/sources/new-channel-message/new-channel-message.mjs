@@ -4,8 +4,8 @@ export default {
   ...base,
   key: "microsoft_teams-new-channel-message",
   name: "New Channel Message",
-  description: "Emit new event when a new message is posted in a channel",
-  version: "0.0.1",
+  description: "Emit new event when a new message is posted in a channel. [See the documentation](https://learn.microsoft.com/en-us/graph/api/channel-list-messages?view=graph-rest-1.0&tabs=http)",
+  version: "0.0.16",
   type: "source",
   dedupe: "unique",
   props: {
@@ -25,24 +25,22 @@ export default {
         }),
       ],
     },
-    max: {
-      propDefinition: [
-        base.props.microsoftTeams,
-        "max",
-      ],
-    },
   },
   methods: {
     ...base.methods,
-    async getResources(lastCreated) {
+    getTsField() {
+      return "lastModifiedDateTime";
+    },
+    async getResources(lastUpdated, tsField) {
       return this.getNewPaginatedResources(
         this.microsoftTeams.listChannelMessages,
         {
           teamId: this.team,
           channelId: this.channel,
         },
-        this.max,
-        lastCreated,
+        lastUpdated,
+        tsField,
+        true, // Sorted by last modified date
       );
     },
     generateMeta(message) {

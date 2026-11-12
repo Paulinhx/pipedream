@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-update-task",
   name: "Update Task",
-  description: "Updates a task. [See the docs here](https://developer.todoist.com/rest/v1/#update-a-task)",
-  version: "0.0.1",
+  description: "Updates a task. [See the documentation](https://developer.todoist.com/api/v1#tag/Tasks/operation/update_task_api_v1_tasks__task_id__post)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,
@@ -41,11 +46,8 @@ export default {
     labels: {
       propDefinition: [
         todoist,
-        "label",
+        "labelString",
       ],
-      type: "string[]",
-      description: "Labels associated with the task",
-      optional: true,
     },
     priority: {
       propDefinition: [
@@ -104,7 +106,7 @@ export default {
       taskId: task,
       content,
       description,
-      label_ids: labels,
+      labels,
       priority,
       due_string: dueString,
       due_date: dueDate,

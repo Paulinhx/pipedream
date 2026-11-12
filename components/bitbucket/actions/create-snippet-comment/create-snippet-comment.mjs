@@ -5,7 +5,12 @@ export default {
   key: "bitbucket-create-snippet-comment",
   name: "Create Snippet Comment",
   description: "Creates a new snippet comment. [See docs here](https://developer.atlassian.com/cloud/bitbucket/rest/api-group-snippets/#api-snippets-workspace-encoded-id-comments-post)",
-  version: "0.4.2",
+  version: "0.4.5",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...base.props,
@@ -58,7 +63,7 @@ export default {
       },
     }, $);
 
-    $.export("summary", "Successfully created snippet comment");
+    $.export("$summary", "Successfully created snippet comment");
 
     return response;
   },

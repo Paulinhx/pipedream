@@ -4,16 +4,25 @@ export default {
   ...common,
   name: "New Row",
   key: "postgresql-new-row",
-  description: "Emit new event when a new row is added to a table",
-  version: "0.0.2",
+  description: "Emit new event when a new row is added to a table. [See the documentation](https://node-postgres.com/features/queries)",
+  version: "3.0.8",
   type: "source",
   dedupe: "unique",
   props: {
     ...common.props,
+    schema: {
+      propDefinition: [
+        common.props.postgresql,
+        "schema",
+      ],
+    },
     table: {
       propDefinition: [
         common.props.postgresql,
         "table",
+        (c) => ({
+          schema: c.schema,
+        }),
       ],
     },
     column: {
@@ -21,9 +30,11 @@ export default {
         common.props.postgresql,
         "column",
         (c) => ({
+          schema: c.schema,
           table: c.table,
         }),
       ],
+      description: "An ID or timestamp column where new rows will always contain larger values than the previous row. Defaults to the table's primary key.",
       optional: true,
     },
   },
@@ -33,8 +44,16 @@ export default {
     async deploy() {
       const column = this.column
         ? this.column
-        : await this.postgresql.getPrimaryKey(this.table);
+        : await this.postgresql.getPrimaryKey(this.table, this.schema);
+
+      const isColumnUnique = await this.isColumnUnique(this.schema, this.table, column);
+      if (!isColumnUnique) {
+        throw new Error("The column selected contains duplicate values. Column must be unique");
+      }
+
       this._setColumn(column);
+
+      await this.initialRows(this.schema, this.table, column);
     },
   },
   methods: {
@@ -55,12 +74,6 @@ export default {
   },
   async run() {
     const column = this._getColumn();
-
-    const isColumnUnique = await this.isColumnUnique(this.table, column);
-    if (!isColumnUnique) {
-      throw new Error("The column selected contains duplicate values. Column must be unique");
-    }
-
-    await this.newRows(this.table, column, false);
+    await this.newRows(this.schema, this.table, column);
   },
 };

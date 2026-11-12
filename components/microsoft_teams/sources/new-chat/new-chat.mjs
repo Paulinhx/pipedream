@@ -4,27 +4,18 @@ export default {
   ...base,
   key: "microsoft_teams-new-chat",
   name: "New Chat",
-  description: "Emit new event when a new chat is created",
-  version: "0.0.1",
+  description: "Emit new event when a new chat is created. [See the documentation](https://learn.microsoft.com/en-us/graph/api/chat-list?view=graph-rest-1.0&tabs=http)",
+  version: "0.0.16",
   type: "source",
   dedupe: "unique",
-  props: {
-    ...base.props,
-    max: {
-      propDefinition: [
-        base.props.microsoftTeams,
-        "max",
-      ],
-    },
-  },
   methods: {
     ...base.methods,
-    async getResources(lastCreated) {
+    async getResources(lastCreated, tsField) {
       return this.getNewPaginatedResources(
         this.microsoftTeams.listChats,
         {},
-        this.max,
         lastCreated,
+        tsField,
       );
     },
     generateMeta(chat) {

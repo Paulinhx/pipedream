@@ -1,0 +1,118 @@
+import { ConfigurationError } from "@pipedream/platform";
+import {
+  buildCell, toIdString,
+} from "../../common/utils.mjs";
+import smartsheet from "../../smartsheet.app.mjs";
+
+export default {
+  key: "smartsheet-update-row",
+  name: "Update Row",
+  description:
+    "Update one or more rows in a sheet by row ID, addressing cells by column NAME rather than column ID."
+    + " Returns the updated rows under `result`."
+    + " Call **Get Sheet** to find row IDs and column names first."
+    + " To add new rows instead of changing existing ones, use **Add Row to Sheet**."
+    + " [See the documentation](https://developers.smartsheet.com/api/smartsheet/openapi/rows/update-rows)",
+  version: "1.1.3",
+  type: "action",
+  ai: "optimized",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  props: {
+    smartsheet,
+    sheetId: {
+      propDefinition: [
+        smartsheet,
+        "sheetIdOrUrl",
+      ],
+    },
+    rows: {
+      type: "string",
+      label: "Rows",
+      description:
+        "JSON array of row update objects. Each needs `rowId` plus column name/value pairs."
+        + " Quote the row ID: `[{\"rowId\": \"1234567890123456\", \"Status\": \"Done\"}]`."
+        + " Smartsheet row IDs are 16 digits and an unquoted one can exceed what JSON parsing represents exactly,"
+        + " which would silently address a different row."
+        + " For a MULTI_PICKLIST column, pass a string or array of strings naming the selected option(s)"
+        + " (a comma/semicolon-separated string also works), e.g. `{\"Status Tags\": [\"Urgent\", \"Review\"]}`."
+        + " For a MULTI_CONTACT_LIST column, pass an email string, an array of email strings, or"
+        + " `{\"email\": \"...\", \"name\": \"...\"}` object(s) — same comma/semicolon-separated string option applies —"
+        + " e.g. `{\"Subscriber\": [{\"email\": \"a@example.com\", \"name\": \"A Example\"}, \"b@example.com\"]}`."
+        + " Pass `\"\"` or `[]` for either column type to clear it."
+        + " Call **Get Sheet** to find row IDs and column names.",
+    },
+  },
+  async run({ $ }) {
+    // Quote before parsing: JSON.parse would round a >2^53 rowId beyond recovery.
+    const rowsJson = String(this.rows ?? "").replace(/("rowId"\s*:\s*)(\d+)/g, "$1\"$2\"");
+
+    let parsedRows;
+    try {
+      parsedRows = JSON.parse(rowsJson);
+    } catch {
+      throw new ConfigurationError("`Rows` must be a valid JSON array of objects.");
+    }
+    if (!Array.isArray(parsedRows) || !parsedRows.length) {
+      throw new ConfigurationError("`Rows` must be a non-empty JSON array.");
+    }
+
+    const sheetId = await this.smartsheet.resolveSheetId(this.sheetId, {
+      $,
+    });
+    const {
+      byName, typesById,
+    } = await this.smartsheet.getColumnMap(sheetId, {
+      $,
+    });
+
+    const apiRows = parsedRows.map((row, rowIndex) => {
+      if (!row || typeof row !== "object" || Array.isArray(row)) {
+        throw new ConfigurationError(`Row at index ${rowIndex} must be an object with a rowId and column name/value pairs.`);
+      }
+      const {
+        rowId, ...fields
+      } = row;
+      if (rowId === undefined || rowId === null || rowId === "") {
+        throw new ConfigurationError(`Row at index ${rowIndex} is missing a \`rowId\`.`);
+      }
+      const rowIdString = toIdString(rowId, `Row at index ${rowIndex} \`rowId\``);
+      const entries = Object.entries(fields);
+      if (!entries.length) {
+        throw new ConfigurationError(`Row at index ${rowIndex} has no column updates.`);
+      }
+      const cells = [];
+      const unknownColumns = [];
+      for (const [
+        name,
+        value,
+      ] of entries) {
+        const columnId = byName[name.toLowerCase()];
+        if (columnId) {
+          cells.push(buildCell(columnId, typesById[columnId], value, name, rowIndex));
+        } else {
+          unknownColumns.push(name);
+        }
+      }
+      if (unknownColumns.length) {
+        throw new ConfigurationError(`Row at index ${rowIndex} references unknown column(s): ${unknownColumns.join(", ")}. Use **Get Sheet** or **List Columns** to see valid column names.`);
+      }
+      return {
+        id: rowIdString,
+        cells,
+      };
+    });
+
+    const response = await this.smartsheet.updateRow(sheetId, {
+      $,
+      data: apiRows,
+    });
+
+    const count = response.result?.length || 1;
+    $.export("$summary", `Updated ${count} row(s) in sheet ${sheetId}`);
+    return response;
+  },
+};

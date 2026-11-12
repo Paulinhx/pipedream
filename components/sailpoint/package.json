@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/sailpoint",
+  "version": "0.0.4",
+  "description": "Pipedream SailPoint Components",
+  "main": "sailpoint.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sailpoint"
+  ],
+  "homepage": "https://pipedream.com/apps/sailpoint",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/metatext_ai_inference_api",
+  "version": "0.0.3",
+  "description": "Pipedream Metatext.AI Inference API Components",
+  "main": "metatext_ai_inference_api.app.mjs",
+  "keywords": [
+    "pipedream",
+    "metatext_ai_inference_api"
+  ],
+  "homepage": "https://pipedream.com/apps/metatext_ai_inference_api",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

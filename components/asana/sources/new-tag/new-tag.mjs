@@ -1,3 +1,4 @@
+import { DEFAULT_POLLING_SOURCE_TIMER_INTERVAL } from "@pipedream/platform";
 import asana from "../../asana.app.mjs";
 
 export default {
@@ -5,7 +6,7 @@ export default {
   type: "source",
   name: "New Tag",
   description: "Emit new event for each tag created in a workspace.",
-  version: "0.0.1",
+  version: "0.0.17",
   dedupe: "unique",
   props: {
     asana,
@@ -15,23 +16,25 @@ export default {
       type: "string",
       propDefinition: [
         asana,
-        "workspaces",
+        "workspacesAsync",
       ],
       optional: true,
     },
     timer: {
       type: "$.interface.timer",
       default: {
-        intervalSeconds: 60 * 15,
+        intervalSeconds: DEFAULT_POLLING_SOURCE_TIMER_INTERVAL,
       },
     },
   },
 
   async run() {
-    const tags = await this.asana.getTags(this.organization);
+    const { data: tags } = await this.asana.getTags();
 
-    for (let tag of tags) {
-      tag = await this.asana.getTag(tag.gid);
+    for (const item of tags) {
+      const { data: tag } = await this.asana.getTag({
+        tagId: item.gid,
+      });
 
       if (this.workspace && tag.workspace.gid !== this.workspace) continue;
 

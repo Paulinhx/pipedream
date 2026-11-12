@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/signrequest",
+  "version": "0.0.3",
+  "description": "Pipedream SignRequest Components",
+  "main": "signrequest.app.mjs",
+  "keywords": [
+    "pipedream",
+    "signrequest"
+  ],
+  "homepage": "https://pipedream.com/apps/signrequest",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

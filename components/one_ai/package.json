@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/one_ai",
+  "version": "0.2.0",
+  "description": "Pipedream One AI Components",
+  "main": "one_ai.app.mjs",
+  "keywords": [
+    "pipedream",
+    "one_ai"
+  ],
+  "homepage": "https://pipedream.com/apps/one_ai",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

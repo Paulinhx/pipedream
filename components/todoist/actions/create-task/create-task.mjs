@@ -3,11 +3,22 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-create-task",
   name: "Create Task",
-  description: "Creates a task. [See the docs here](https://developer.todoist.com/rest/v1/#create-a-new-task)",
-  version: "0.0.1",
+  description: "Creates a task. [See the documentation](https://developer.todoist.com/api/v1#tag/Tasks/operation/create_task_api_v1_tasks_post)",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,
+    // eslint-disable-next-line pipedream/props-label, pipedream/props-description
+    recurringInfoLabel: {
+      type: "alert",
+      alertType: "info",
+      content: "To create a recurring task, use the `Due String` prop with a value such as `every week`. [See the Todoist documentation on recurring dates](https://www.todoist.com/help/articles/introduction-to-recurring-dates-YUYVJJAV) for more examples and information.",
+    },
     content: {
       propDefinition: [
         todoist,
@@ -63,11 +74,8 @@ export default {
     labels: {
       propDefinition: [
         todoist,
-        "label",
+        "labelString",
       ],
-      type: "string[]",
-      description: "Labels associated with the task",
-      optional: true,
     },
     priority: {
       propDefinition: [
@@ -132,13 +140,13 @@ export default {
       section_id: section,
       parent_id: parent,
       order,
-      label_ids: labels,
+      labels,
       priority,
       due_string: dueString,
       due_date: dueDate,
       due_datetime: dueDatetime,
       due_lang: dueLang,
-      assignee,
+      assignee_id: assignee,
     };
     const resp = await this.todoist.createTask({
       $,

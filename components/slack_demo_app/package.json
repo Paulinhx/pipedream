@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/slack_demo_app",
+  "version": "0.0.3",
+  "description": "Pipedream Slack Demo App  Components",
+  "main": "slack_demo_app.app.mjs",
+  "keywords": [
+    "pipedream",
+    "slack_demo_app"
+  ],
+  "homepage": "https://pipedream.com/apps/slack_demo_app",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

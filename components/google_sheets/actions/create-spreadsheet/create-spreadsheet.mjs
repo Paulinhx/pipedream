@@ -3,8 +3,13 @@ import googleSheets from "../../google_sheets.app.mjs";
 export default {
   key: "google_sheets-create-spreadsheet",
   name: "Create Spreadsheet",
-  description: "Create a blank spreadsheet or duplicate an existing spreadsheet",
-  version: "0.0.4",
+  description: "Create a blank spreadsheet or duplicate an existing spreadsheet. [See the documentation](https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/create)",
+  version: "0.1.20",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     googleSheets,
@@ -20,6 +25,17 @@ export default {
       label: "Title",
       description: "The title of the new spreadsheet",
     },
+    folderId: {
+      propDefinition: [
+        googleSheets,
+        "folderId",
+        (c) => ({
+          drive: c.drive,
+        }),
+      ],
+      description: "The folder you want to save the file to",
+      optional: true,
+    },
     sheetId: {
       propDefinition: [
         googleSheets,
@@ -32,17 +48,49 @@ export default {
       optional: true,
     },
   },
-  async run() {
-    if (this.sheetId) {
-      return await this.googleSheets.copySpreadsheet(this.sheetId, this.title);
-    }
-    const request = {
-      resource: {
-        properties: {
-          title: this.title,
+  async run({ $ }) {
+    const {
+      googleSheets,
+      sheetId,
+      folderId,
+      title,
+      drive,
+    } = this;
+
+    const {
+      copySpreadsheet,
+      createSpreadsheet,
+      getSpreadsheet,
+      updateFile,
+      isMyDrive,
+    } = googleSheets;
+
+    let response;
+    if (sheetId) {
+      response = await copySpreadsheet(sheetId, title);
+    } else {
+      response = await createSpreadsheet({
+        resource: {
+          properties: {
+            title,
+          },
         },
-      },
-    };
-    return await this.googleSheets.createSpreadsheet(request);
+      });
+    }
+
+    const spreadsheetId = response?.spreadsheetId || response?.id;
+    const summary = `Successfully created spreadsheet with ID: ${spreadsheetId}`;
+
+    if (!folderId && isMyDrive(drive)) {
+      $.export("$summary", summary);
+      return response;
+    }
+
+    const spreadsheet = await updateFile(spreadsheetId, {
+      addParents: folderId || drive,
+    });
+
+    $.export("$summary", summary);
+    return getSpreadsheet(spreadsheet.id);
   },
 };

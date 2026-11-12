@@ -1,6 +1,6 @@
-import pagerduty from "../../pagerduty.app.mjs";
-import utils from "../../common/utils.mjs";
 import constants from "../../common/constants.mjs";
+import utils from "../../common/utils.mjs";
+import pagerduty from "../../pagerduty.app.mjs";
 
 const {
   reduceProperties,
@@ -11,9 +11,15 @@ const {
 export default {
   key: "pagerduty-trigger-incident",
   name: "Trigger Incident",
-  description: "Trigger an incident. [See the docs here](https://developer.pagerduty.com/api-reference/b3A6Mjc0ODE0MA-create-an-incident)",
+  description: "**Deprecated** — use **Create Incident** instead. Trigger an incident. [See the documentation](https://developer.pagerduty.com/api-reference/b3A6Mjc0ODE0MA-create-an-incident)",
   type: "action",
-  version: "0.0.1",
+  ai: "optimized",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   props: {
     pagerduty,
     title: {
@@ -56,6 +62,7 @@ export default {
       type: "string[]",
       label: "Assignee IDs",
       description: "The IDs of the users to assign to the incident. Use a comma-separated list when structured mode is `off` specifying the ids as values. (e.g. `P97DSQO,PWLDHXC,P1M4QLY`)",
+      optional: true,
       propDefinition: [
         pagerduty,
         "userId",

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/plisio",
+  "version": "0.0.3",
+  "description": "Pipedream Plisio Components",
+  "main": "plisio.app.mjs",
+  "keywords": [
+    "pipedream",
+    "plisio"
+  ],
+  "homepage": "https://pipedream.com/apps/plisio",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

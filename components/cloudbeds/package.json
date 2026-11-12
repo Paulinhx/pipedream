@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/cloudbeds",
+  "version": "0.1.0",
+  "description": "Pipedream Cloudbeds Components",
+  "main": "cloudbeds.app.mjs",
+  "keywords": [
+    "pipedream",
+    "cloudbeds"
+  ],
+  "homepage": "https://pipedream.com/apps/cloudbeds",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

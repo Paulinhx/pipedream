@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/kyvio",
+  "version": "0.0.4",
+  "description": "Pipedream Kyvio Components",
+  "main": "kyvio.app.mjs",
+  "keywords": [
+    "pipedream",
+    "kyvio"
+  ],
+  "homepage": "https://pipedream.com/apps/kyvio",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

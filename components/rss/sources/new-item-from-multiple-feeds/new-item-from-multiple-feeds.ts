@@ -1,25 +1,29 @@
-import rss from "../../app/rss.app";
 import { defineSource } from "@pipedream/types";
+import rss from "../../app/rss.app";
+import rssCommon from "../common/common";
 
 export default defineSource({
+  ...rssCommon,
   key: "rss-new-item-from-multiple-feeds",
-  name: "New item from multiple RSS feeds",
+  name: "New Item From Multiple RSS Feeds",
   type: "source",
   description: "Emit new items from multiple RSS feeds",
-  version: "1.0.2",
+  version: "1.2.9",
   props: {
-    rss,
+    ...rssCommon.props,
     urls: {
-      type: "string[]",
-      label: "Feed URLs",
-      description: "Enter either one or multiple URLs from any public RSS feed",
+      propDefinition: [
+        rss,
+        "urls",
+      ],
+      description: "Enter one or multiple URLs from any public RSS feed. To avoid timeouts, 5 or less URLs is recommended.",
     },
-    timer: {
-      type: "$.interface.timer",
-      description: "How often you want to poll the feed for new items",
-      default: {
-        intervalSeconds: 60 * 15,
-      },
+    max: {
+      type: "integer",
+      label: "Max per Feed",
+      description: "Maximum number of posts per feed to retrieve at one time. Defaults to 20.",
+      optional: true,
+      default: 20,
     },
   },
   dedupe: "unique",
@@ -33,15 +37,15 @@ export default defineSource({
     },
   },
   async run() {
+    const items = [];
     for (const url of this.urls) {
-      const items = await this.rss.fetchAndParseFeed(url);
-      items.forEach((item: any) => {
-        this.$emit(item, {
-          id: this.rss.itemKey(item),
-          summary: item.title,
-          ts: item.pubdate && +new Date(item.pubdate),
-        });
-      });
+      const feedItems = (await this.rss.fetchAndParseFeed(url))?.slice(0, this.max);
+      console.log(`Retrieved items from ${url}`);
+      items.push(...feedItems);
     }
+    this.rss.sortItems(items).forEach((item: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const meta = this.generateMeta(item);
+      this.$emit(item, meta);
+    });
   },
 });

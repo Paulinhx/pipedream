@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/thankster",
+  "version": "0.0.3",
+  "description": "Pipedream Thankster Components",
+  "main": "thankster.app.mjs",
+  "keywords": [
+    "pipedream",
+    "thankster"
+  ],
+  "homepage": "https://pipedream.com/apps/thankster",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

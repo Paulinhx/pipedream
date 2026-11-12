@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/nano_nets",
+  "version": "0.0.4",
+  "description": "Pipedream Nano Nets Components",
+  "main": "nano_nets.app.mjs",
+  "keywords": [
+    "pipedream",
+    "nano_nets"
+  ],
+  "homepage": "https://pipedream.com/apps/nano_nets",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

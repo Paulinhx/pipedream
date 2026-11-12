@@ -1,28 +1,23 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/list-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-get-view-comments",
   name: "Get View Comments",
-  description: "Get a view comments. See the docs [here](https://clickup.com/api) in **Comments  / Get Chat View Comments** section.",
-  version: "0.0.1",
+  description: "Get a view comments. [See the documentation](https://clickup.com/api) in **Comments / Get Chat View Comments** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
     folderId: {
       propDefinition: [
-        clickup,
-        "folders",
+        common.props.clickup,
+        "folderId",
         (c) => ({
           spaceId: c.spaceId,
         }),
@@ -31,24 +26,22 @@ export default {
     },
     listId: {
       propDefinition: [
-        clickup,
-        "lists",
+        common.props.clickup,
+        "listId",
         (c) => ({
-          spaceId: c.spaceId,
           folderId: c.folderId,
+          spaceId: c.spaceId,
         }),
       ],
       optional: true,
     },
     viewId: {
       propDefinition: [
-        clickup,
-        "views",
+        common.props.clickup,
+        "viewId",
         (c) => ({
-          workspaceId: c.workspaceId,
-          spaceId: c.spaceId,
-          listId: c.listId,
           folderId: c.folderId,
+          listId: c.listId,
         }),
       ],
     },

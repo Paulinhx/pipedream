@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/oksign",
+  "version": "0.0.4",
+  "description": "Pipedream OKSign Components",
+  "main": "oksign.app.mjs",
+  "keywords": [
+    "pipedream",
+    "oksign"
+  ],
+  "homepage": "https://pipedream.com/apps/oksign",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

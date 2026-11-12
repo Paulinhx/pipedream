@@ -13,35 +13,68 @@ const NOTION_PAGE_PROPERTIES = {
     type: "string",
     example: "New Beauty Title",
     options: () => undefined,
-    convertToNotion: (property) => ({
-      title: utils.buildTextProperty(property.value),
-    }),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        title: utils.buildTextProperty(property.value),
+      };
+    },
   },
   rich_text: {
     type: "string",
     example: "A beauty text value",
     options: () => undefined,
-    convertToNotion: (property) => ({
-      rich_text: utils.buildTextProperty(property.value),
-    }),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        rich_text: utils.buildTextProperty(property.value),
+      };
+    },
   },
   number: {
     type: "integer",
     example: "59",
     options: () => undefined,
-    convertToNotion: (property) => ({
-      number: property.value,
-    }),
+    convertToNotion: (property) => {
+      if (isNaN(property.value)) {
+        throw new Error;
+      }
+      return {
+        number: property.value,
+      };
+    },
+  },
+  status: {
+    type: "string",
+    options: (property) => property.status?.options.map((option) => option.name),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        status: {
+          name: property.value,
+        },
+      };
+    },
   },
   select: {
     type: "string",
-    example: "3f806034-9c48-4519-871e-60c9c32d73d8",
-    options: (property) => property.select.options.map((option) => option.name),
-    convertToNotion: (property) => ({
-      select: {
-        name: property.value,
-      },
-    }),
+    options: (property) => property.select?.options.map((option) => option.name),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        select: {
+          name: property.value,
+        },
+      };
+    },
   },
   multi_select: {
     type: "string[]",
@@ -49,19 +82,23 @@ const NOTION_PAGE_PROPERTIES = {
     options: (property) => property.multi_select.options?.map((option) => option.name)
       ?? property.multi_select.map((option) => option.name),
     convertToNotion: (property) => ({
-      multi_select: property.value.map((name) => ({
+      multi_select: utils.parseArray(property.value).map((name) => ({
         name,
       })),
     }),
   },
   date: {
     type: "string",
-    example: "2022-05-15T18:47:00.000Z",
+    example: "2022-05-15T18:47:00.000Z or { \"start\": \"2022-05-15T18:47:00.000Z\", \"end\": \"2022-06-15T18:47:00.000Z\" }",
     options: () => undefined,
     convertToNotion: (property) => ({
-      date: {
-        start: property.value,
-      },
+      date: !(typeof (property.value) === "string")
+        ? property.value
+        : property.value.trim().startsWith("{")
+          ? JSON.parse(property.value)
+          : {
+            start: property.value,
+          },
     }),
   },
   people: {
@@ -69,7 +106,7 @@ const NOTION_PAGE_PROPERTIES = {
     example: "[\"16799fa1-f1f7-437e-8a12-5eb2eedc1b05\"]",
     options: () => undefined,
     convertToNotion: (property) => ({
-      people: property.value.map((id) => ({
+      people: utils.parseArray(property.value).map((id) => ({
         id,
       })),
     }),
@@ -79,7 +116,7 @@ const NOTION_PAGE_PROPERTIES = {
     example: "[\"https://site.com/image1.png\", \"https://site.com/image2.png\"]",
     options: () => undefined,
     convertToNotion: (property) => ({
-      files: property.value.map((url) => ({
+      files: utils.parseArray(property.value).map((url) => ({
         name: url.slice(0, 99),
         type: "external",
         external: {
@@ -92,39 +129,56 @@ const NOTION_PAGE_PROPERTIES = {
     type: "boolean",
     options: () => undefined,
     convertToNotion: (property) => ({
-      checkbox: property.value,
+      checkbox: !property.value || property.value === "false"
+        ? false
+        : true,
     }),
   },
   url: {
     type: "string",
     example: "https://pipedream.com",
     options: () => undefined,
-    convertToNotion: (property) => ({
-      url: property.value,
-    }),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        url: property.value,
+      };
+    },
   },
   email: {
     type: "string",
     example: "example@pipedream.com",
     options: () => undefined,
-    convertToNotion: (property) => ({
-      email: property.value,
-    }),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        email: property.value,
+      };
+    },
   },
   phone_number: {
     type: "string",
     example: "999-999-9999",
     options: () => undefined,
-    convertToNotion: (property) => ({
-      phone_number: property.value,
-    }),
+    convertToNotion: (property) => {
+      if (typeof property.value !== "string") {
+        throw new Error;
+      }
+      return {
+        phone_number: property.value,
+      };
+    },
   },
   relation: {
     type: "string[]",
     example: "[\"cd11c7df-d793-49cf-9501-70c7ba59950d\", \"532c3f83-51c0-4789-b53c-f05461582f73\"]",
     options: () => undefined,
     convertToNotion: (property) => ({
-      relation: property.value.map((id) => ({
+      relation: utils.parseArray(property.value).map((id) => ({
         id,
       })),
     }),

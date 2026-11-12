@@ -1,23 +1,27 @@
-import webflow from "../../webflow.app.mjs";
+import app from "../../webflow.app.mjs";
 
 export default {
   key: "webflow-delete-collection-item",
   name: "Delete Collection Item",
-  description: "Delete Item of a Collection. [See the docs here](https://developers.webflow.com/#remove-collection-item)",
-  version: "0.0.1",
+  description: "Delete Item of a Collection. [See the documentation](https://developers.webflow.com/data/reference/cms/collection-items/staged-items/delete-item)",
+  version: "2.0.1",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    webflow,
+    app,
     siteId: {
       propDefinition: [
-        webflow,
+        app,
         "sites",
       ],
-      optional: true,
     },
     collectionId: {
       propDefinition: [
-        webflow,
+        app,
         "collections",
         (c) => ({
           siteId: c.siteId,
@@ -26,7 +30,7 @@ export default {
     },
     itemId: {
       propDefinition: [
-        webflow,
+        app,
         "items",
         (c) => ({
           collectionId: c.collectionId,
@@ -35,12 +39,10 @@ export default {
     },
   },
   async run({ $ }) {
-    const webflow = this.webflow._createApiClient();
-
-    const response = await webflow.removeItem({
-      collectionId: this.collectionId,
-      itemId: this.itemId,
-    });
+    const {
+      collectionId, itemId,
+    } = this;
+    const response = await this.app.deleteCollectionItem(collectionId, itemId);
 
     $.export("$summary", "Successfully deleted item");
 

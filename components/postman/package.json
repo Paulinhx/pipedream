@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/postman",
+  "version": "0.3.0",
+  "description": "Pipedream Postman Components",
+  "main": "postman.app.mjs",
+  "keywords": [
+    "pipedream",
+    "postman"
+  ],
+  "homepage": "https://pipedream.com/apps/postman",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8"
+  }
+}

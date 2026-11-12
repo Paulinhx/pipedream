@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/sellix",
+  "version": "0.0.5",
+  "description": "Pipedream Sellix Components",
+  "main": "sellix.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sellix"
+  ],
+  "homepage": "https://pipedream.com/apps/sellix",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

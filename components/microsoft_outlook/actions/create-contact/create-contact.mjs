@@ -3,9 +3,14 @@ import microsoftOutlook from "../../microsoft_outlook.app.mjs";
 export default {
   type: "action",
   key: "microsoft_outlook-create-contact",
-  version: "0.0.1",
+  version: "0.0.34",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   name: "Create Contact",
-  description: "Add a contact to the root Contacts folder, [See the docs](https://docs.microsoft.com/en-us/graph/api/user-post-contacts)",
+  description: "Add a contact to the root Contacts folder, [See the documentation](https://docs.microsoft.com/en-us/graph/api/user-post-contacts)",
   props: {
     microsoftOutlook,
     givenName: {

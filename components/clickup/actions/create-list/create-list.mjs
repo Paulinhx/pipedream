@@ -1,15 +1,25 @@
 import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
 import constants from "../common/constants.mjs";
 
 export default {
   key: "clickup-create-list",
   name: "Create List",
-  description: "Creates a new list. See the docs [here](https://clickup.com/api) in **Lists  / Create List** section.",
-  version: "0.0.6",
+  description: "Creates a new list. [See the documentation](https://clickup.com/api) in **Lists / Create List** section.",
+  version: "0.0.17",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    ...common.props,
+    clickup,
+    workspaceId: {
+      propDefinition: [
+        clickup,
+        "workspaces",
+      ],
+    },
     spaceId: {
       propDefinition: [
         clickup,

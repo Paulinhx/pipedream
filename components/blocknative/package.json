@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/blocknative",
+  "version": "0.2.0",
+  "description": "Pipedream Blocknative Components",
+  "main": "blocknative.app.mjs",
+  "keywords": [
+    "pipedream",
+    "blocknative"
+  ],
+  "homepage": "https://pipedream.com/apps/blocknative",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

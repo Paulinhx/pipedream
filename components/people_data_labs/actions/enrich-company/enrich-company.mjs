@@ -4,8 +4,14 @@ export default {
   key: "people_data_labs-enrich-company",
   name: "Enrich a company",
   description: "The Company Enrichment API provides a one-to-one match, retrieving up-to-date information on a unique company. [See the docs here](https://docs.peopledatalabs.com/docs/reference-company-enrichment-api)",
-  version: "0.0.2",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     app,
     name: {
@@ -104,11 +110,14 @@ export default {
       min_likelihood: this.minLikelihood,
     };
 
-    const res = await this.app.enrichCompany(params);
+    const res = await this.app.enrichCompany({
+      $,
+      params,
+    });
     if (!res) {
-      $.export("summary", "No results found");
+      $.export("$summary", "No results found");
     } else {
-      $.export("summary", "Successfully enriched a company");
+      $.export("$summary", "Successfully enriched a company");
     }
     return res;
   },

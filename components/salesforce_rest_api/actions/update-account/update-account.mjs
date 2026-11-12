@@ -1,59 +1,71 @@
-import salesforce from "../../salesforce_rest_api.app.mjs";
+import common, { getProps } from "../common/base-create-update.mjs";
 import account from "../../common/sobjects/account.mjs";
-import {
-  pickBy, pick,
-} from "lodash-es";
-import { toSingleLineString } from "../../common/utils.mjs";
+import salesforce from "../../salesforce_rest_api.app.mjs";
+import { docsLink } from "../create-account/create-account.mjs";
+
+/* eslint-disable no-unused-vars */
+const {
+  salesforce: _sf, ...props
+} = getProps({
+  createOrUpdate: "update",
+  objType: account,
+  docsLink,
+});
+/* eslint-enable no-unused-vars */
 
 export default {
+  ...common,
   key: "salesforce_rest_api-update-account",
   name: "Update Account",
-  description: toSingleLineString(`
-    Updates a Salesforce account, representing an individual account,
-    which is an organization or person involved with your business (such as customers, competitors, and partners).
-    See [Account SObject](https://developer.salesforce.com/docs/atlas.en-us.228.0.object_reference.meta/object_reference/sforce_api_objects_account.htm)
-    and [Update Record](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_update_fields.htm)
-  `),
-  version: "0.2.2",
+  description: "Update fields on an existing Salesforce account."
+    + " Only the fields you supply change; everything else is left as-is."
+    + " Use **Find Records** on `Account` to get the record ID first."
+    + " "
+    + `[See the documentation](${docsLink})`,
+  version: "0.4.1",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
+  methods: {
+    ...common.methods,
+  },
   props: {
     salesforce,
-    AccountId: {
+    accountId: {
       type: "string",
       label: "Account ID",
-      description: "ID of the Account to modify.",
+      description: "The ID of the Account to update (Salesforce's 15- or 18-character record ID, e.g. `001XX000003DHP0`). Use **SOQL Query** to find the ID.",
     },
-    Name: {
-      type: "string",
-      label: "Name",
-      description: "Name of the account. Maximum size is 255 characters. If the account has a record type of Person Account:\nThis value is the concatenation of the FirstName, MiddleName, LastName, and Suffix of the associated person contact.",
-      optional: true,
-    },
-    selector: {
-      propDefinition: [
-        salesforce,
-        "fieldSelector",
-      ],
-      description: `${salesforce.propDefinitions.fieldSelector.description} Account`,
-      options: () => Object.keys(account),
-      reloadProps: true,
-    },
-  },
-  async additionalProps() {
-    return this.salesforce.additionalProps(this.selector, account);
+    ...props,
   },
   async run({ $ }) {
-    const data = pickBy(pick(this, [
-      "AccountId",
-      "Name",
-      ...this.selector,
-    ]));
-    const response = await this.salesforce.updateAccount({
+    /* eslint-disable no-unused-vars */
+    const {
+      salesforce,
+      getAdditionalFields,
+      formatDateTimeProps,
+      accountId,
+      docsInfo,
+      additionalFields,
+      ...data
+    } = this;
+    /* eslint-enable no-unused-vars */
+    const response = await salesforce.updateRecord("Account", {
       $,
-      id: this.AccountId,
-      data,
+      id: accountId,
+      data: {
+        ...data,
+        ...getAdditionalFields(),
+      },
     });
-    $.export("$summary", `Successfully updated account ${this.AccountId}`);
+    $.export(
+      "$summary",
+      `Successfully updated account (ID: ${this.accountId})`,
+    );
     return response;
   },
 };

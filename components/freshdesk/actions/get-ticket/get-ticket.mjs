@@ -3,23 +3,49 @@ import freshdesk from "../../freshdesk.app.mjs";
 export default {
   key: "freshdesk-get-ticket",
   name: "Get Ticket Details",
-  description: "Get a Ticket. [See docs here](https://developers.freshdesk.com/api/#tickets)",
-  version: "0.0.1",
+  description: "Get details of a Ticket. [See the documentation](https://developers.freshdesk.com/api/#view_a_ticket)",
+  version: "0.1.15",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     freshdesk,
-    id: {
-      type: "string",
-      label: "Ticket ID",
-      description: "Ticket ID.",
+    ticketId: {
+      propDefinition: [
+        freshdesk,
+        "ticketId",
+      ],
+    },
+    include: {
+      type: "string[]",
+      label: "Include",
+      description: "Include additional data in the response",
+      optional: true,
+      options: [
+        "conversations",
+        "requester",
+        "company",
+        "stats",
+      ],
     },
   },
   async run({ $ }) {
-    const response = await this.freshdesk.getTicket({
+    const {
+      freshdesk, ticketId, include,
+    } = this;
+    const response = await freshdesk.getTicket({
       $,
-      id: this.id,
+      ticketId,
+      params: include
+        ? {
+          include: include.join(","),
+        }
+        : undefined,
     });
-    response && $.export("$summary", "Successfully found ticket");
+    response && $.export("$summary", "Successfully retrieved ticket");
     return response;
   },
 };

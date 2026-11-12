@@ -1,28 +1,28 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/task-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-create-checklist",
   name: "Create Checklist",
-  description: "Creates a new checklist in a task. See the docs [here](https://clickup.com/api) in **Checklists  / Create Checklist** section.",
-  version: "0.0.1",
+  description: "Creates a new checklist in a task. [See the documentation](https://clickup.com/api) in **Checklists / Create Checklist** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
+    name: {
+      label: "Name",
+      type: "string",
+      description: "The name of checklist",
     },
     folderId: {
       propDefinition: [
-        clickup,
-        "folders",
+        common.props.clickup,
+        "folderId",
         (c) => ({
           spaceId: c.spaceId,
         }),
@@ -31,28 +31,24 @@ export default {
     },
     listId: {
       propDefinition: [
-        clickup,
-        "lists",
+        common.props.clickup,
+        "listId",
         (c) => ({
-          spaceId: c.spaceId,
           folderId: c.folderId,
+          spaceId: c.spaceId,
         }),
       ],
-      optional: true,
     },
     taskId: {
       propDefinition: [
-        clickup,
-        "tasks",
+        common.props.clickup,
+        "taskId",
         (c) => ({
           listId: c.listId,
+          useCustomTaskIds: c.useCustomTaskIds,
+          authorizedTeamId: c.authorizedTeamId,
         }),
       ],
-    },
-    name: {
-      label: "Name",
-      type: "string",
-      description: "The name of checklist",
     },
   },
   async run({ $ }) {
@@ -61,12 +57,18 @@ export default {
       name,
     } = this;
 
+    const params = this.clickup.getParamsForCustomTaskIdCall(
+      this.useCustomTaskIds,
+      this.authorizedTeamId,
+    );
+
     const response = await this.clickup.createChecklist({
       $,
       taskId,
       data: {
         name,
       },
+      params,
     });
 
     $.export("$summary", "Successfully created checklist");

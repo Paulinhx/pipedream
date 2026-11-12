@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/mailcoach",
+  "version": "0.0.3",
+  "description": "Pipedream Mailcoach Components",
+  "main": "mailcoach.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mailcoach"
+  ],
+  "homepage": "https://pipedream.com/apps/mailcoach",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

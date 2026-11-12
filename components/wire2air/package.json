@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/wire2air",
+  "version": "0.0.3",
+  "description": "Pipedream Wire2Air Components",
+  "main": "wire2air.app.mjs",
+  "keywords": [
+    "pipedream",
+    "wire2air"
+  ],
+  "homepage": "https://pipedream.com/apps/wire2air",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

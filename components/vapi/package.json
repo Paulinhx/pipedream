@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/vapi",
+  "version": "0.4.2",
+  "description": "Pipedream Vapi Components",
+  "main": "vapi.app.mjs",
+  "keywords": [
+    "pipedream",
+    "vapi"
+  ],
+  "homepage": "https://pipedream.com/apps/vapi",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "form-data": "^4.0.4"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/bart",
+  "version": "0.0.4",
+  "description": "Pipedream BART Components",
+  "main": "bart.app.mjs",
+  "keywords": [
+    "pipedream",
+    "bart"
+  ],
+  "homepage": "https://pipedream.com/apps/bart",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

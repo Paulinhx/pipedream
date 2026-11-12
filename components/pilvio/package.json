@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/pilvio",
+  "version": "0.0.3",
+  "description": "Pipedream Pilvio Components",
+  "main": "pilvio.app.mjs",
+  "keywords": [
+    "pipedream",
+    "pilvio"
+  ],
+  "homepage": "https://pipedream.com/apps/pilvio",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

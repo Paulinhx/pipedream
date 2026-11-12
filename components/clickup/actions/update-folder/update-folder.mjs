@@ -1,33 +1,19 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/folder-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-update-folder",
   name: "Update Folder",
-  description: "Update a folder. See the docs [here](https://clickup.com/api) in **Folders  / Update Folder** section.",
-  version: "0.0.1",
+  description: "Update a folder. [See the documentation](https://clickup.com/api) in **Folders / Update Folder** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
-    folderId: {
-      propDefinition: [
-        clickup,
-        "folders",
-        (c) => ({
-          spaceId: c.spaceId,
-        }),
-      ],
-    },
     name: {
       label: "Name",
       type: "string",

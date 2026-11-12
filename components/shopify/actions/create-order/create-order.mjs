@@ -1,145 +1,105 @@
+import { ConfigurationError } from "@pipedream/platform";
 import shopify from "../../shopify.app.mjs";
-import { toSingleLineString } from "../commons.mjs";
+import { ORDER_CREATE_INVENTORY_BEHAVIORS } from "../../common/constants.mjs";
 
 export default {
   key: "shopify-create-order",
   name: "Create Order",
-  description: toSingleLineString(`Creates a new order.
-    For full order object details [see the docs](https://shopify.dev/api/admin-rest/2022-01/resources/order#[post]/admin/api/2022-01/orders.json)
-    or [see examples](https://shopify.dev/api/admin-rest/2022-01/resources/order#[post]/admin/api/#{api_version}/orders.json_examples)
-  `),
-  version: "0.0.1",
+  description: "Creates a new order. [See the documentation](https://shopify.dev/docs/api/admin-graphql/latest/mutations/orderCreate).",
+  version: "1.0.0",
   type: "action",
+  ai: "optimized",
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    openWorldHint: true,
+  },
   props: {
     shopify,
     lineItems: {
-      type: "string[]",
+      type: "string",
       label: "Line Items",
-      description: toSingleLineString(`
-        A list of line item objects, each containing information about an item in the order.
-        Example: \`{ "variant_id": 447654529, "quantity": 1, "price": 2.50, "name": "Name", "title": "Title" }\`.
-        More details when searching **line_items** in [Shopify Order Object](https://shopify.dev/api/admin-rest/2022-01/resources/order#resource_object)
-      `),
+      description: "JSON array of line items for the order. Each item accepts `variantId` (GID) and `quantity`, plus optional `title`, `priceSet`, and `taxLines`. Example: `[{\"variantId\": \"gid://shopify/ProductVariant/123456789\", \"quantity\": 1}]`. Retrieve variant GIDs via the **Search for Product Variant** action.",
     },
-    customerId: {
-      propDefinition: [
-        shopify,
-        "customerId",
-      ],
-      optional: true,
-    },
-    billingAddress: {
-      type: "object",
-      label: "Billing Address",
-      description: toSingleLineString(`
-        The mailing address associated with the payment method.
-        More details when searching **billing_address** in [Shopify Order Object](https://shopify.dev/api/admin-rest/2022-01/resources/order#resource_object)
-      `),
-      optional: true,
-    },
-    shippingAddress: {
-      type: "object",
-      label: "Shipping Address",
-      description: toSingleLineString(`
-        The mailing address to where the order will be shipped.
-        More details when searching **billing_address** in [Shopify Order Object](https://shopify.dev/api/admin-rest/2022-01/resources/order#resource_object)
-      `),
-      optional: true,
-    },
-    financialStatus: {
+    email: {
       type: "string",
-      label: "Financial Status",
-      description: "The status of payments associated with the order. Can only be set when the order is created",
-      options: [
-        "pending",
-        "authorized",
-        "partially_paid",
-        "paid",
-        "partially_refunded",
-        "refunded",
-        "voided",
-      ],
-      optional: true,
-    },
-    discountCode: {
-      type: "object",
-      label: "Discount Code",
-      description: toSingleLineString(`
-        A discount applied to the order.
-        Example: \`{ "code": "SPRING30", "type": "fixed_amount", "amount": "30.00" }\`.
-        More details when searching **discount_codes** in [Shopify Order Object](https://shopify.dev/api/admin-rest/2022-01/resources/order#resource_object)
-      `),
-      optional: true,
-    },
-    fulfillments: {
-      type: "string[]",
-      label: "Fulfillments",
-      description: "An array of fulfillments associated with the order. For more information, see the [Fulfillment API](https://shopify.dev/api/admin-rest/2022-01/resources/fulfillment)",
-      optional: true,
-    },
-    fulfillmentStatus: {
-      type: "string",
-      label: "Fulfillment Status",
-      description: "The order's status in terms of fulfilled line items",
-      options: [
-        "fulfilled",
-        "null",
-        "partial",
-        "restocked",
-      ],
-      optional: true,
-    },
-    sendReceipt: {
-      type: "boolean",
-      label: "Send Receipt",
-      description: "Whether to send an order confirmation to the customer",
-      optional: true,
-    },
-    sendFulfillmentReceipt: {
-      type: "boolean",
-      label: "Send Fulfillment Receipt",
-      description: "Whether to send a shipping confirmation to the customer",
-      optional: true,
-    },
-    taxLines: {
-      type: "string[]",
-      label: "Tax Lines",
-      description: toSingleLineString(`
-        An array of tax line objects, each of which details a tax applicable to the order.
-        Example: \`[ { "rate": 0.06, "price": 11.94, "title": "State Tax", "channel_liable": true } ]\`.
-        More details when searching **tax_lines** in [Shopify Order Object](https://shopify.dev/api/admin-rest/2022-01/resources/order#resource_object)
-      `),
+      label: "Email",
+      description: "Customer email for the order (e.g. `customer@example.com`).",
       optional: true,
     },
     currency: {
       type: "string",
       label: "Currency",
-      description: "The three-letter code ([ISO 4217](https://en.wikipedia.org/wiki/ISO_4217) format) for the shop currency",
+      description: "ISO 4217 currency code for the order (e.g. `USD`).",
+      optional: true,
+    },
+    tags: {
+      type: "string",
+      label: "Tags",
+      description: "Comma-separated tags to apply to the order (e.g. `vip,priority`).",
+      optional: true,
+    },
+    inventoryBehaviour: {
+      type: "string",
+      label: "Inventory Behaviour",
+      description: "How inventory is claimed for the order. One of `BYPASS` (do not claim inventory), `DECREMENT_IGNORING_POLICY` (claim inventory, ignoring the variant's inventory policy), or `DECREMENT_OBEYING_POLICY` (claim inventory, obeying the variant's inventory policy). Defaults to `BYPASS`.",
+      options: ORDER_CREATE_INVENTORY_BEHAVIORS,
+      optional: true,
+      default: "BYPASS",
+    },
+    sendReceipt: {
+      type: "boolean",
+      label: "Send Receipt",
+      description: "Whether to send an order confirmation to the customer.",
+      optional: true,
+    },
+    sendFulfillmentReceipt: {
+      type: "boolean",
+      label: "Send Fulfillment Receipt",
+      description: "Whether to send a shipping confirmation to the customer.",
+      optional: true,
+    },
+    additionalOrderFields: {
+      type: "object",
+      label: "Additional Order Fields",
+      description: "JSON object of additional fields (e.g. `customer`, `billingAddress`, `shippingAddress`, `transactions`, `note`). Example: `{\"note\": \"Rush order\"}`.",
       optional: true,
     },
   },
   async run({ $ }) {
-    let data = {
-      line_items: this.shopify.parseArrayOfJSONStrings(this.lineItems),
-      billing_address: this.shopify.parseJSONStringObjects(this.billingAddress),
-      shipping_address: this.shopify.parseJSONStringObjects(this.shippingAddress),
-      financial_status: this.financialStatus,
-      discount_codes: [
-        this.shopify.parseJSONStringObjects(this.discountCode),
-      ],
-      fulfillments: this.shopify.parseArrayOfJSONStrings(this.fulfillments),
-      fulfillment_status: this.fulfillmentStatus,
-      send_receipt: this.sendReceipt,
-      send_fulfillment_receipt: this.sendFulfillmentReceipt,
-      tax_lines: this.shopify.parseArrayOfJSONStrings(this.taxLines),
+    let lineItems;
+    try {
+      lineItems = JSON.parse(this.lineItems);
+    } catch (err) {
+      throw new ConfigurationError("`Line Items` must be valid JSON. " + err.message);
+    }
+    const tags = this.tags
+      ? this.tags.split(",").map((t) => t.trim())
+      : undefined;
+
+    const order = {
+      ...(this.additionalOrderFields || {}),
+      lineItems,
+      email: this.email,
       currency: this.currency,
-      customer: {
-        id: this.customerId,
-      },
+      tags,
     };
 
-    let response = (await this.shopify.createOrder(data)).result;
-    $.export("$summary", `Created new order with id \`${response.id}\``);
+    const response = await this.shopify.createOrder({
+      order,
+      options: {
+        inventoryBehaviour: this.inventoryBehaviour,
+        sendReceipt: this.sendReceipt,
+        sendFulfillmentReceipt: this.sendFulfillmentReceipt,
+      },
+    });
+
+    if (response.orderCreate?.userErrors?.length > 0) {
+      throw new Error(response.orderCreate.userErrors.map(({ message }) => message).join(", "));
+    }
+
+    const { order: createdOrder } = response.orderCreate ?? {};
+    $.export("$summary", `Created order \`${createdOrder?.name}\` with id \`${createdOrder?.id}\``);
     return response;
   },
 };

@@ -1,8 +1,5 @@
+import { axios } from "@pipedream/platform";
 import constants from "./common/constants.mjs";
-import {
-  axios, ConfigurationError,
-} from "@pipedream/platform";
-import retry from "async-retry";
 
 export default {
   type: "app",
@@ -11,19 +8,80 @@ export default {
     companyId: {
       type: "integer",
       label: "Company ID",
-      description: "The ID of the company",
+      description: "Select a company or provide a company ID",
       async options() {
         const response = await this.getCompanies();
-        return response.map((project) => ({
-          label: project.name,
-          value: project.id,
+        return response.map(({
+          id, name,
+        }) => ({
+          label: name || id,
+          value: id,
+        }));
+      },
+    },
+    ticketId: {
+      type: "integer",
+      label: "Ticket ID",
+      description: "Select a ticket or provide a ticket ID",
+      async options({ page = 0 }) {
+        const response = await this.listTickets({
+          params: {
+            page: page + 1,
+          },
+        });
+        return response.map(({
+          id, subject,
+        }) => ({
+          label: subject || id,
+          value: id,
+        }));
+      },
+    },
+    agentId: {
+      type: "integer",
+      label: "Agent",
+      description: "Select an agent to assign the ticket to",
+      async options({ page = 0 }) {
+        const response = await this._makeRequest({
+          method: "GET",
+          url: "/agents",
+          params: {
+            page: page + 1,
+          },
+        });
+
+        return response.map((agent) => ({
+          label: agent.contact?.name
+            ? `${agent.contact.name} (${agent.contact.email || "No email"})`
+            : `Agent ${agent.id}`,
+          value: agent.id,
+        }));
+      },
+    },
+    groupId: {
+      type: "integer",
+      label: "Group",
+      description: "Select a group to assign the ticket to.",
+      async options({ page = 0 }) {
+        const groups = await this._makeRequest({
+          method: "GET",
+          url: "/groups",
+          params: {
+            page: page + 1,
+            per_page: 100,
+          },
+        });
+
+        return groups.map((group) => ({
+          label: group.name || `Group ${group.id}`,
+          value: group.id,
         }));
       },
     },
     ticketStatus: {
       type: "integer",
       label: "Status",
-      description: "Status of the ticket.",
+      description: "Status of the ticket",
       options() {
         return constants.TICKET_STATUS;
       },
@@ -31,7 +89,7 @@ export default {
     ticketPriority: {
       type: "integer",
       label: "Priority",
-      description: "Priority of the ticket.",
+      description: "Priority of the ticket",
       options() {
         return constants.TICKET_PRIORITY;
       },
@@ -39,13 +97,227 @@ export default {
     contactEmail: {
       type: "string",
       label: "Email",
-      description: "Contact Email.",
+      description: "Select a contact or provide a contact's email",
       async options({ companyId }) {
-        const response = await this.getCompanies();
-        const contacts = response.filter((contact) => contact.company_id === Number(companyId));
-        return contacts.map((contact) => ({
-          label: contact?.email ?? contact?.name,
-          value: contact.email,
+        const contacts = await this.getContacts({
+          params: {
+            company_id: companyId,
+          },
+        });
+        return contacts
+          .filter(({ email }) => email)
+          .map(({
+            email, name,
+          }) => ({
+            label: name || email,
+            value: email,
+          }));
+      },
+    },
+    contactId: {
+      type: "string",
+      label: "Contact ID",
+      description: "The ID of a contact",
+      async options({
+        companyId, page,
+      }) {
+        const contacts = await this.getContacts({
+          params: {
+            company_id: companyId,
+            page: page + 1,
+          },
+        });
+        return contacts
+          .map(({
+            id, name, email,
+          }) => ({
+            label: name || email,
+            value: id,
+          }));
+      },
+    },
+    ticketFieldId: {
+      type: "string",
+      label: "Ticket Field ID",
+      description: "The ID of a ticket field",
+      async options({ page }) {
+        const fields = await this.listTicketFields({
+          params: {
+            page: page + 1,
+          },
+        });
+        return fields.map(({
+          id, label,
+        }) => ({
+          label: label || id,
+          value: id,
+        }));
+      },
+    },
+    skillIds: {
+      type: "string[]",
+      label: "Skill IDs",
+      description: "Array of skill IDs",
+      optional: true,
+      async options({ page }) {
+        const skills = await this.listSkills({
+          params: {
+            page: page + 1,
+          },
+        });
+        return skills.map(({
+          id, name,
+        }) => ({
+          label: name || id,
+          value: id,
+        }));
+      },
+    },
+    roleIds: {
+      type: "string[]",
+      label: "Role IDs",
+      description: "Array of role IDs",
+      optional: true,
+      async options() {
+        const roles = await this.listRoles();
+        return roles.map(({
+          id, name,
+        }) => ({
+          label: name || id,
+          value: id,
+        }));
+      },
+    },
+    categoryId: {
+      type: "integer",
+      label: "Category ID",
+      description: "The ID of a category",
+      async options() {
+        const categories = await this.listSolutionCategories();
+        return categories.map(({
+          id, name,
+        }) => ({
+          label: name || id,
+          value: id,
+        }));
+      },
+    },
+    folderId: {
+      type: "integer",
+      label: "Folder ID",
+      description: "The ID of a folder",
+      async options({ categoryId }) {
+        const folders = await this.listCategoryFolders({
+          categoryId,
+        });
+        return folders.map(({
+          id, name,
+        }) => ({
+          label: name || id,
+          value: id,
+        }));
+      },
+    },
+    articleId: {
+      type: "integer",
+      label: "Article ID",
+      description: "The ID of an article",
+      async options({
+        page, folderId,
+      }) {
+        const articles = await this.listFolderArticles({
+          folderId,
+          params: {
+            page: page + 1,
+          },
+        });
+        return articles.map(({
+          id, title,
+        }) => ({
+          label: title || id,
+          value: id,
+        }));
+      },
+    },
+    maxResults: {
+      type: "integer",
+      label: "Max Results",
+      description: "The maximum number of results to return",
+      default: 100,
+      optional: true,
+    },
+    ticketTags: {
+      type: "string[]",
+      label: "Tags",
+      description: "Array of tags to apply to the ticket. Each tag must be 32 characters or less.",
+      optional: true,
+    },
+    fromEmail: {
+      type: "string",
+      label: "From Email",
+      description: "The email address from which the reply is sent. By default the global support email will be used.",
+      withLabel: true,
+      async options() {
+        const response = await this.listEmailConfigs();
+        return response.map(({
+          id, to_email: email,
+        }) => ({
+          label: email,
+          value: id,
+        }));
+      },
+    },
+    threadId: {
+      type: "string",
+      label: "Thread ID",
+      description: "ID of the thread to create the message for.",
+      async options({ ticketId }) {
+        const { threads } = await this.listThreads({
+          params: {
+            parent_id: ticketId,
+            parent_type: "ticket",
+          },
+        });
+        return threads.map(({ id }) => id);
+      },
+    },
+    cannedResponseFolderId: {
+      type: "integer",
+      label: "Canned Response Folder ID",
+      description: "The ID of a canned response folder",
+      async options({ page = 0 }) {
+        const folders = await this.listCannedResponseFolders({
+          params: {
+            page: page + 1,
+          },
+        });
+        return folders.map(({
+          id, name,
+        }) => ({
+          label: name || id,
+          value: id,
+        }));
+      },
+    },
+    cannedResponseId: {
+      type: "integer",
+      label: "Canned Response ID",
+      description: "The ID of a canned response",
+      async options({
+        page = 0,
+        cannedResponseFolderId,
+      }) {
+        const { canned_responses: responses } = await this.listCannedResponses({
+          cannedResponseFolderId,
+          params: {
+            page: page + 1,
+          },
+        });
+        return responses.map(({
+          id, title,
+        }) => ({
+          label: title || id,
+          value: id,
         }));
       },
     },
@@ -60,70 +332,44 @@ export default {
     base64Encode(data) {
       return Buffer.from(data).toString("base64");
     },
-    _getHeaders() {
+    _getHeaders(headers = {}, includeContentType = true) {
       return {
         "Authorization": "Basic " + this.base64Encode(this.$auth.api_key + ":X"),
-        "Content-Type": "application/json;charset=utf-8",
+        ...(includeContentType && {
+          "Content-Type": "application/json;charset=utf-8",
+        }),
+        ...headers,
       };
     },
-    _getUrl(path) {
-      const {
-        HTTP_PROTOCOL,
-        BASE_PATH,
-        VERSION_PATH,
-      } = constants;
-      return `${HTTP_PROTOCOL}${this.$auth.domain}${BASE_PATH}${VERSION_PATH}${path}`;
+    _getDomain() {
+      const { domain } = this.$auth;
+      return domain.includes("freshdesk.com")
+        ? domain
+        : `${domain}.freshdesk.com`;
     },
-    async _makeRequest(args = {}) {
-      const {
-        $,
-        method = "get",
-        path,
-        params,
-        data,
-      } = args;
-      const config = {
+    _makeRequest({
+      $ = this, method = "GET", headers, ...args
+    }) {
+      const hasBody = [
+        "POST",
+        "PUT",
+        "PATCH",
+      ].includes(method.toUpperCase());
+      return axios($, {
+        baseURL: `https://${this._getDomain()}/api/v2`,
+        headers: this._getHeaders(headers, hasBody),
         method,
-        url: this._getUrl(path),
-        headers: this._getHeaders(),
-        params,
-        data,
-      };
-
-      return axios($ ?? this, config);
-    },
-    _isRetriableStatusCode(statusCode) {
-      constants.retriableStatusCodes.includes(statusCode);
-    },
-    async _withRetries(apiCall) {
-      const retryOpts = {
-        retries: 5,
-        factor: 2,
-      };
-      return retry(async (bail) => {
-        try {
-          const data = await apiCall();
-
-          return data;
-        } catch (err) {
-
-          const { status = 500 } = err;
-          if (!this._isRetriableStatusCode(status)) {
-            bail(`
-              Unexpected error (status code: ${status}):
-              ${JSON.stringify(err.response)}
-            `);
-          }
-          throw new ConfigurationError("Could not get data");
-        }
-      }, retryOpts);
+        ...args,
+      });
     },
     async *filterTickets(params) {
       let loadedData = 0;
       do {
-        const response = await this.searchTickets(params);
+        const response = await this.searchTickets({
+          params,
+        });
 
-        if (!response || response.results.length === 0) {
+        if (!response?.results?.length) {
           return;
         }
         loadedData += response.results.length;
@@ -139,9 +385,11 @@ export default {
     async *filterContacts(params) {
       let loadedData = 0;
       do {
-        const response = await this.searchContacts(params);
+        const response = await this.searchContacts({
+          params,
+        });
 
-        if (!response || response.results.length === 0) {
+        if (!response?.results?.length) {
           return;
         }
         loadedData += response.results.length;
@@ -154,68 +402,503 @@ export default {
         params.page += 1;
       } while (true);
     },
-    async createCompany({
-      $, payload: data,
-    }) {
+    createCompany(args) {
       return this._makeRequest({
-        $,
-        path: "/companies",
-        data,
+        url: "/companies",
         method: "post",
+        ...args,
       });
     },
-    async getCompanies($ = undefined) {
+    getCompanies(args) {
       return this._makeRequest({
-        $,
-        path: "/contacts",
+        url: "/companies",
+        ...args,
       });
     },
-    async getContacts($ = undefined) {
-      return this._makeRequest({
-        $,
-        path: "/companies",
-      });
-    },
-    async createContact({
-      $, data,
+    getContact({
+      contactId, ...args
     }) {
       return this._makeRequest({
-        $,
-        path: "/contacts",
-        data,
+        url: `/contacts/${contactId}`,
+        ...args,
+      });
+    },
+    getContacts(args) {
+      return this._makeRequest({
+        url: "/contacts",
+        ...args,
+      });
+    },
+    createContact(args) {
+      return this._makeRequest({
+        url: "/contacts",
         method: "post",
+        ...args,
       });
     },
-    async createTicket({
-      $, data,
+    updateContact({
+      contactId, ...args
     }) {
       return this._makeRequest({
-        $,
-        path: "/tickets",
-        data,
+        url: `/contacts/${contactId}`,
+        method: "put",
+        ...args,
+      });
+    },
+    createTicket(args) {
+      return this._makeRequest({
+        url: "/tickets",
         method: "post",
+        ...args,
       });
     },
-    async getTicket({
-      $, id,
+    getTicket({
+      ticketId, ...args
     }) {
       return this._makeRequest({
-        $,
-        path: `/tickets/${id}`,
+        url: `/tickets/${ticketId}`,
+        ...args,
       });
     },
-    async searchTickets(params, $ = undefined) {
+    /**
+     * Delete a Freshdesk ticket. This is a soft delete; the ticket can be
+     * restored via the Restore Ticket API.
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ID of the ticket to delete
+     * @returns {Promise<object>} Empty response body (204 No Content)
+     */
+    deleteTicket({
+      ticketId, ...args
+    }) {
       return this._makeRequest({
-        $,
-        path: "/search/tickets",
-        params,
+        url: `/tickets/${ticketId}`,
+        method: "DELETE",
+        ...args,
       });
     },
-    async searchContacts(params, $ = undefined) {
+    /**
+     * Get the summary note for a Freshdesk ticket
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ticket ID
+     * @returns {Promise<object>} API response
+     */
+    getTicketSummary({
+      ticketId, ...args
+    }) {
       return this._makeRequest({
-        $,
-        path: "/search/contacts",
-        params,
+        url: `/tickets/${ticketId}/summary`,
+        ...args,
+      });
+    },
+    /**
+     * Create or update the summary note for a Freshdesk ticket
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ticket ID
+     * @returns {Promise<object>} API response
+     */
+    updateTicketSummary({
+      ticketId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/tickets/${ticketId}/summary`,
+        method: "PUT",
+        ...args,
+      });
+    },
+    /**
+     * Delete the summary note for a Freshdesk ticket
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ticket ID
+     * @returns {Promise<object>} API response
+     */
+    deleteTicketSummary({
+      ticketId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/tickets/${ticketId}/summary`,
+        method: "DELETE",
+        ...args,
+      });
+    },
+    searchTickets(args) {
+      return this._makeRequest({
+        url: "/search/tickets",
+        ...args,
+      });
+    },
+    searchContacts(args) {
+      return this._makeRequest({
+        url: "/search/contacts",
+        ...args,
+      });
+    },
+    listTicketFields(args) {
+      return this._makeRequest({
+        url: "/ticket_fields",
+        ...args,
+      });
+    },
+    createTicketField(args) {
+      return this._makeRequest({
+        url: "/admin/ticket_fields",
+        method: "post",
+        ...args,
+      });
+    },
+    updateTicketField({
+      ticketFieldId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/admin/ticket_fields/${ticketFieldId}`,
+        method: "put",
+        ...args,
+      });
+    },
+    listAgents(args) {
+      return this._makeRequest({
+        url: "/agents",
+        ...args,
+      });
+    },
+    getAgent({
+      agentId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/agents/${agentId}`,
+        ...args,
+      });
+    },
+    createAgent(args) {
+      return this._makeRequest({
+        url: "/agents",
+        method: "post",
+        ...args,
+      });
+    },
+    updateAgent({
+      agentId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/agents/${agentId}`,
+        method: "put",
+        ...args,
+      });
+    },
+    listSkills(args) {
+      return this._makeRequest({
+        url: "/admin/skills",
+        ...args,
+      });
+    },
+    listRoles(args) {
+      return this._makeRequest({
+        url: "/roles",
+        ...args,
+      });
+    },
+    listSolutionCategories(args) {
+      return this._makeRequest({
+        url: "/solutions/categories",
+        ...args,
+      });
+    },
+    listCategoryFolders({
+      categoryId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/solutions/categories/${categoryId}/folders`,
+        ...args,
+      });
+    },
+    listFolderArticles({
+      folderId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/solutions/folders/${folderId}/articles`,
+        ...args,
+      });
+    },
+    getArticle({
+      articleId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/solutions/articles/${articleId}`,
+        ...args,
+      });
+    },
+    createArticle({
+      folderId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/solutions/folders/${folderId}/articles`,
+        method: "post",
+        ...args,
+      });
+    },
+    updateArticle({
+      articleId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/solutions/articles/${articleId}`,
+        method: "put",
+        ...args,
+      });
+    },
+    deleteArticle({
+      articleId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/solutions/articles/${articleId}`,
+        method: "delete",
+        ...args,
+      });
+    },
+    listTickets(args) {
+      return this._makeRequest({
+        url: "/tickets",
+        ...args,
+      });
+    },
+    async getTicketName(ticketId) {
+      try {
+        const ticket = await this.getTicket({
+          ticketId,
+        });
+        return ticket.subject;
+      } catch (error) {
+        if (error.response?.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    parseIfJSONString(input) {
+      if (typeof input === "string") {
+        try {
+          return JSON.parse(input);
+        } catch (error) {
+          return input;
+        }
+      }
+      return input;
+    },
+    /**
+     * Add a note to a Freshdesk ticket
+     * @param {Object} options - The options object
+     * @param {number} options.ticketId - The ID of the ticket to add the note to
+     * @param {Object} options.data - The note data object
+     * @param {string} options.data.body - Content of the note in HTML format
+     * @param {boolean} [options.data.private=false] - Whether the note is private
+     * @param {boolean} [options.data.incoming] - Whether the note is incoming
+     * @param {number} [options.data.user_id] - ID of the user creating the note
+     * @param {string[]} [options.data.notify_emails] - Array of email addresses to notify
+     * @param {...*} args - Additional arguments passed to _makeRequest
+     * @returns {Promise<Object>} The API response containing the created note
+     */
+    addNoteToTicket({
+      ticketId, data, ...args
+    }) {
+      return this._makeRequest({
+        url: `/tickets/${ticketId}/notes`,
+        method: "post",
+        data,
+        ...args,
+      });
+    },
+    /**
+     * Set tags on a ticket (replaces all existing tags)
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ticket ID
+     * @param {string[]} args.tags - Array of tags to set
+     * @returns {Promise<object>} API response
+     */
+    setTicketTags({
+      ticketId, tags, ...args
+    }) {
+      return this._makeRequest({
+        url: `/tickets/${ticketId}`,
+        method: "PUT",
+        data: {
+          tags,
+        },
+        ...args,
+      });
+    },
+    /**
+     * Add tags to a ticket (appends to existing tags)
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ticket ID
+     * @param {string[]} args.tags - Array of tags to add
+     * @returns {Promise<object>} API response
+     */
+    async addTicketTags({
+      ticketId, tags, ...args
+    }) {
+      // Get current ticket to merge tags
+      const ticket = await this.getTicket({
+        ticketId,
+        ...args,
+      });
+      const currentTags = ticket.tags || [];
+      const newTags = [
+        ...new Set([
+          ...currentTags,
+          ...tags,
+        ]),
+      ]; // Remove duplicates
+
+      return this.setTicketTags({
+        ticketId,
+        tags: newTags,
+        ...args,
+      });
+    },
+    /**
+     * Remove specific tags from a ticket
+     * @param {object} args - Arguments object
+     * @param {string|number} args.ticketId - The ticket ID
+     * @param {string[]} args.tags - Array of tags to remove
+     * @returns {Promise<object>} API response
+     */
+    async removeTicketTags({
+      ticketId, tags, ...args
+    }) {
+      // Get current ticket to filter tags
+      const ticket = await this.getTicket({
+        ticketId,
+        ...args,
+      });
+      const currentTags = ticket.tags || [];
+      const tagsToRemove = new Set(tags);
+      const remainingTags = currentTags.filter((tag) => !tagsToRemove.has(tag));
+
+      return this.setTicketTags({
+        ticketId,
+        tags: remainingTags,
+        ...args,
+      });
+    },
+    async *paginate({
+      fn, args, max,
+    }) {
+      args = {
+        ...args,
+        params: {
+          ...args?.params,
+          page: 1,
+          per_page: 100,
+        },
+      };
+      let total, count = 0;
+      do {
+        const results = await fn(args);
+        total = results?.length;
+        if (!total) {
+          return;
+        }
+        for (const result of results) {
+          yield result;
+          if (max && ++count >= max) {
+            return;
+          }
+        }
+        args.params.page += 1;
+      } while (total === args.params.per_page);
+    },
+    async getPaginatedResources(opts) {
+      const results = [];
+      for await (const result of this.paginate(opts)) {
+        results.push(result);
+      }
+      return results;
+    },
+    createReply({
+      ticketId, ...args
+    }) {
+      return this._makeRequest({
+        method: "POST",
+        url: `/tickets/${ticketId}/reply`,
+        ...args,
+      });
+    },
+    forwardTicket({
+      ticketId, ...args
+    }) {
+      return this._makeRequest({
+        method: "POST",
+        url: `/tickets/${ticketId}/forward`,
+        ...args,
+      });
+    },
+    replyToForward({
+      ticketId, ...args
+    }) {
+      return this._makeRequest({
+        method: "POST",
+        url: `/tickets/${ticketId}/reply_to_forward`,
+        ...args,
+      });
+    },
+    listEmailConfigs(args) {
+      return this._makeRequest({
+        url: "/email_configs",
+        ...args,
+      });
+    },
+    createThread(args = {}) {
+      return this._makeRequest({
+        method: "POST",
+        url: "/collaboration/threads",
+        ...args,
+      });
+    },
+    listThreads(args) {
+      return this._makeRequest({
+        url: "/collaboration/threads",
+        ...args,
+      });
+    },
+    createMessageForThread(args = {}) {
+      return this._makeRequest({
+        method: "POST",
+        url: "/collaboration/messages",
+        ...args,
+      });
+    },
+    listCannedResponseFolders(args) {
+      return this._makeRequest({
+        url: "/canned_response_folders",
+        ...args,
+      });
+    },
+    listCannedResponses({
+      cannedResponseFolderId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/canned_response_folders/${cannedResponseFolderId}`,
+        ...args,
+      });
+    },
+    getCannedResponse({
+      cannedResponseId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/canned_responses/${cannedResponseId}`,
+        ...args,
+      });
+    },
+    getFolderCannedResponses({
+      folderId, ...args
+    }) {
+      return this._makeRequest({
+        url: `/canned_response_folders/${folderId}/responses`,
+        ...args,
+      });
+    },
+    searchSolutions(args = {}) {
+      return this._makeRequest({
+        url: "/search/solutions",
+        ...args,
       });
     },
   },

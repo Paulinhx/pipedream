@@ -4,9 +4,14 @@ import utils from "../../common/utils.mjs";
 export default {
   type: "action",
   key: "close-update-lead",
-  version: "0.0.1",
+  version: "0.1.4",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   name: "Update Lead",
-  description: "Updates a lead, [See the docs](https://developer.close.com/resources/leads/#update-an-existing-lead)",
+  description: "Updates a lead. [See the documentation](https://developer.close.com/resources/leads/#update-an-existing-lead)",
   props: {
     close,
     lead: {

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/abuselpdb",
+  "version": "0.0.3",
+  "description": "Pipedream AbuselPDB Components",
+  "main": "abuselpdb.app.mjs",
+  "keywords": [
+    "pipedream",
+    "abuselpdb"
+  ],
+  "homepage": "https://pipedream.com/apps/abuselpdb",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

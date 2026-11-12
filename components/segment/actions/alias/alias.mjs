@@ -2,9 +2,14 @@ import segmentApp from "../../segment.app.mjs";
 
 export default {
   key: "segment-alias",
-  label: "Associate one identity with another",
+  name: "Associate one identity with another",
   description: "Alias is how you associate one identity with another. See the docs [here](https://segment.com/docs/connections/sources/catalog/libraries/server/http-api/#alias)",
-  version: "0.1.2",
+  version: "0.1.5",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     segmentApp,

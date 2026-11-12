@@ -1,14 +1,20 @@
+import { getListFilesOpts } from "../../common/utils.mjs";
 import googleDrive from "../../google_drive.app.mjs";
-import { getListFilesOpts } from "../../utils.mjs";
 
-import { GOOGLE_DRIVE_FOLDER_MIME_TYPE } from "../../constants.mjs";
+import { GOOGLE_DRIVE_FOLDER_MIME_TYPE } from "../../common/constants.mjs";
 
 export default {
   key: "google_drive-find-folder",
   name: "Find Folder",
-  description: "Search for a specific folder by name. [See the docs](https://developers.google.com/drive/api/v3/search-files) for more information",
-  version: "0.0.5",
+  description: "Search for a specific folder by name. The `Search Name` field uses Google Drive's tokenized full-text matching — pass a distinctive word or short phrase rather than the full title when the name contains special characters like `&` or `'`. [See the documentation](https://developers.google.com/drive/api/v3/search-files) for more information",
+  version: "0.1.31",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     googleDrive,
     drive: {
@@ -34,16 +40,24 @@ export default {
     },
   },
   async run({ $ }) {
-    let q = `mimeType = '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}' and name contains '${this.nameSearchTerm}'`.trim();
+    const escapedSearchTerm = this.nameSearchTerm?.replace(/\\/g, "\\\\").replace(/'/g, "\\'") || "";
+    let q = `mimeType = '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}' and name contains '${escapedSearchTerm}'`.trim();
     if (!this.includeTrashed) {
       q += " and trashed=false";
     }
     const opts = getListFilesOpts(this.drive, {
       q,
     });
-    const folders = (await this.googleDrive.listFilesInPage(null, opts)).files;
-    // eslint-disable-next-line multiline-ternary
-    $.export("$summary", `Successfully found ${folders.length} folder${folders.length === 1 ? "" : "s"} containing the term, "${this.nameSearchTerm}"`);
-    return folders;
+
+    try {
+      const { files: folders } = await this.googleDrive.listFilesInPage(null, opts);
+      // eslint-disable-next-line multiline-ternary
+      $.export("$summary", `Successfully found ${folders.length} folder${folders.length === 1 ? "" : "s"} containing the term, "${this.nameSearchTerm}"`);
+      return folders;
+
+    } catch (error) {
+      console.log("Failed to find folders with query", error.response?.data?.error || error);
+      throw JSON.stringify(error.response?.data?.error, null, 2);
+    }
   },
 };

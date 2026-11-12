@@ -1,93 +1,35 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/comment-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-update-comment",
   name: "Update Comment",
-  description: "Updates a comment. See the docs [here](https://clickup.com/api) in **Comments  / Update Comment** section.",
-  version: "0.0.1",
+  description: "Updates a comment. [See the documentation](https://clickup.com/api) in **Comments / Update Comment** section.",
+  version: "0.0.14",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
-    folderId: {
-      propDefinition: [
-        clickup,
-        "folders",
-        (c) => ({
-          spaceId: c.spaceId,
-        }),
-      ],
-      optional: true,
-    },
-    listId: {
-      propDefinition: [
-        clickup,
-        "lists",
-        (c) => ({
-          folderId: c.folderId,
-          spaceId: c.spaceId,
-        }),
-      ],
-      optional: true,
-    },
-    taskId: {
-      propDefinition: [
-        clickup,
-        "tasks",
-        (c) => ({
-          listId: c.listId,
-        }),
-      ],
-      optional: true,
-    },
-    viewId: {
-      propDefinition: [
-        clickup,
-        "views",
-        (c) => ({
-          workspaceId: c.workspaceId,
-          spaceId: c.spaceId,
-          listId: c.listId,
-          folderId: c.folderId,
-        }),
-      ],
-      optional: true,
-    },
-    commentId: {
-      propDefinition: [
-        clickup,
-        "comments",
-        (c) => ({
-          listId: c.listId,
-          taskId: c.taskId,
-          viewId: c.viewId,
-        }),
-      ],
-    },
     commentText: {
       label: "Comment Text",
       description: "The text of the comment",
       type: "string",
       optional: true,
     },
-    assignees: {
+    assignee: {
       propDefinition: [
-        clickup,
+        common.props.clickup,
         "assignees",
         (c) => ({
           workspaceId: c.workspaceId,
         }),
       ],
+      type: "string",
+      description: "Select the assignee",
       optional: true,
     },
     resolved: {
@@ -101,7 +43,7 @@ export default {
     const {
       commentId,
       commentText,
-      assignees,
+      assignee,
       resolved,
     } = this;
 
@@ -110,7 +52,7 @@ export default {
       commentId,
       data: {
         comment_text: commentText,
-        assignees,
+        assignee,
         resolved,
       },
     });

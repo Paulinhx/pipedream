@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/hana",
+  "version": "0.1.0",
+  "description": "Pipedream Hana Components",
+  "main": "hana.app.mjs",
+  "keywords": [
+    "pipedream",
+    "hana"
+  ],
+  "homepage": "https://pipedream.com/apps/hana",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

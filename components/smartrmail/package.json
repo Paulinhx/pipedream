@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/smartrmail",
+  "version": "0.0.3",
+  "description": "Pipedream SmartrMail Components",
+  "main": "smartrmail.app.mjs",
+  "keywords": [
+    "pipedream",
+    "smartrmail"
+  ],
+  "homepage": "https://pipedream.com/apps/smartrmail",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,13 +1,19 @@
-// Read the Twilio docs at https://www.twilio.com/docs/sms/api/message-resource#create-a-message-resource
-import twilio from "../../twilio.app.mjs";
 import { phone } from "phone";
+import twilio from "../../twilio.app.mjs";
+import { callToString } from "../../common/utils.mjs";
 
 export default {
   key: "twilio-make-phone-call",
   name: "Make a Phone Call",
-  description: "Make a phone call, passing text that Twilio will speak to the recipient of the call. [See the docs](https://www.twilio.com/docs/voice/api/call-resource#create-a-call-resource) for more information",
-  version: "0.0.7",
+  description: "Make a phone call passing text, a URL, or an application that Twilio will use to handle the call. [See the documentation](https://www.twilio.com/docs/voice/api/call-resource#create-a-call-resource)",
+  version: "1.0.1",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     twilio,
     from: {
@@ -25,10 +31,74 @@ export default {
     text: {
       label: "Text",
       type: "string",
-      description: "The text you'd like Twilio to speak to the user when they pick up the phone.",
+      description: "Plain text for Twilio to speak when the user picks up the phone. For TwiML or SSML, use the **URL** field instead. Provide exactly **one** of **Text**, **URL**, or **Application SID**.",
+      optional: true,
+    },
+    url: {
+      type: "string",
+      label: "URL",
+      description: "The absolute URL that returns the TwiML instructions for the call. Provide exactly **one** of **Text**, **URL**, or **Application SID**.",
+      optional: true,
+    },
+    applicationSid: {
+      propDefinition: [
+        twilio,
+        "applicationSid",
+      ],
+      description: "The SID of an Application resource that will handle the call. You can use **List Application SID Options** to get a list of available options. Provide exactly **one** of **Text**, **URL**, or **Application SID**.",
+      optional: true,
+    },
+    timeout: {
+      type: "integer",
+      label: "Timeout",
+      description: "The integer number of seconds that we should allow the phone to ring before assuming there is no answer. The default is `60` seconds and the maximum is `600` seconds.",
+      optional: true,
+    },
+    record: {
+      type: "boolean",
+      label: "Record",
+      description: "Whether to record the call",
+      optional: true,
+    },
+    trim: {
+      type: "string",
+      label: "Trim",
+      description: "Whether to trim any leading and trailing silence from the recording. Only applies when **Record** is enabled.",
+      options: [
+        "trim-silence",
+        "do-not-trim",
+      ],
+      optional: true,
+    },
+    recordingTrack: {
+      type: "string",
+      label: "Recording Track",
+      description: "The audio track to record for the call. Default is `both`. Only applies when **Record** is enabled.",
+      options: [
+        "inbound",
+        "outbound",
+        "both",
+      ],
+      optional: true,
+    },
+    recordingCallbackUrl: {
+      type: "string",
+      label: "Recording Callback URL",
+      description: "The URL that we call when the recording is available to be accessed. Only applies when **Record** is enabled.",
+      optional: true,
     },
   },
   async run({ $ }) {
+    // Exactly one of the call handlers (text, URL, or application) must be provided
+    const handlers = [
+      this.text,
+      this.url,
+      this.applicationSid,
+    ].filter((handler) => handler != null && handler !== "");
+    if (handlers.length !== 1) {
+      throw new Error("You must provide exactly one of **Text**, **URL**, or **Application SID** to handle the call.");
+    }
+
     // Parse the given number into its E.164 equivalent
     // The E.164 phone number will be included in the first element
     // of the array, but the array will be empty if parsing fails.
@@ -36,17 +106,29 @@ export default {
     const toParsed = phone(this.to);
     console.log(toParsed);
     if (!toParsed || !toParsed.phoneNumber) {
-      throw new Error(`Phone number ${this.to} couldn't be parsed as a valid number.`);
+      throw new Error(`Phone number ${this.to} could not be parsed as a valid number.`);
+    }
+
+    const fromParsed = phone(this.from);
+    if (!fromParsed || !fromParsed.phoneNumber) {
+      throw new Error(`Phone number ${this.from} could not be parsed as a valid number.`);
     }
 
     const data = {
       to: toParsed.phoneNumber,
-      from: this.from,
-      twiml: `<Response><Say>${this.text}</Say></Response>`,
+      from: fromParsed.phoneNumber,
+      twiml: this.text && `<Response><Say>${this.text}</Say></Response>`,
+      url: this.url,
+      applicationSid: this.applicationSid,
+      timeout: this.timeout,
+      record: this.record,
+      trim: this.trim,
+      recordingTrack: this.recordingTrack,
+      recordingStatusCallback: this.recordingCallbackUrl,
     };
 
     const resp = await this.twilio.getClient().calls.create(data);
-    $.export("$summary", `Successfully made a new phone call, "${this.twilio.callToString(resp)}"`);
+    $.export("$summary", `Successfully made a new phone call, "${callToString(resp)}"`);
     return resp;
   },
 };

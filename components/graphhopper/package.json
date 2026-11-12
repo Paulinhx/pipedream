@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/graphhopper",
+  "version": "0.0.3",
+  "description": "Pipedream GraphHopper Components",
+  "main": "graphhopper.app.mjs",
+  "keywords": [
+    "pipedream",
+    "graphhopper"
+  ],
+  "homepage": "https://pipedream.com/apps/graphhopper",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/rapid7_insight_platform",
+  "version": "0.0.3",
+  "description": "Pipedream Rapid7 Insight Platform Components",
+  "main": "rapid7_insight_platform.app.mjs",
+  "keywords": [
+    "pipedream",
+    "rapid7_insight_platform"
+  ],
+  "homepage": "https://pipedream.com/apps/rapid7_insight_platform",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

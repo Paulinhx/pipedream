@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/razorpay",
+  "version": "0.0.4",
+  "description": "Pipedream Razorpay Components",
+  "main": "razorpay.app.mjs",
+  "keywords": [
+    "pipedream",
+    "razorpay"
+  ],
+  "homepage": "https://pipedream.com/apps/razorpay",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

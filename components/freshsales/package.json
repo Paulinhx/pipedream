@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/freshsales",
+  "version": "0.2.0",
+  "description": "Pipedream Freshsales Components",
+  "main": "freshsales.app.mjs",
+  "keywords": [
+    "pipedream",
+    "freshsales"
+  ],
+  "homepage": "https://pipedream.com/apps/freshsales",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

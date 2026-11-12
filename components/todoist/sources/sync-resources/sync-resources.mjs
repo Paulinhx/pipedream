@@ -3,9 +3,9 @@ import common from "../common.mjs";
 export default {
   ...common,
   key: "todoist-sync-resources",
-  name: "Sync Resources",
-  description: "Emit new updates for your selected resources. [See the docs here](https://developer.todoist.com/sync/v8/#read-resources)",
-  version: "0.0.2",
+  name: "New Sync Resources",
+  description: "Emit new updates for your selected resources. [See the documentation](https://developer.todoist.com/api/v1#tag/Sync/Overview/Read-resources)",
+  version: "0.0.12",
   type: "source",
   props: {
     ...common.props,

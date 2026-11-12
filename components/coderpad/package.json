@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/coderpad",
+  "version": "0.0.3",
+  "description": "Pipedream CoderPad Components",
+  "main": "coderpad.app.mjs",
+  "keywords": [
+    "pipedream",
+    "coderpad"
+  ],
+  "homepage": "https://pipedream.com/apps/coderpad",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

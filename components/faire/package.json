@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/faire",
+  "version": "0.0.3",
+  "description": "Pipedream Faire Components",
+  "main": "faire.app.mjs",
+  "keywords": [
+    "pipedream",
+    "faire"
+  ],
+  "homepage": "https://pipedream.com/apps/faire",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

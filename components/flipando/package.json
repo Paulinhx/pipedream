@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/flipando",
+  "version": "1.0.3",
+  "description": "Pipedream Flipando Components",
+  "main": "flipando.app.mjs",
+  "keywords": [
+    "pipedream",
+    "flipando"
+  ],
+  "homepage": "https://pipedream.com/apps/flipando",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "form-data": "^4.0.4"
+  }
+}

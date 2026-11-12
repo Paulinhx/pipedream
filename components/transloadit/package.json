@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/transloadit",
+  "version": "0.2.0",
+  "description": "Pipedream Transloadit Components",
+  "main": "transloadit.app.mjs",
+  "keywords": [
+    "pipedream",
+    "transloadit"
+  ],
+  "homepage": "https://pipedream.com/apps/transloadit",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "transloadit": "^4.0.0"
+  }
+}

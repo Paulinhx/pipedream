@@ -1,11 +1,18 @@
 // legacy_hash_id: a_rJipb5
-import admin from "firebase-admin";
+// Pinned: firebase-admin 14 dropped the namespaced default export
+import admin from "firebase-admin@13.10.0";
 import lodash from "lodash";
 
 export default {
   key: "firebase_admin_sdk-replicate-event-firestore",
   name: "Save Event to Firestore",
-  version: "0.4.2",
+  description: "Replicate event in Firestore",
+  version: "0.4.9",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     firebase_admin_sdk: {
@@ -55,16 +62,16 @@ export default {
           updatedAt: (new Date().toISOString()),
         },
       }))
-      .then(function() {
+      .then(function () {
         updates.push("Updated successfully");
-        app.delete().then(function() {
+        app.delete().then(function () {
           updates.push("App deleted successfully");
         })
-          .catch(function(error) {
+          .catch(function (error) {
             updates.push("Error deleting app:", error);
           });
       })
-      .catch(function(error) {
+      .catch(function (error) {
         updates.push("Error writing:", error);
       });
 

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/blockchain_exchange",
+  "version": "0.0.4",
+  "description": "Pipedream Blockchain Exchange Components",
+  "main": "blockchain_exchange.app.mjs",
+  "keywords": [
+    "pipedream",
+    "blockchain_exchange"
+  ],
+  "homepage": "https://pipedream.com/apps/blockchain_exchange",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

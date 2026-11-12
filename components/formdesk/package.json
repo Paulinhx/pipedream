@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/formdesk",
+  "version": "0.0.3",
+  "description": "Pipedream Formdesk Components",
+  "main": "formdesk.app.mjs",
+  "keywords": [
+    "pipedream",
+    "formdesk"
+  ],
+  "homepage": "https://pipedream.com/apps/formdesk",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

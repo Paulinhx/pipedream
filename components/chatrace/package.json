@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/chatrace",
+  "version": "0.0.3",
+  "description": "Pipedream Chatrace Components",
+  "main": "chatrace.app.mjs",
+  "keywords": [
+    "pipedream",
+    "chatrace"
+  ],
+  "homepage": "https://pipedream.com/apps/chatrace",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

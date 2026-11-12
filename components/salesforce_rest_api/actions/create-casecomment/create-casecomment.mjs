@@ -1,48 +1,49 @@
-import salesforce from "../../salesforce_rest_api.app.mjs";
+import common, { getProps } from "../common/base-create-update.mjs";
 import caseComment from "../../common/sobjects/caseComment.mjs";
-import {
-  pickBy, pick,
-} from "lodash-es";
-import { toSingleLineString } from "../../common/utils.mjs";
+
+const docsLink = "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_casecomment.htm";
 
 export default {
+  ...common,
   key: "salesforce_rest_api-create-casecomment",
-  name: "Create CaseComment",
-  description: toSingleLineString(`
-    Creates a Case Comment that provides additional information about the associated Case.
-    See [CaseComment SObject](https://developer.salesforce.com/docs/atlas.en-us.228.0.object_reference.meta/object_reference/sforce_api_objects_casecomment.htm)
-    and [Create Record](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_sobject_create.htm)
-  `),
-  version: "0.2.2",
+  name: "Create Case Comment",
+  description: "Add a comment to an existing Salesforce case."
+    + " Use **List Cases** to find the case ID, and **List Case Comments** to read the existing thread first."
+    + " Comments are visible in the case feed - **List Case Feed Items** shows them as `CaseCommentPost` entries."
+    + " "
+    + `[See the documentation](${docsLink})`,
+  version: "0.3.9",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
-  props: {
-    salesforce,
-    ParentId: {
-      type: "string",
-      label: "Parent ID",
-      description: "Required. ID of the parent Case of the CaseComment.",
-    },
-    selector: {
-      propDefinition: [
-        salesforce,
-        "fieldSelector",
-      ],
-      description: `${salesforce.propDefinitions.fieldSelector.description} CaseComment`,
-      options: () => Object.keys(caseComment),
-      reloadProps: true,
-    },
+  ai: "optimized",
+  methods: {
+    ...common.methods,
   },
-  async additionalProps() {
-    return this.salesforce.additionalProps(this.selector, caseComment);
-  },
+  props: getProps({
+    objType: caseComment,
+    docsLink,
+  }),
   async run({ $ }) {
-    const data = pickBy(pick(this, [
-      "ParentId",
-      ...this.selector,
-    ]));
-    const response = await this.salesforce.createCaseComment({
+    /* eslint-disable no-unused-vars */
+    const {
+      salesforce,
+      getAdditionalFields,
+      formatDateTimeProps,
+      docsInfo,
+      additionalFields,
+      ...data
+    } = this;
+    /* eslint-enable no-unused-vars */
+    const response = await salesforce.createRecord("CaseComment", {
       $,
-      data,
+      data: {
+        ...data,
+        ...getAdditionalFields(),
+      },
     });
     $.export("$summary", `Successfully created case comment for ${this.ParentId}`);
     return response;

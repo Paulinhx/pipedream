@@ -1,21 +1,23 @@
 {
-    "name": "@pipedream/mailgun",
-    "version": "0.0.1",
-    "description": "Pipedream Mailgun Components",
-    "main": "mailgun.app.js",
-    "keywords": [
-        "pipedream",
-        "mailgun"
-    ],
-    "homepage": "https://pipedream.com/apps/mailgun",
-    "author": "Jonathon Hill <jonathon@compwright.com> (https://compwright.com/)",
-    "license": "MIT",
-    "publishConfig": {
-        "access": "public"
-    },
-    "dependencies": {
-        "form-data": "^4.0.0",
-        "lodash.get": "^4.4.2",
-        "mailgun.js": "^3.5.2"
-    }
+  "name": "@pipedream/mailgun",
+  "version": "0.1.1",
+  "description": "Pipedream Mailgun Components",
+  "main": "mailgun.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mailgun"
+  ],
+  "homepage": "https://pipedream.com/apps/mailgun",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/helper_functions": "^0.3.7",
+    "@pipedream/platform": "^1.6.8",
+    "form-data": "^4.0.4",
+    "lodash": "^4.18.1",
+    "lodash.get": "^4.4.2",
+    "mailgun.js": "^3.5.2"
+  }
 }

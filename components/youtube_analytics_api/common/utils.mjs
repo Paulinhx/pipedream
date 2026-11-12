@@ -1,0 +1,80 @@
+import { ConfigurationError } from "@pipedream/platform";
+import constants from "./constants.mjs";
+
+const parseJson = (input) => {
+  const parse = (value) => {
+    if (typeof(value) === "string") {
+      try {
+        return parseJson(JSON.parse(value));
+      } catch (e) {
+        return value;
+      }
+    } else if (typeof(value) === "object" && value !== null) {
+      return Object.entries(value)
+        .reduce((acc, [
+          key,
+          val,
+        ]) => Object.assign(acc, {
+          [key]: parse(val),
+        }), {});
+    }
+    return value;
+  };
+
+  return parse(input);
+};
+
+function parseArray(value) {
+  try {
+    if (!value) {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    const parsedValue = JSON.parse(value);
+
+    if (!Array.isArray(parsedValue)) {
+      throw new Error("Not an array");
+    }
+
+    return parsedValue;
+
+  } catch (e) {
+    throw new ConfigurationError("Make sure the custom expression contains a valid array object");
+  }
+}
+
+function arrayToCommaSeparatedList(array, char = ",") {
+  return parseArray(array)?.join(char);
+}
+
+function findChannelReportType(channelReportType) {
+  return Object.values(constants.CHANNEL_REPORT_TYPE)
+    .find(({ value }) => value === channelReportType);
+}
+
+function getChannelReportTypeOrThrow(channelReportType) {
+  const reportType = findChannelReportType(channelReportType);
+
+  if (!reportType) {
+    const supported = Object.values(constants.CHANNEL_REPORT_TYPE)
+      .map(({ value }) => value)
+      .join(", ");
+    throw new ConfigurationError(
+      `Invalid **Channel Report Type**: \`${channelReportType}\`. Supported values: ${supported}.`,
+    );
+  }
+
+  return reportType;
+}
+
+export default {
+  parseJson,
+  parseArray,
+  arrayToCommaSeparatedList,
+  findChannelReportType,
+  getChannelReportTypeOrThrow,
+};

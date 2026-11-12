@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/sign_plus",
+  "version": "0.1.0",
+  "description": "Pipedream Sign.Plus Components",
+  "main": "sign_plus.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sign_plus"
+  ],
+  "homepage": "https://pipedream.com/apps/sign_plus",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

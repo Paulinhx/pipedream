@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/mainwp",
+  "version": "0.0.3",
+  "description": "Pipedream MainWP Components",
+  "main": "mainwp.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mainwp"
+  ],
+  "homepage": "https://pipedream.com/apps/mainwp",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

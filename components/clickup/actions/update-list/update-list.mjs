@@ -1,45 +1,21 @@
 import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
 import constants from "../common/constants.mjs";
+import common from "../common/list-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-update-list",
   name: "Update List",
-  description: "Update a list. See the docs [here](https://clickup.com/api) in **Lists  / Update List** section.",
-  version: "0.0.1",
+  description: "Update a list. [See the documentation](https://clickup.com/api) in **Lists / Update List** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
-    folderId: {
-      propDefinition: [
-        clickup,
-        "folders",
-        (c) => ({
-          spaceId: c.spaceId,
-        }),
-      ],
-      optional: true,
-    },
-    listId: {
-      propDefinition: [
-        clickup,
-        "lists",
-        (c) => ({
-          folderId: c.folderId,
-          spaceId: c.spaceId,
-        }),
-      ],
-    },
     name: {
       label: "Name",
       type: "string",
@@ -67,6 +43,26 @@ export default {
         }),
       ],
       optional: true,
+    },
+    folderId: {
+      propDefinition: [
+        common.props.clickup,
+        "folderId",
+        (c) => ({
+          spaceId: c.spaceId,
+        }),
+      ],
+      optional: true,
+    },
+    listId: {
+      propDefinition: [
+        common.props.clickup,
+        "listId",
+        (c) => ({
+          folderId: c.folderId,
+          spaceId: c.spaceId,
+        }),
+      ],
     },
   },
   async run({ $ }) {

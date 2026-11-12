@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/launchdarkly",
+  "version": "0.1.2",
+  "description": "Pipedream LaunchDarkly Components",
+  "main": "launchdarkly.app.mjs",
+  "keywords": [
+    "pipedream",
+    "launchdarkly"
+  ],
+  "homepage": "https://pipedream.com/apps/launchdarkly",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "uuid": "^11.1.0"
+  }
+}

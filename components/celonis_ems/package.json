@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/celonis_ems",
+  "version": "0.0.2",
+  "description": "Pipedream Celonis EMS Components",
+  "main": "celonis_ems.app.mjs",
+  "keywords": [
+    "pipedream",
+    "celonis_ems"
+  ],
+  "homepage": "https://pipedream.com/apps/celonis_ems",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

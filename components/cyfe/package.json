@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/cyfe",
+  "version": "0.1.0",
+  "description": "Pipedream Cyfe Components",
+  "main": "cyfe.app.mjs",
+  "keywords": [
+    "pipedream",
+    "cyfe"
+  ],
+  "homepage": "https://pipedream.com/apps/cyfe",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

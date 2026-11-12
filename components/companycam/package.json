@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/companycam",
+  "version": "0.1.0",
+  "description": "Pipedream Companycam Components",
+  "main": "companycam.app.mjs",
+  "keywords": [
+    "pipedream",
+    "companycam"
+  ],
+  "homepage": "https://pipedream.com/apps/companycam",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "uuid": "^9.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

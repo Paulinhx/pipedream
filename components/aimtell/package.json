@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/aimtell",
+  "version": "0.0.3",
+  "description": "Pipedream Aimtell Components",
+  "main": "aimtell.app.mjs",
+  "keywords": [
+    "pipedream",
+    "aimtell"
+  ],
+  "homepage": "https://pipedream.com/apps/aimtell",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

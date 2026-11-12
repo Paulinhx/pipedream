@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/amplifier",
+  "version": "0.0.3",
+  "description": "Pipedream Amplifier Components",
+  "main": "amplifier.app.mjs",
+  "keywords": [
+    "pipedream",
+    "amplifier"
+  ],
+  "homepage": "https://pipedream.com/apps/amplifier",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/cats",
+  "version": "0.2.0",
+  "description": "Pipedream CATS Components",
+  "main": "cats.app.mjs",
+  "keywords": [
+    "pipedream",
+    "cats"
+  ],
+  "homepage": "https://pipedream.com/apps/cats",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

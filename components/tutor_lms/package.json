@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/tutor_lms",
+  "version": "0.0.3",
+  "description": "Pipedream Tutor LMS Components",
+  "main": "tutor_lms.app.mjs",
+  "keywords": [
+    "pipedream",
+    "tutor_lms"
+  ],
+  "homepage": "https://pipedream.com/apps/tutor_lms",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

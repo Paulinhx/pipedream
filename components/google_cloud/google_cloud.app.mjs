@@ -2,11 +2,35 @@
 import { Logging } from "@google-cloud/logging";
 import { Storage } from "@google-cloud/storage";
 import { BigQuery } from "@google-cloud/bigquery";
+import { v1 as bqdt } from "@google-cloud/bigquery-data-transfer";
+import {
+  InstancesClient,
+  ZonesClient,
+} from "@google-cloud/compute";
 
 export default {
   type: "app",
   app: "google_cloud",
   propDefinitions: {
+    zoneName: {
+      label: "Zone",
+      description: "The unique zone name",
+      type: "string",
+      async options() {
+        const zones = await this.listZones();
+        return zones.map((item) => (item.name));
+      },
+    },
+    instanceName: {
+      label: "Instance Name",
+      description: "The unique instance name",
+      type: "string",
+      async options({ zone }) {
+        if (!zone) { return []; }
+        const instances = await this.listVmInstancesByZone(zone);
+        return instances.map((item) => (item.name));
+      },
+    },
     bucketName: {
       label: "Bucket Name",
       description: "The unique bucket name",
@@ -83,7 +107,12 @@ export default {
   },
   methods: {
     authKeyJson() {
-      return JSON.parse(this.$auth.key_json);
+      const keyJson = JSON.parse(this.$auth.key_json);
+      // Keys pasted with escaped newlines ("\\n") fail OpenSSL decoding
+      if (keyJson.private_key) {
+        keyJson.private_key = keyJson.private_key.replace(/\\n/g, "\n");
+      }
+      return keyJson;
     },
     sdkParams() {
       const {
@@ -100,11 +129,49 @@ export default {
         projectId,
       };
     },
+    bigQueryDataTransferClient() {
+      return new bqdt.DataTransferServiceClient(this.sdkParams());
+    },
     loggingClient() {
       return new Logging(this.sdkParams());
     },
     storageClient() {
       return new Storage(this.sdkParams());
+    },
+    _zonesClient() {
+      return new ZonesClient(this.sdkParams());
+    },
+    _instancesClient() {
+      return new InstancesClient(this.sdkParams());
+    },
+    async listZones() {
+      const [
+        zones,
+      ] = await this._zonesClient().list({
+        project: this.sdkParams().projectId,
+      });
+      return zones;
+    },
+    async listVmInstancesByZone(zone) {
+      const [
+        instances,
+      ] = await this._instancesClient().list({
+        project: this.sdkParams().projectId,
+        zone,
+      });
+      return instances;
+    },
+    async switchInstanceBootStatus({
+      zone, instance, status,
+    }) {
+      const [
+        response,
+      ] = await this._instancesClient()[status]({
+        project: this.sdkParams().projectId,
+        zone,
+        instance,
+      });
+      return response.latestResponse;
     },
     getBigQueryClient() {
       const credentials = this.authKeyJson();

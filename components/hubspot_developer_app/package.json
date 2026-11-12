@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/hubspot_developer_app",
+  "version": "0.0.3",
+  "description": "Pipedream HubSpot (Developer App) Components",
+  "main": "hubspot_developer_app.app.mjs",
+  "keywords": [
+    "pipedream",
+    "hubspot_developer_app"
+  ],
+  "homepage": "https://pipedream.com/apps/hubspot_developer_app",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

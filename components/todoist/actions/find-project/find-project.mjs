@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-find-project",
   name: "Find Project",
-  description: "Finds a project (by name/title). [See Docs](https://developer.todoist.com/rest/v1/#get-all-projects) Optionally, create one if none are found. [See Docs](https://developer.todoist.com/rest/v1/#create-a-new-project)",
-  version: "0.0.1",
+  description: "Finds a project (by name/title). [See the documentation](https://developer.todoist.com/api/v1#tag/Projects/operation/get_projects_api_v1_projects_get) Optionally, create one if none are found. [See the documentation](https://developer.todoist.com/api/v1#tag/Projects/operation/create_project_api_v1_projects_post)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     todoist,
@@ -27,7 +32,7 @@ export default {
       name,
       createIfNotFound,
     } = this;
-    const projects = await this.todoist.getProjects({
+    const { results: projects } = await this.todoist.getProjects({
       $,
     });
     let result = projects.find((project) => project.name == name);

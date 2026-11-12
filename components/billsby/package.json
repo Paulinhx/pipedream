@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/billsby",
+  "version": "0.2.0",
+  "description": "Pipedream Billsby Components",
+  "main": "billsby.app.mjs",
+  "keywords": [
+    "pipedream",
+    "billsby"
+  ],
+  "homepage": "https://pipedream.com/apps/billsby",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.3.0"
+  }
+}

@@ -1,4 +1,7 @@
-/* eslint-disable @typescript-eslint/ban-types */
+import {
+  Readable, Writable,
+} from "stream";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type JSONValue =
   | string
@@ -70,7 +73,7 @@ export interface HTTPResponse {
   /**
    * Http Body
    */
-  body: string | Buffer | NodeJS.ReadableStream;
+  body: string | Buffer | Readable;
   /**
    * If true, issue the response when the promise returned is resolved, otherwise issue
    * the response at the end of the workflow execution
@@ -84,10 +87,47 @@ export interface Methods {
 
 export interface FlowFunctions {
   exit: (reason: string) => void;
-  delay: (ms: number) => {
+  delay: (ms: number, context: object) => {
     resume_url: string;
     cancel_url: string;
   };
+  rerun: (ms: number, context: object) => {
+    resume_url: string;
+    cancel_url: string;
+  };
+  suspend: (ms: number, context: object) => {
+    resume_url: string;
+    cancel_url: string;
+  };
+  refreshTimeout: () => string;
+}
+
+export interface IApi {
+  open(path: string): IFile;
+  openDescriptor(descriptor: any): IFile;
+  dir(path?: string): AsyncGenerator<{
+    isDirectory: () => boolean;
+    isFile: () => boolean;
+    path: string;
+    name: string;
+    size?: number;
+    modifiedAt?: Date;
+    file?: IFile;
+  }>;
+}
+
+export interface IFile {
+  delete(): Promise<void>;
+  createReadStream(): Promise<Readable>;
+  createWriteStream(contentType?: string, contentLength?: number): Promise<Writable>;
+  toEncodedString(encoding?: string, start?: number, end?: number): Promise<string>;
+  toUrl(): Promise<string>;
+  toFile(localFilePath: string): Promise<void>;
+  toBuffer(): Promise<Buffer>;
+  fromReadableStream(readableStream: Readable, contentType?: string, contentSize?: number): Promise<IFile>;
+  fromFile(localFilePath: string, contentType?: string): Promise<IFile>;
+  fromUrl(url: string, options?: any): Promise<IFile>;
+  toJSON(): any;
 }
 
 export interface Pipedream {
@@ -100,6 +140,7 @@ export interface Pipedream {
    */
   respond: (response: HTTPResponse) => Promise<any> | void;
   flow: FlowFunctions;
+  files: IApi;
 }
 
 // https://pipedream.com/docs/components/api/#async-options-example
@@ -194,6 +235,8 @@ export interface UserProp extends BasePropInterface {
   secret?: boolean;
   min?: number;
   max?: number;
+  disabled?: boolean;
+  hidden?: boolean;
 }
 
 // https://pipedream.com/docs/components/api/#interface-props
@@ -235,9 +278,29 @@ export interface Hooks {
   deactivate?: () => Promise<void>;
 }
 
-export interface SourceRunOptions {
-  event: JSONValue;
-}
+// https://pipedream.com/docs/components/api/#http-event-shape
+export type SourceHttpRunOptions = {
+  method: string;
+  path: string;
+  query: {
+    [key: string]: string;
+  };
+  headers: {
+    [key: string]: string;
+  };
+  bodyRaw?: string;
+  body?: {
+    [key: string]: JSONValue;
+  };
+};
+
+// https://pipedream.com/docs/components/api/#timer
+export type SourceTimerRunOptions = {
+  timestamp: number;
+  interval_seconds: number;
+};
+
+export type SourceRunOptions = SourceHttpRunOptions | SourceTimerRunOptions;
 
 export interface ActionRunOptions {
   $: Pipedream;
@@ -249,18 +312,26 @@ export interface EmitMetadata {
   id?: string | number;
   name?: string;
   summary?: string;
-  ts: number;
+  ts?: number;
+}
+
+export interface IdEmitMetadata extends EmitMetadata {
+  id: string | number;
 }
 
 type EmitFunction = {
-  $emit: (event: JSONValue, metadata: EmitMetadata) => Promise<void>;
+  $emit: (event: JSONValue, metadata?: EmitMetadata) => Promise<void>;
+};
+
+type IdEmitFunction = {
+  $emit: (event: JSONValue, metadata: IdEmitMetadata) => Promise<void>;
 };
 
 type PropThis<Props> = {
   [Prop in keyof Props]: Props[Prop] extends App<Methods, AppPropDefinitions> ? any : any
 };
 
-export interface Source<
+interface BaseSource<
   Methods,
   SourcePropDefinitions
 > {
@@ -279,6 +350,24 @@ export interface Source<
   run: (this: PropThis<SourcePropDefinitions> & Methods & EmitFunction, options?: SourceRunOptions) => void | Promise<void>;
 }
 
+export interface DedupedSource<Methods, SourcePropDefinitions>
+  extends BaseSource<Methods, SourcePropDefinitions> {
+  dedupe: "last" | "greatest" | "unique";
+  run: (
+    this: PropThis<SourcePropDefinitions> & Methods & IdEmitFunction,
+    options?: SourceRunOptions
+  ) => void | Promise<void>;
+}
+
+export interface NonDedupedSource<Methods, SourcePropDefinitions>
+  extends BaseSource<Methods, SourcePropDefinitions> {
+  dedupe?: never;
+}
+
+export type Source<Methods, SourcePropDefinitions> =
+  | DedupedSource<Methods, SourcePropDefinitions>
+  | NonDedupedSource<Methods, SourcePropDefinitions>;
+
 export function defineSource<
   Methods,
   SourcePropDefinitions,
@@ -296,8 +385,15 @@ export interface Action<
   description?: string;
   version: string;
   type: "action";
+  ai?: "optimized";
   methods?: Methods & ThisType<PropThis<ActionPropDefinitions> & Methods>;
   props?: ActionPropDefinitions;
+  annotations?: {
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+    readOnlyHint?: boolean;
+  }
   additionalProps?: (
     previousPropDefs: ActionPropDefinitions
   ) => Promise<ActionPropDefinitions>;

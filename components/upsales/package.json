@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/upsales",
+  "version": "0.2.0",
+  "description": "Pipedream Upsales Components",
+  "main": "upsales.app.mjs",
+  "keywords": [
+    "pipedream",
+    "upsales"
+  ],
+  "homepage": "https://pipedream.com/apps/upsales",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "form-data": "^4.0.5"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/circl_hash_lookup",
+  "version": "0.0.4",
+  "description": "Pipedream CIRCL Hash Lookup Components",
+  "main": "circl_hash_lookup.app.mjs",
+  "keywords": [
+    "pipedream",
+    "circl_hash_lookup"
+  ],
+  "homepage": "https://pipedream.com/apps/circl_hash_lookup",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

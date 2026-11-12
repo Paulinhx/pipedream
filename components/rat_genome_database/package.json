@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/rat_genome_database",
+  "version": "0.0.4",
+  "description": "Pipedream Rat Genome Database Components",
+  "main": "rat_genome_database.app.mjs",
+  "keywords": [
+    "pipedream",
+    "rat_genome_database"
+  ],
+  "homepage": "https://pipedream.com/apps/rat_genome_database",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

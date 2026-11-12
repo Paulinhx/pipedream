@@ -2,7 +2,12 @@ import app from "../../sentry.app.mjs";
 
 export default {
   key: "sentry-list-project-events",
-  version: "0.0.1",
+  version: "0.1.3",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   name: "List Project Events.",
   description: "Return a list of events bound to a project. [See the docs here](https://docs.sentry.io/api/events/list-a-projects-events/)",
@@ -21,10 +26,10 @@ export default {
       ],
     },
     full: {
-      type: "boolean",
-      label: "Full",
-      description: "If this is set to true then the event payload will include the full event body, including the stacktrace. Set to true to enable.",
-      optional: true,
+      propDefinition: [
+        app,
+        "full",
+      ],
     },
     maxResults: {
       propDefinition: [

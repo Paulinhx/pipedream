@@ -19,35 +19,49 @@ const removeNullEntries = (obj) =>
       : acc;
   }, {});
 
-const formatArrayStrings = (objectArray, ALLOWED_KEYS, fieldName) => {
-  const updatedArray = [];
-  const errors = [];
-  if (objectArray?.length) {
-    for (let i = 0; i < objectArray.length; i++) {
-      if (objectArray[i]) {
-        try {
-          const obj = JSON.parse(objectArray[i]);
-          Object.keys(obj).forEach((key) => {
-            if (!ALLOWED_KEYS.includes(key)) {
-              errors.push(
-                `${fieldName}[${i}] error: ${key} is not present or allowed in object`,
-              );
-            }
-          });
-          updatedArray.push(obj);
-        } catch (error) {
-          throw new ConfigurationError(`Object is malformed on [${i}]`);
-        }
+// For props declared as `string[]` whose entries must each be a JSON object. Unlike
+// `parseObject`, malformed JSON is reported as a `ConfigurationError` instead of a bare
+// `SyntaxError`, and a non-object entry is rejected instead of being forwarded to Xero as
+// a string. An entry holding a whole JSON array is flattened rather than rejected — some
+// prop descriptions show their example wrapped in `[ ]`, so that mistake is common.
+const parseObjectArray = (values, fieldName) => {
+  if (!values) {
+    return undefined;
+  }
+
+  const entries = Array.isArray(values)
+    ? values
+    : [
+      values,
+    ];
+
+  const parsedEntries = entries
+    .filter((entry) => entry !== undefined && entry !== null && entry !== "")
+    .flatMap((entry) => {
+      if (typeof entry !== "string") {
+        return entry;
       }
-    }
-  }
-  if (errors.length) {
-    throw new ConfigurationError(
-      errors.join(",") + `. Allowed keys are ${ALLOWED_KEYS.join(",")}`,
-    );
-  }
-  return updatedArray;
+      try {
+        return JSON.parse(entry);
+      } catch {
+        throw new ConfigurationError(`${fieldName}: \`${entry}\` is not valid JSON. Provide one JSON object per entry.`);
+      }
+    })
+    .map((parsed) => {
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new ConfigurationError(`${fieldName}: \`${JSON.stringify(parsed)}\` is not a JSON object. Provide one JSON object per entry.`);
+      }
+      return parsed;
+    });
+
+  // Left as `undefined` rather than `[]` so an unset prop stays absent from the request
+  // body — Xero treats an empty collection as "remove everything in it".
+  return parsedEntries.length
+    ? parsedEntries
+    : undefined;
 };
+
+const formatLineItems = (lineItems) => parseObjectArray(lineItems, "Line Items") ?? [];
 
 const deleteKeys = (mainObject, keys = []) => {
   return Object.keys(mainObject)
@@ -118,12 +132,40 @@ const formatJsonDate = (date) => {
 const chainQueryString = (queryString) =>
   queryString && queryString.split("&").join(" AND ");
 
-export {
-  removeNullEntries,
-  formatArrayStrings,
-  deleteKeys,
-  isValidDate,
-  formatQueryString,
-  chainQueryString,
-  formatJsonDate,
+const parseObject = (obj) => {
+  if (!obj) return undefined;
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => {
+      if (typeof item === "string") {
+        try {
+          return JSON.parse(item);
+        } catch (e) {
+          return item;
+        }
+      }
+      return item;
+    });
+  }
+  if (typeof obj === "string") {
+    try {
+      return JSON.parse(obj);
+    } catch (e) {
+      return obj;
+    }
+  }
+  return obj;
 };
+
+export {
+  chainQueryString,
+  deleteKeys,
+  formatJsonDate,
+  formatLineItems,
+  formatQueryString,
+  isValidDate,
+  parseObject,
+  parseObjectArray,
+  removeNullEntries,
+};
+

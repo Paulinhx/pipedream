@@ -1,50 +1,56 @@
-// legacy_hash_id: a_OOi6vA
-import { axios } from "@pipedream/platform";
+import linkedin from "../../linkedin.app.mjs";
 
 export default {
   key: "linkedin-get-organization-access-control",
   name: "Gets Organization Access Control",
-  description: "Gets an organization's access control information, given the organization urn.",
-  version: "0.1.1",
+  description: "Gets a selected organization's access control information. [See the documentation](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-access-control-by-role?view=li-lms-2025-01&tabs=http#find-organization-access-control)",
+  version: "0.2.7",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
-    linkedin: {
-      type: "app",
-      app: "linkedin",
+    linkedin,
+    organizationId: {
+      propDefinition: [
+        linkedin,
+        "organizationId",
+      ],
+      description: "The ID of the organization for which the access control information is being retrieved",
     },
-    organization_urn: {
-      type: "string",
-      description: "The organizational entity for which the access control information is being retrieved. Must be in URN format urn:li:organization:{id}.",
-    },
-    start: {
-      type: "integer",
-      description: "The index of the first item you want results for.",
-      optional: true,
-    },
-    count: {
-      type: "integer",
-      description: "The number of items you want included on each page of results.  Note that there may be less remaining items than the value you specify here.",
-      optional: true,
+    max: {
+      propDefinition: [
+        linkedin,
+        "max",
+      ],
     },
   },
   async run({ $ }) {
-  // See the API docs here: https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/organizations/organization-access-control?context=linkedin/compliance/context#find-access-control-information
+    let start = 0;
+    const count = 50;
+    const results = [];
 
-    if (!this.organization_urn) {
-      throw new Error("Must provide organization_urn parameter.");
-    }
+    const organizationUrn = `urn:li:organization:${this.organizationId}`;
 
-    return await axios($, {
-      url: "https://api.linkedin.com/v2/organizationAcls",
-      headers: {
-        Authorization: `Bearer ${this.linkedin.$auth.oauth_access_token}`,
-      },
-      params: {
-        q: "organization",
-        organization: encodeURI(this.organization_urn),
-        start: this.start,
-        count: this.count,
-      },
-    });
+    const params = `q=organization&organization=${organizationUrn.replace(/:/g, "%3A")}&count=${count}`;
+
+    let done = false;
+    do {
+      const { data: { elements } } = await this.linkedin.getAccessControl({
+        strParams: params + `&start=${start}`,
+      });
+
+      results.push(...elements);
+      start += count;
+      if (elements?.length < count) {
+        done = true;
+      }
+    } while (results.length < this.max && !done);
+
+    $.export("$summary", "Successfully retrieved access control information");
+
+    return results;
   },
 };

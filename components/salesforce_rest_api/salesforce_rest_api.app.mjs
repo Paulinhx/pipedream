@@ -1,90 +1,68 @@
 import { axios } from "@pipedream/platform";
-import salesforceWebhooks from "salesforce-webhooks";
-const { SalesforceClient } = salesforceWebhooks;
 
 export default {
   type: "app",
   app: "salesforce_rest_api",
   propDefinitions: {
-    sobjectId: {
-      type: "string",
-      label: "SObject ID",
-      description: "ID of the Standard object to get field values from",
-      async options(context) {
-        const { objectType } = context;
-        const { recentItems } = await this.listSObjectTypeIds(objectType);
-        return recentItems.map((item) => ({
-          label: item.Name,
-          value: item.Id,
-        }));
-      },
-    },
     objectType: {
       type: "string",
       label: "SObject Type",
       description: "Standard object type of the record to get field values from",
-      async options(context) {
-        const { page } = context;
+      async options({
+        page,
+        filter = this.isValidSObject,
+        mapper =  ({
+          label, name: value,
+        }) => ({
+          label,
+          value,
+        }),
+      }) {
         if (page !== 0) {
           return [];
         }
         const { sobjects } = await this.listSObjectTypes();
-        return sobjects
-          .filter((sobject) => sobject.replicateable)
-          .map((sobject) => ({
-            label: sobject.label,
-            value: sobject.name,
-          }));
+        return sobjects.filter(filter).map(mapper);
+      },
+    },
+    recordId: {
+      type: "string",
+      label: "Record ID",
+      description: "The ID of the record of the selected object type.",
+      async options({
+        objType,
+        nameField,
+      }) {
+        if (!nameField) nameField = await this.getNameFieldForObjectType(objType);
+        return this.listRecordOptions({
+          objType,
+          nameField,
+        });
       },
     },
     field: {
       type: "string",
       label: "Field",
       description: "The object field to watch for changes",
-      async options(context) {
-        const {
-          page,
-          objectType,
-        } = context;
+      async options({
+        page, objectType, filter = () => true,
+      }) {
         if (page !== 0) {
           return [];
         }
 
         const fields = await this.getFieldsForObjectType(objectType);
-        return fields.map((field) => field.name);
+        return fields.filter(filter).map(({ name }) => name);
       },
     },
-    fieldUpdatedTo: {
-      type: "string",
-      label: "Field Updated to",
-      description:
-        "If provided, the trigger will only fire when the updated field is an EXACT MATCH (including spacing and casing) to the value you provide in this field",
-      optional: true,
-    },
-    fieldSelector: {
+    fieldsToObtain: {
       type: "string[]",
-      label: "Field Selector",
-      description: "Select fields for the Standard Object",
-      options: () => [], // override options for each object, e.g., () => Object.keys(account)
-    },
-    AcceptedEventInviteeIds: {
-      type: "string[]",
-      label: "Accepted Event Invitee IDs",
-      async options() {
-        const { recentItems: contacts } = await this.listSObjectTypeIds("Contact");
-        const { recentItems: leads } = await this.listSObjectTypeIds("Lead");
-        const allContacts = [
-          ...contacts,
-          ...leads,
-        ];
-        return allContacts.map(({
-          Name, Id,
-        }) => ({
-          label: Name,
-          value: Id,
-        }));
+      label: "Fields to Obtain",
+      description: "Select the field(s) to obtain for the selected record(s) (or all records).",
+      async options({ objType }) {
+        const fields = await this.getFieldsForObjectType(objType);
+        return fields.map(({ name }) => name);
       },
-      description: "A string array of contact or lead IDs who accepted this event. This JunctionIdList is linked to the AcceptedEventRelation child relationship. Warning Adding a JunctionIdList field name to the fieldsToNull property deletes all related junction records. This action can't be undone.",
     },
   },
   methods: {
@@ -139,10 +117,6 @@ export default {
       const baseUrl = this._sObjectTypeApiUrl(sObjectType);
       return `${baseUrl}/describe`;
     },
-    _sObjectTypeUpdatedApiUrl(sObjectType) {
-      const baseUrl = this._sObjectTypeApiUrl(sObjectType);
-      return `${baseUrl}/updated`;
-    },
     _sObjectTypeDeletedApiUrl(sObjectType) {
       const baseUrl = this._sObjectTypeApiUrl(sObjectType);
       return `${baseUrl}/deleted`;
@@ -181,49 +155,18 @@ export default {
       // Remove milliseconds from date ISO string
       return dateString.replace(/\.[0-9]{3}/, "");
     },
-    _getSalesforceClient() {
-      const clientOpts = {
-        apiVersion: this._apiVersion(),
-        authToken: this._authToken(),
-        instance: this._subdomain(),
-      };
-      return new SalesforceClient(clientOpts);
-    },
-    async additionalProps(selector, sobject) {
-      return selector.reduce((props, prop) => ({
-        ...props,
-        [prop]: sobject[prop],
-      }), {});
+    isValidSObject(sobject) {
+      // Only the activity of those SObject types that have the `replicateable`
+      // flag set is published via the `getUpdated` API.
+      //
+      // See the API docs here: https://sforce.co/3gDy3uP
+      return sobject.replicateable;
     },
     isHistorySObject(sobject) {
       return (
         sobject.associateEntityType === "History" &&
         sobject.name.includes("History")
       );
-    },
-    listAllowedSObjectTypes(eventType) {
-      const verbose = true;
-      return SalesforceClient.getAllowedSObjects(eventType, verbose);
-    },
-    async createWebhook(endpointUrl, sObjectType, event, secretToken, opts) {
-      const {
-        fieldsToCheck,
-        fieldsToCheckMode,
-      } = opts;
-      const client = this._getSalesforceClient();
-      const webhookOpts = {
-        endpointUrl,
-        sObjectType,
-        event,
-        secretToken,
-        fieldsToCheck,
-        fieldsToCheckMode,
-      };
-      return client.createWebhook(webhookOpts);
-    },
-    async deleteWebhook(webhookData) {
-      const client = this._getSalesforceClient();
-      return client.deleteWebhook(webhookData);
     },
     async listSObjectTypes() {
       const url = this._sObjectsApiUrl();
@@ -254,50 +197,36 @@ export default {
       });
       return data.fields;
     },
-    async getHistorySObjectForObjectType(objectType) {
-      const { sobjects } = await this.listSObjectTypes();
-      const historyObject = sobjects.find(
-        (sobject) =>
-          sobject.associateParentEntity === objectType &&
-          this.isHistorySObject(sobject),
-      );
-      return historyObject;
-    },
-    async createObject(objectType, data) {
-      const url = `${this._sObjectsApiUrl()}/${objectType}`;
+    async createObject({
+      objectType, ...args
+    }) {
       return this._makeRequest({
-        url,
-        data,
+        url: `${this._sObjectsApiUrl()}/${objectType}`,
         method: "POST",
+        ...args,
       });
     },
-    async deleteObject(objectType, sobjectId) {
-      const url = `${this._sObjectsApiUrl()}/${objectType}/${sobjectId}`;
+    async deleteRecord({
+      sobjectType, recordId, ...args
+    }) {
+      const url = `${this._sObjectsApiUrl()}/${sobjectType}/${recordId}`;
       return this._makeRequest({
         url,
         method: "DELETE",
+        ...args,
       });
     },
-    async getRecords(objectType, params) {
+    async getRecords({
+      objectType, ...args
+    }) {
       const url = `${this._sCompositeApiUrl()}/${objectType}`;
       return this._makeRequest({
         url,
-        params,
+        ...args,
       });
     },
     async getSObject(objectType, id, params = null) {
       const url = this._sObjectDetailsApiUrl(objectType, id);
-      return this._makeRequest({
-        url,
-        params,
-      });
-    },
-    async getUpdatedForObjectType(objectType, start, end) {
-      const url = this._sObjectTypeUpdatedApiUrl(objectType);
-      const params = {
-        start: this._formatDateString(start),
-        end: this._formatDateString(end),
-      };
       return this._makeRequest({
         url,
         params,
@@ -324,159 +253,6 @@ export default {
         },
       });
     },
-    async createAccount({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Account");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async updateAccount({
-      $, id, data,
-    }) {
-      const url = this._sObjectDetailsApiUrl("Account", id);
-      return this._makeRequest({
-        $,
-        url,
-        method: "PATCH",
-        data,
-      });
-    },
-    async createAttachment({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Attachment");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createCampaign({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Campaign");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createCase({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Case");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createCaseComment({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("CaseComment");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createContact({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Contact");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async updateContact({
-      $, id, data,
-    }) {
-      const url = this._sObjectDetailsApiUrl("Contact", id);
-      return this._makeRequest({
-        $,
-        url,
-        method: "PATCH",
-        data,
-      });
-    },
-    async createEvent({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Event");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createLead({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Lead");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createNote({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Note");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async createOpportunity({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Opportunity");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async updateOpportunity({
-      $, id, data,
-    }) {
-      const url = this._sObjectDetailsApiUrl("Opportunity", id);
-      return this._makeRequest({
-        $,
-        url,
-        method: "PATCH",
-        data,
-      });
-    },
-    async getRecordFieldValues(sobjectName, {
-      $, id, params,
-    }) {
-      const url = this._sObjectDetailsApiUrl(sobjectName, id);
-      return this._makeRequest({
-        $,
-        url,
-        params,
-      });
-    },
     async createRecord(sobjectName, {
       $, data,
     }) {
@@ -499,45 +275,54 @@ export default {
         data,
       });
     },
-    async createTask({
-      $, data,
-    }) {
-      const url = this._sObjectTypeApiUrl("Task");
-      return this._makeRequest({
-        $,
-        url,
-        method: "POST",
-        data,
-      });
-    },
-    async deleteOpportunity({
-      $, id,
-    }) {
-      const url = this._sObjectDetailsApiUrl("Opportunity", id);
-      return this._makeRequest({
-        $,
-        url,
-        method: "DELETE",
-      });
-    },
     async query({
       $, query,
     }) {
       const baseUrl = this._baseApiVersionUrl();
-      const url = `${baseUrl}/query/?q=${encodeURI(query)}`;
+      const url = `${baseUrl}/query/?q=${encodeURIComponent(query)}`;
       return this._makeRequest({
         $,
         url,
       });
+    },
+    async listRecordOptions({
+      objType,
+      nameField = "Id",
+    }) {
+      const fields = [
+        "Id",
+        ...nameField === "Id"
+          ? []
+          : [
+            nameField,
+          ],
+      ];
+      const { records } = await this.query({
+        query: `SELECT ${fields.join(", ")} FROM ${objType}`,
+      });
+      return records?.map?.((item) => ({
+        label: item[nameField],
+        value: item.Id,
+      })) ?? [];
     },
     async search({
       $, search,
     }) {
       const baseUrl = this._baseApiVersionUrl();
-      const url = `${baseUrl}/search/?q=${encodeURI(search)}`;
+      const url = `${baseUrl}/search/?q=${encodeURIComponent(search)}`;
       return this._makeRequest({
         $,
         url,
+      });
+    },
+    async parameterizedSearch(args) {
+      const baseUrl = this._baseApiVersionUrl();
+      const url = `${baseUrl}/parameterizedSearch/`;
+
+      return this._makeRequest({
+        url,
+        method: "GET",
+        ...args,
       });
     },
     async insertBlobData(sobjectName, {
@@ -555,7 +340,7 @@ export default {
       };
       return axios($ ?? this, requestConfig);
     },
-    async postFeed(args = {}) {
+    async postFeed(args) {
       const baseUrl = this._baseApiVersionUrl();
       const url = `${baseUrl}/chatter/feed-elements`;
       return this._makeRequest({
@@ -563,6 +348,93 @@ export default {
         method: "POST",
         ...args,
       });
+    },
+    createBulkJob(args = {}) {
+      return this._makeRequest({
+        ...args,
+        method: "POST",
+        url: `${this._baseApiVersionUrl()}/jobs/ingest`,
+        data: {
+          contentType: "CSV",
+          columnDelimiter: "COMMA",
+          lineEnding: "LF",
+          ...args?.data,
+        },
+      });
+    },
+    uploadBulkJobData({
+      jobId, ...args
+    } = {}) {
+      return this._makeRequest({
+        ...args,
+        method: "PUT",
+        url: `${this._baseApiVersionUrl()}/jobs/ingest/${jobId}/batches`,
+        headers: {
+          ...this._makeRequestHeaders(),
+          "Content-Type": "text/csv",
+        },
+      });
+    },
+    patchBulkJob({
+      jobId, ...args
+    } = {}) {
+      return this._makeRequest({
+        ...args,
+        method: "PATCH",
+        url: `${this._baseApiVersionUrl()}/jobs/ingest/${jobId}`,
+      });
+    },
+    getBulkJobInfo({
+      jobId, ...args
+    } = {}) {
+      return this._makeRequest({
+        ...args,
+        url: `${this._baseApiVersionUrl()}/jobs/ingest/${jobId}`,
+      });
+    },
+    getKnowledgeArticles(args = {}) {
+      return this._makeRequest({
+        url: `${this._baseApiVersionUrl()}/support/knowledgeArticles`,
+        ...args,
+      });
+    },
+    getKnowledgeDataCategoryGroups(args = {}) {
+      return this._makeRequest({
+        url: `${this._baseApiVersionUrl()}/support/dataCategoryGroups`,
+        ...args,
+      });
+    },
+    async paginate({
+      requester, requesterArgs, resultsKey = "articles",
+      maxRequests = 3, pageSize = 100,
+    } = {}) {
+      let allItems = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore && currentPage <= maxRequests) {
+        const response = await requester({
+          ...requesterArgs,
+          params: {
+            ...requesterArgs?.params,
+            pageSize,
+            pageNumber: currentPage,
+          },
+        });
+
+        const items = response[resultsKey];
+        if (items?.length) {
+          allItems = [
+            ...allItems,
+            ...items,
+          ];
+        }
+
+        hasMore = !!response.nextPageUrl;
+        currentPage++;
+      }
+
+      return allItems;
     },
   },
 };

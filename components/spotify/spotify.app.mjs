@@ -1,14 +1,10 @@
-import axios from "axios";
-import get from "lodash/get.js";
-import isNil from "lodash/isNil.js";
-import isArray from "lodash/isArray.js";
-import isString from "lodash/isString.js";
-import isEmpty from "lodash/isEmpty.js";
+import { axios } from "@pipedream/platform";
 import { promisify } from "util";
 import {
   ITEM_TYPES,
   ITEM_TYPES_RESULT_NAME,
-} from "./consts.mjs";
+  PAGE_SIZE,
+} from "./common/constants.mjs";
 import Countries from "./country-codes.mjs";
 
 const pause = promisify((delay, fn) => setTimeout(fn, delay));
@@ -31,17 +27,18 @@ export default {
       async options({
         page, playlistId,
       }) {
-        const limit = 20;
         const items = await this.getPlaylistItems({
-          limit,
-          offset: limit * page,
-          playlistId: get(playlistId, "value", playlistId),
+          params: {
+            limit: PAGE_SIZE,
+            offset: PAGE_SIZE * page,
+          },
+          playlistId: playlistId.value ?? playlistId,
         });
 
         return {
           options: items.map((item) => ({
-            label: this.getItemOptionLabel(item.track),
-            value: item.track.uri,
+            label: this.getItemOptionLabel(item.item),
+            value: item.item.uri,
           })),
         };
       },
@@ -52,10 +49,11 @@ export default {
       description: "Search saved user tracks in \"Liked Songs\" or enter a custom expression to reference specific [Spotify ID](https://developer.spotify.com/documentation/web-api/#spotify-uris-and-ids) for the track. For example: `4iV5W9uYEdYUVa79Axb7Rh`. Maximum: 50 IDs.",
       withLabel: true,
       async options({ page }) {
-        const limit = 20;
         const items = await this.getUserTracks({
-          limit,
-          offset: limit * page,
+          params: {
+            limit: PAGE_SIZE,
+            offset: PAGE_SIZE * page,
+          },
         });
 
         return {
@@ -76,12 +74,11 @@ export default {
         query,
         page,
       }) {
-        const limit = 20;
         const artists = await this.getItems(
           ITEM_TYPES.ARTIST,
           query,
-          limit,
-          limit * page,
+          PAGE_SIZE,
+          PAGE_SIZE * page,
         );
         return {
           options: artists.map((artist) => ({
@@ -95,12 +92,12 @@ export default {
       type: "string",
       label: "Playlist ID",
       description: "Select an existing playlist or pass a custom expression to reference a specific [`playlist_id`](https://developer.spotify.com/documentation/web-api/#spotify-uris-and-ids) (for example, `3cEYpjA9oz9GiPac4AsH4n`).",
-      withLabel: true,
       async options({ page }) {
-        const limit = 20;
         const playlists = await this.getPlaylists({
-          limit,
-          offset: limit * page,
+          params: {
+            limit: PAGE_SIZE,
+            offset: PAGE_SIZE * page,
+          },
         });
         return {
           options: playlists.map((playlist) => ({
@@ -116,10 +113,11 @@ export default {
       description: "Type to search for a category or enter a custom expression to reference a specific [category ID](https://developer.spotify.com/documentation/web-api/#spotify-uris-and-ids) (for example, `party`).",
       withLabel: true,
       async options({ page }) {
-        const limit = 20;
         const categories = await this.getCategories({
-          limit,
-          offset: limit * page,
+          params: {
+            limit: PAGE_SIZE,
+            offset: PAGE_SIZE * page,
+          },
         });
         return {
           options: categories.map((category) => ({
@@ -139,12 +137,11 @@ export default {
         query,
         page,
       }) {
-        const limit = 20;
         const tracks = await this.getItems(
           ITEM_TYPES.TRACK,
           query,
-          limit,
-          limit * page,
+          PAGE_SIZE,
+          PAGE_SIZE * page,
         );
         return {
           options: tracks.map((track) => ({
@@ -164,15 +161,14 @@ export default {
         query,
         page,
       }) {
-        const limit = 20;
         const items = await this.getItems(
           [
             ITEM_TYPES.TRACK,
             ITEM_TYPES.EPISODE,
           ],
           query,
-          limit,
-          limit * page,
+          PAGE_SIZE,
+          PAGE_SIZE * page,
         );
         return {
           options: items.map((item) => ({
@@ -197,17 +193,25 @@ export default {
       min: 1,
       max: 100,
     },
+    genres: {
+      type: "string[]",
+      label: "Seed Genres",
+      description: "An array of genres. Up to 5 seed values may be provided in any combination of `seedArtists`, `seedTracks` and `seedGenres`.",
+      async options() {
+        return this.getGenres();
+      },
+    },
   },
   methods: {
     sanitizedArray(value) {
-      if (isArray(value)) {
-        return value.map((item) => get(item, "value", item));
+      if (Array.isArray(value)) {
+        return value.map((item) => item.value ?? item);
       }
 
       // If is string, try to convert it in an array
-      if (isString(value)) {
+      if (typeof value === "string") {
         // Return an empty array if string is empty
-        if (isEmpty(value)) {
+        if (value === "") {
           return [];
         }
 
@@ -216,45 +220,24 @@ export default {
 
       throw new Error(`${value} is not an array or an array-like`);
     },
-    _getAxiosParams(opts) {
-      return {
-        ...opts,
-        url: this._getBaseUrl() + opts.path + this._getQuery(opts.params),
-        headers: this._getHeaders(),
-      };
-    },
-    _getBaseUrl() {
-      return "https://api.spotify.com/v1";
-    },
     _getHeaders() {
       return {
         Authorization: `Bearer ${this.$auth.oauth_access_token}`,
       };
     },
-    _getQuery(params) {
-      if (!params) {
-        return "";
-      }
-
-      let query = "?";
-      const keys = Object.keys(params);
-      for (let i = 0; i < keys.length; i++) {
-        // Explicity looking for nil values to avoid false negative for Boolean(false)
-        if (!isNil(params[keys[i]])) {
-          query += `${keys[i]}=${params[keys[i]]}&`;
-        }
-      }
-
-      // It removes the last string char, it can be ? or &
-      return query.substr(0, query.length - 1);
-    },
-    async _paginate(resourceFn, params = {}) {
+    async _paginate(resourceFn, args = {}) {
       let data = [];
-      params.limit = 20;
-      params.offset = 0;
+      const params = {
+        ...args.params,
+        limit: PAGE_SIZE,
+        offset: 0,
+      };
 
       do {
-        const items = await resourceFn(params);
+        const items = await resourceFn({
+          ...args,
+          params,
+        });
         data = [
           ...data,
           ...items,
@@ -281,32 +264,40 @@ export default {
       const artists = track.artists.map((artist) => artist.name).join(", ");
       return `${track.name} [${artists}]`;
     },
-    async _makeRequest(method, endpoint, params) {
+    _getBaseUrl() {
+      return "https://api.spotify.com/v1";
+    },
+    async _makeRequest({
+      $ = this,
+      headers,
+      ...args
+    } = {}) {
       const config = {
-        method,
-        url: `${await this._getBaseUrl()}${endpoint}`,
-        headers: await this._getHeaders(),
-        params,
+        baseURL: this._getBaseUrl(),
+        headers: {
+          ...headers,
+          ...this._getHeaders(),
+        },
+        ...args,
       };
-      return await this.retry(config);
+      return await this.retry($, config);
     },
     // Retry axios request if not successful
-    async retry(config, retries = 3) {
-      let response;
+    async retry($, config, retries = 1) {
       try {
-        response = await axios(config);
-        return response;
+        return await axios($, {
+          ...config,
+          returnFullResponse: true,
+        });
       } catch (err) {
-        if (retries <= 1) {
-          throw new Error(err);
+        if (err?.status !== 429 || retries > 3) {
+          $?.export?.("response", err);
+          throw new Error("Error response exported in the \"response\" object");
         }
-        // if rate limit is exceeded, Retry-After will contain the # of seconds
-        // to wait before retrying
-        const delay = (response && response.status == 429)
-          ? (response.headers["Retry-After"] * 1000)
-          : 500;
+
+        const delay = retries * 5000;
         await pause(delay);
-        return this.retry(config, retries - 1);
+        return this.retry($, config, retries + 1);
       }
     },
     async getItems(types, q, limit, offset) {
@@ -331,9 +322,13 @@ export default {
         offset,
       };
 
-      const res = await this._makeRequest("GET", "/search", params);
+      const res = await this._makeRequest({
+        method: "GET",
+        url: "/search",
+        params,
+      });
       return types.reduce((accumulator, type) => (
-        accumulator.concat(get(res, `data.${ITEM_TYPES_RESULT_NAME[type]}.items`, []))
+        accumulator.concat(res.data?.[ITEM_TYPES_RESULT_NAME[type]]?.items ?? [])
       ), []);
     },
     getItemOptionLabel(item) {
@@ -346,22 +341,173 @@ export default {
         return item.name;
       }
     },
-    async getPlaylists(params) {
-      const res = await this._makeRequest("GET", "/me/playlists", params);
-      return get(res, "data.items", null);
+    async getPlaylist({
+      playlistId, ...args
+    }) {
+      const { data } = await this._makeRequest({
+        url: `/playlists/${playlistId}`,
+        ...args,
+      });
+      return data;
     },
-    async getCategories(params) {
-      const res = await this._makeRequest("GET", "/browse/categories", params);
-      return get(res, "data.categories.items", []);
+    async getPlaylists(args) {
+      const { data } = await this._makeRequest({
+        url: "/me/playlists",
+        ...args,
+      });
+      return data?.items ?? [];
     },
-    async getUserTracks(params) {
-      const res = await this._makeRequest("GET", "/me/tracks", params);
-      return get(res, "data.items", []);
+    async getCategories(args) {
+      const { data } = await this._makeRequest({
+        url: "/browse/categories",
+        ...args,
+      });
+      return data?.categories?.items ?? [];
     },
-    async getPlaylistItems(params) {
-      const { playlistId } = params;
-      const res = await this._makeRequest("GET", `/playlists/${playlistId}/tracks`, params);
-      return get(res, "data.items", []);
+    async getUserTracks(args) {
+      const { data } = await this._makeRequest({
+        url: "/me/tracks",
+        ...args,
+      });
+      return data?.items ?? [];
+    },
+    async getPlaylistItems({
+      $, playlistId, ...args
+    }) {
+      const { data } = await this._makeRequest({
+        $,
+        url: `/playlists/${playlistId}/items`,
+        ...args,
+      });
+      return data?.items ?? [];
+    },
+    async getGenres(args) {
+      const { data } = await this._makeRequest({
+        url: "/recommendations/available-genre-seeds",
+        ...args,
+      });
+      return data?.genres;
+    },
+    async getRecommendations(args) {
+      const { data } = await this._makeRequest({
+        url: "/recommendations",
+        ...args,
+      });
+      return data;
+    },
+    async search({
+      $, ...params
+    }) {
+      const { data } = await this._makeRequest({
+        $,
+        method: "GET",
+        url: "/search",
+        params,
+      });
+      return data;
+    },
+    async getArtistAlbums({
+      $,
+      artistId,
+      market,
+    }) {
+      // Paginate the (cheap) album listing, deduping by album ID since
+      // `include_groups=album,single` can surface the same album more than once.
+      const albumsById = new Map();
+      let page = 0;
+      let next = undefined;
+      do {
+        const { data } = await this._makeRequest({
+          $,
+          url: `/artists/${artistId.value ?? artistId}/albums`,
+          params: {
+            market,
+            limit: PAGE_SIZE,
+            offset: PAGE_SIZE * page,
+            include_groups: "album,single",
+          },
+        });
+        for (const album of data.items) {
+          if (!albumsById.has(album.id)) {
+            albumsById.set(album.id, {
+              id: album.id,
+              total_tracks: album.total_tracks,
+            });
+          }
+        }
+        next = data.next;
+        page++;
+      } while (next);
+      return [
+        ...albumsById.values(),
+      ];
+    },
+    async getAllTracksByAlbumIds({
+      $,
+      albumIds,
+      market,
+    }) {
+      // Spotify's "Get Several Albums" endpoint accepts max 20 IDs per request.
+      // Flatten + dedupe all IDs first, then chunk globally by 20 so we don't
+      // waste calls on partial batches at page boundaries.
+      const MAX_ALBUMS_PER_REQUEST = 20;
+      const uniqueIds = [
+        ...new Set(albumIds),
+      ];
+      const tracks = [];
+      for (let i = 0; i < uniqueIds.length; i += MAX_ALBUMS_PER_REQUEST) {
+        const idsChunk = uniqueIds.slice(i, i + MAX_ALBUMS_PER_REQUEST);
+        const { data } = await this._makeRequest({
+          $,
+          url: "/albums",
+          params: {
+            market,
+            ids: idsChunk.join(","),
+          },
+        });
+        for (const album of data.albums) {
+          // Spotify returns `null` placeholders for unavailable or
+          // market-restricted album IDs; skip them.
+          if (!album) {
+            continue;
+          }
+          tracks.push(...await this.getAlbumTracks({
+            $,
+            album,
+            market,
+          }));
+        }
+      }
+      return tracks;
+    },
+    async getAlbumTracks({
+      $,
+      album,
+      market,
+    }) {
+      // The embedded `tracks` object from "Get Several Albums" is itself a
+      // paginated page (capped at 50 items), so page the remainder for albums
+      // with more tracks.
+      const tracks = [
+        ...album.tracks.items,
+      ];
+      let next = album.tracks.next;
+      let offset = album.tracks.items.length;
+      while (next) {
+        const { data } = await this._makeRequest({
+          $,
+          url: `/albums/${album.id}/tracks`,
+          params: {
+            market,
+            limit: PAGE_SIZE,
+            offset,
+          },
+        });
+        tracks.push(...data.items);
+        offset += data.items.length;
+        next = data.next;
+      }
+      return tracks;
     },
   },
 };

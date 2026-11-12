@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/typebot",
+  "version": "0.1.0",
+  "description": "Pipedream Typebot Components",
+  "main": "typebot.app.mjs",
+  "keywords": [
+    "pipedream",
+    "typebot"
+  ],
+  "homepage": "https://pipedream.com/apps/typebot",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

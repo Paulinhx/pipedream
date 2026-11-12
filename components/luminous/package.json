@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/luminous",
+  "version": "0.0.3",
+  "description": "Pipedream Luminous Components",
+  "main": "luminous.app.mjs",
+  "keywords": [
+    "pipedream",
+    "luminous"
+  ],
+  "homepage": "https://pipedream.com/apps/luminous",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,29 +1,38 @@
-import pipedriveApp from "../../pipedrive.app.mjs";
+import { ConfigurationError } from "@pipedream/platform";
 import constants from "../../common/constants.mjs";
+import { parseObject } from "../../common/utils.mjs";
+import pipedriveApp from "../../pipedrive.app.mjs";
+import { formatCustomFields } from "../../common/utils.mjs";
 
 export default {
   key: "pipedrive-search-persons",
   name: "Search persons",
   description: "Searches all Persons by `name`, `email`, `phone`, `notes` and/or custom fields. This endpoint is a wrapper of `/v1/itemSearch` with a narrower OAuth scope. Found Persons can be filtered by Organization ID. See the Pipedrive API docs [here](https://developers.pipedrive.com/docs/api/v1/Persons#searchPersons)",
-  version: "0.1.2",
+  version: "0.1.26",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     pipedriveApp,
     term: {
       type: "string",
-      label: "Search term",
+      label: "Search Term",
       description: "The search term to look for. Minimum 2 characters (or 1 if using exact_match).",
     },
     fields: {
-      type: "string",
-      label: "Search fields",
-      description: "A comma-separated string array. The fields to perform the search from. Defaults to all of them.",
+      type: "string[]",
+      label: "Search Fields",
+      description: "An array containing fields to perform the search from. Defaults to all of them.",
       optional: true,
       options: constants.FIELD_OPTIONS,
     },
     exactMatch: {
       type: "boolean",
-      label: "Exact match",
+      label: "Exact Match",
       description: "When enabled, only full exact matches against the given term are returned. It is not case sensitive.",
       optional: true,
     },
@@ -36,54 +45,62 @@ export default {
     },
     includeFields: {
       type: "string",
-      label: "Include fields",
+      label: "Include Fields",
       description: "Supports including optional fields in the results which are not provided by default.",
       optional: true,
       options: constants.INCLUDE_FIELDS_OPTIONS,
     },
     start: {
-      propDefinition: [
-        pipedriveApp,
-        "start",
-      ],
+      type: "integer",
+      label: "Pagination Start",
+      description: "Pagination start. Note that the pagination is based on main results and does not include related items when using `search_for_related_items` parameter.",
+      optional: true,
     },
     limit: {
+      type: "integer",
+      label: "Limit",
+      description: "Items shown per page",
+      optional: true,
+    },
+    includeAllCustomFields: {
       propDefinition: [
         pipedriveApp,
-        "limit",
+        "includeAllCustomFields",
       ],
     },
   },
   async run({ $ }) {
-    const {
-      term,
-      fields,
-      exactMatch,
-      organizationId,
-      includeFields,
-      start,
-      limit,
-    } = this;
-
     try {
       const resp =
         await this.pipedriveApp.searchPersons({
-          term,
-          fields,
-          exact_match: exactMatch,
-          org_id: organizationId,
-          include_fields: includeFields,
-          start,
-          limit,
+          term: this.term,
+          fields: parseObject(this.fields),
+          exact_match: this.exactMatch,
+          org_id: this.organizationId,
+          include_fields: this.includeFields,
+          start: this.start,
+          limit: this.limit,
         });
+
+      if (!resp?.data?.items?.length) {
+        $.export("$summary", "No persons found");
+        return;
+      }
+
+      if (this.includeAllCustomFields) {
+        resp.data.items = await formatCustomFields(
+          resp,
+          this.pipedriveApp.getPersons.bind(this),
+          this.pipedriveApp.getPersonCustomFields.bind(this),
+        );
+      }
 
       $.export("$summary", `Successfully found ${resp.data?.items.length || 0} persons`);
 
       return resp;
 
-    } catch (error) {
-      console.error(error.context?.body || error);
-      throw error.context?.body?.error || "Failed to search persons";
+    } catch ({ error }) {
+      throw new ConfigurationError(error);
     }
   },
 };

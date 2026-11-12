@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/api_sports",
+  "version": "0.0.3",
+  "description": "Pipedream API Sports Components",
+  "main": "api_sports.app.mjs",
+  "keywords": [
+    "pipedream",
+    "api_sports"
+  ],
+  "homepage": "https://pipedream.com/apps/api_sports",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

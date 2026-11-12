@@ -1,5 +1,6 @@
+// x-pd-ai: optimized
 import { google } from "googleapis";
-import constants from "./constants.mjs";
+import constants from "./common/constants.mjs";
 
 export default {
   type: "app",
@@ -20,23 +21,37 @@ export default {
         const { nextPageToken: pageToken } = prevContext;
         const params = {
           resourceName: constants.RESOURCE_NAME,
-          personFields: "names",
+          personFields: "names,emailAddresses",
           pageToken,
         };
         const client = await this.getClient();
         const {
-          connections,
-          nextPageToken,
-        } = await this.listContacts(client, params);
+          connections, nextPageToken,
+        } = await this.listContacts(
+          client,
+          params,
+        );
         if (!connections) {
           return [];
         }
-        const options = connections.map((contact) => ({
-          label: contact?.names
-            ? contact?.names[0].displayName
-            : contact.resourceName,
-          value: contact.resourceName,
-        }));
+        const options = connections.map((contact) => {
+          const displayName = contact?.names?.[0]?.displayName;
+          const email = contact?.emailAddresses?.[0]?.value;
+          let label;
+          if (displayName && email) {
+            label = `${displayName} (${email})`;
+          } else if (displayName) {
+            label = displayName;
+          } else if (email) {
+            label = email;
+          } else {
+            label = contact.resourceName;
+          }
+          return {
+            label,
+            value: contact.resourceName,
+          };
+        });
         return {
           options,
           context: {
@@ -51,35 +66,10 @@ export default {
       description: "Contact sections to update",
       options: constants.UPDATE_PERSON_FIELD_OPTIONS,
     },
-    streetAddress: {
+    contactGroupResourceName: {
       type: "string",
-      label: "Street Address",
-      description: "Contact's street address",
-      optional: true,
-    },
-    city: {
-      type: "string",
-      label: "City",
-      description: "Contact's city",
-      optional: true,
-    },
-    state: {
-      type: "string",
-      label: "State",
-      description: "Contact's state",
-      optional: true,
-    },
-    zipCode: {
-      type: "string",
-      label: "Zip Code",
-      description: "Contact's zip code",
-      optional: true,
-    },
-    country: {
-      type: "string",
-      label: "Country",
-      description: "Contact's country",
-      optional: true,
+      label: "Contact Group",
+      description: "Select a contact group (for example, contactGroups/abc123). Use the **List Contact Groups** action to discover available groups.",
     },
   },
   methods: {
@@ -97,6 +87,42 @@ export default {
       const { data } = await client.people.connections.list(params);
       return data;
     },
+    async searchContacts(client, params) {
+      const { data } = await client.people.searchContacts(params);
+      return data;
+    },
+    async listDirectoryContacts(client, params) {
+      const { data } = await client.people.listDirectoryPeople(params);
+      return data;
+    },
+    async searchDirectoryPeople(client, params) {
+      const { data } = await client.people.searchDirectoryPeople(params);
+      return data;
+    },
+    async listContactGroups(client, params) {
+      const { data } = await client.contactGroups.list(params);
+      return data;
+    },
+    async createContactGroup(client, params) {
+      const { data } = await client.contactGroups.create(params);
+      return data;
+    },
+    async getContactGroup(client, params) {
+      const { data } = await client.contactGroups.get(params);
+      return data;
+    },
+    async updateContactGroup(client, params) {
+      const { data } = await client.contactGroups.update(params);
+      return data;
+    },
+    async deleteContactGroup(client, params) {
+      const { data } = await client.contactGroups.delete(params);
+      return data;
+    },
+    async modifyContactGroupMembers(client, params) {
+      const { data } = await client.contactGroups.members.modify(params);
+      return data;
+    },
     async getContact(client, params) {
       const { data } = await client.people.get(params);
       return data;
@@ -107,6 +133,10 @@ export default {
     },
     async deleteContact(client, params) {
       const { data } = await client.people.deleteContact(params);
+      return data;
+    },
+    async createContact(client, params) {
+      const { data } = await client.people.createContact(params);
       return data;
     },
   },

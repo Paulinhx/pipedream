@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/murlist",
+  "version": "0.0.4",
+  "description": "Pipedream MurList Components",
+  "main": "murlist.app.mjs",
+  "keywords": [
+    "pipedream",
+    "murlist"
+  ],
+  "homepage": "https://pipedream.com/apps/murlist",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

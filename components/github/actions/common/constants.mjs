@@ -1,0 +1,14 @@
+const PULL_REQUEST_STATES = [
+  "APPROVED",
+  "CHANGES_REQUESTED",
+  "COMMENTED",
+  "DISMISSED",
+  "PENDING",
+];
+
+const LIMIT = 100;
+
+export default {
+  PULL_REQUEST_STATES,
+  LIMIT,
+};

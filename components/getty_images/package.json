@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/getty_images",
+  "version": "0.2.1",
+  "description": "Pipedream Getty Images Components",
+  "main": "getty_images.app.mjs",
+  "keywords": [
+    "pipedream",
+    "getty_images"
+  ],
+  "homepage": "https://pipedream.com/apps/getty_images",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

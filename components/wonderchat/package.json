@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/wonderchat",
+  "version": "0.1.0",
+  "description": "Pipedream Wonderchat Components",
+  "main": "wonderchat.app.mjs",
+  "keywords": [
+    "pipedream",
+    "wonderchat"
+  ],
+  "homepage": "https://pipedream.com/apps/wonderchat",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5"
+  }
+}

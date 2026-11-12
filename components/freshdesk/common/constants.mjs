@@ -1,13 +1,5 @@
 export default {
-  HTTP_PROTOCOL: "https://",
-  BASE_PATH: "/api",
-  VERSION_PATH: "/v2",
   PAGE_SIZE: 100,
-  retriableStatusCodes: [
-    408,
-    429,
-    500,
-  ],
   DB_LAST_DATE_CHECK: "DB_LAST_DATE_CHECK",
   TICKET_STATUS: [
     {
@@ -43,6 +35,44 @@ export default {
     {
       label: "Urgent",
       value: 4,
+    },
+  ],
+  TICKET_SCOPE: [
+    {
+      label: "Global Access",
+      value: 1,
+    },
+    {
+      label: "Group Access",
+      value: 2,
+    },
+    {
+      label: "Restricted Access",
+      value: 3,
+    },
+  ],
+  AGENT_TYPE: [
+    {
+      label: "Support Agent",
+      value: 1,
+    },
+    {
+      label: "Field Agent",
+      value: 2,
+    },
+    {
+      label: "Collaborator",
+      value: 3,
+    },
+  ],
+  ARTICLE_STATUS: [
+    {
+      label: "Draft",
+      value: 1,
+    },
+    {
+      label: "Published",
+      value: 2,
     },
   ],
 };

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/browserbase",
+  "version": "0.1.0",
+  "description": "Pipedream Browserbase Components",
+  "main": "browserbase.app.mjs",
+  "keywords": [
+    "pipedream",
+    "browserbase"
+  ],
+  "homepage": "https://pipedream.com/apps/browserbase",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

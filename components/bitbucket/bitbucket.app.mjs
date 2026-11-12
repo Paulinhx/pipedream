@@ -1,5 +1,6 @@
 import { axios } from "@pipedream/platform";
 import defaultAxios from "axios";
+import constants from "./sources/common/constants.mjs";
 
 export default {
   type: "app",
@@ -35,7 +36,6 @@ export default {
             page: page + 1,
           },
         });
-
         return repositories.map((repository) => ({
           label: repository.name,
           value: repository.uuid,
@@ -49,7 +49,7 @@ export default {
       async options({
         workspaceId, repositoryId, page,
       }) {
-        const branchs = await this.getBranchs({
+        const branches = await this.getBranches({
           workspaceId,
           repositoryId,
           params: {
@@ -57,50 +57,7 @@ export default {
           },
         });
 
-        return branchs.map((branch) => branch.name);
-      },
-    },
-    issue: {
-      type: "string",
-      label: "Issue",
-      description: "Select a issue",
-      async options({
-        workspaceId, repositoryId, page,
-      }) {
-        const issues = await this.getIssues({
-          workspaceId,
-          repositoryId,
-          params: {
-            page: page + 1,
-          },
-        });
-
-        return issues.map((issue) => ({
-          label: issue.title,
-          value: issue.id,
-        }));
-      },
-    },
-    comment: {
-      type: "string",
-      label: "Comment",
-      description: "Select a comment",
-      async options({
-        workspaceId, repositoryId, issueId, page,
-      }) {
-        const comments = await this.getIssueComments({
-          workspaceId,
-          repositoryId,
-          issueId,
-          params: {
-            page: page + 1,
-          },
-        });
-
-        return comments.map((comment) => ({
-          label: comment.content.raw ?? comment.content.html ?? comment.content.markup,
-          value: comment.id,
-        }));
+        return branches.map((branch) => branch.name);
       },
     },
     snippet: {
@@ -257,59 +214,6 @@ export default {
 
       return response.values;
     },
-    async getIssues({
-      workspaceId, repositoryId, params,
-    }, $) {
-      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/issues`, {
-        params,
-      }, $);
-
-      return response.values;
-    },
-    async getIssue({
-      workspaceId, repositoryId, issueId,
-    }, $) {
-      return await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/issues/${issueId}`, {}, $);
-    },
-    async createIssue({
-      workspaceId, repositoryId, data,
-    }, $) {
-      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/issues`, {
-        method: "post",
-        data,
-      }, $);
-
-      return response.values;
-    },
-    async getIssueComments({
-      workspaceId, repositoryId, issueId, params,
-    }, $) {
-      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/issues/${issueId}/comments`, {
-        params,
-      }, $);
-
-      return response.values;
-    },
-    async createIssueComment({
-      workspaceId, repositoryId, issueId, data,
-    }, $) {
-      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/issues/${issueId}/comments`, {
-        method: "post",
-        data,
-      }, $);
-
-      return response.values;
-    },
-    async updateIssueComment({
-      workspaceId, repositoryId, issueId, commentId, data,
-    }, $) {
-      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/issues/${issueId}/comments/${commentId}`, {
-        method: "put",
-        data,
-      }, $);
-
-      return response.values;
-    },
     async getWorkspaceMembers({
       workspaceId, params,
     }, $) {
@@ -357,7 +261,12 @@ export default {
         },
       });
     },
-    async getBranchs({
+    async getEventTypes({ subjectType }, $) {
+      const response = await this._makeRequest(`hook_events/${subjectType}`, {}, $);
+
+      return response.values;
+    },
+    async getBranches({
       workspaceId, repositoryId, params,
     }, $) {
       const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/refs/branches`, {
@@ -366,10 +275,69 @@ export default {
 
       return response.values;
     },
-    async getEventTypes({ subjectType }, $) {
-      const response = await this._makeRequest(`hook_events/${subjectType}`, {}, $);
+    async getCommits({
+      workspaceId, repositoryId, params,
+    }, $) {
+      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/commits`, {
+        params,
+      }, $);
 
       return response.values;
     },
+    async getCommitComments({
+      workspaceId, repositoryId, commitId, params,
+    }, $) {
+      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/commit/${commitId}/comments`, {
+        params,
+      }, $);
+
+      return response.values;
+    },
+    async loadBranchHistoricalData(workspaceId, repositoryId) {
+      const branches = await this.getBranches({
+        workspaceId,
+        repositoryId,
+        params: {
+          page: 1,
+          pagelen: constants.HISTORICAL_DATA_LENGTH,
+        },
+      });
+      const ts = new Date().getTime();
+      return branches.map((branch) => ({
+        main: branch.name,
+        sub: {
+          id: `${branch.name}-${ts}`,
+          summary: `New branch ${branch.name} created`,
+          ts,
+        },
+      }));
+    },
+    async getPullRequests({
+      workspaceId, repositoryId, params,
+    }, $) {
+      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/pullrequests`, {
+        params,
+      }, $);
+
+      return response.values;
+    },
+    async getPullRequestActivities({
+      workspaceId, repositoryId, params,
+    }, $) {
+      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/pullrequests/activity`, {
+        params,
+      }, $);
+      return response.values;
+    },
+    async getTags({
+      workspaceId, repositoryId, params,
+    }, $) {
+      const response = await this._makeRequest(`repositories/${workspaceId}/${repositoryId}/refs/tags`, {
+        params,
+      }, $);
+
+      return response.values;
+    },
+
   },
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/kartra",
+  "version": "0.0.3",
+  "description": "Pipedream Kartra Components",
+  "main": "kartra.app.mjs",
+  "keywords": [
+    "pipedream",
+    "kartra"
+  ],
+  "homepage": "https://pipedream.com/apps/kartra",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

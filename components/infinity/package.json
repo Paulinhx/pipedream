@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/infinity",
+  "version": "0.1.2",
+  "description": "Pipedream Infinity Components",
+  "main": "infinity.app.mjs",
+  "keywords": [
+    "pipedream",
+    "infinity"
+  ],
+  "homepage": "https://pipedream.com/apps/infinity",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

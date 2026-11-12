@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/coinmarketcal_demo_app",
+  "version": "0.0.3",
+  "description": "Pipedream CoinMarketCal Demo App Components",
+  "main": "coinmarketcal_demo_app.app.mjs",
+  "keywords": [
+    "pipedream",
+    "coinmarketcal_demo_app"
+  ],
+  "homepage": "https://pipedream.com/apps/coinmarketcal_demo_app",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

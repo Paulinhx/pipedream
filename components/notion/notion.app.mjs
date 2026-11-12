@@ -1,84 +1,117 @@
 import notion from "@notionhq/client";
-import NOTION_META from "./common/notion-meta-selection.mjs";
-import NOTION_BLOCKS from "./common/notion-blocks-selection.mjs";
+import { ConfigurationError } from "@pipedream/platform";
+import { NotionToMarkdown } from "notion-to-md";
 
 export default {
   type: "app",
   app: "notion",
   propDefinitions: {
-    databaseId: {
+    dataSourceId: {
       type: "string",
-      label: "Database ID",
-      description: "The identifier for a Notion database",
+      label: "Data Source ID",
+      description: "Select a data source or provide a data source ID",
       async options({ prevContext }) {
-        const response = await this.listDatabases({
+        const response = await this.listDataSources({
           start_cursor: prevContext.nextPageParameters ?? undefined,
         });
-        const options = this._extractDatabaseTitleOptions(response.results);
+        const options = this._extractDataSourceTitleOptions(response.results);
         return this._buildPaginatedOptions(options, response.next_cursor);
       },
     },
     pageId: {
       type: "string",
       label: "Page ID",
-      description: "The identifier for a Notion page",
-      async options({ prevContext }) {
-        const response = await this.searchPage(undefined, {
+      description: "Search for a page or provide a page ID",
+      useQuery: true,
+      async options({
+        query, prevContext,
+      }) {
+        const response = await this.search(query || undefined, {
           start_cursor: prevContext.nextPageParameters ?? undefined,
+          filter: {
+            property: "object",
+            value: "page",
+          },
         });
         const options = this._extractPageTitleOptions(response.results);
         return this._buildPaginatedOptions(options, response.next_cursor);
       },
     },
-    metaTypes: {
-      type: "string[]",
-      label: "Meta Types",
-      description: "Select the page attributes such as icon and cover",
-      options: Object.keys(NOTION_META),
-      optional: true,
-      reloadProps: true,
+    blockId: {
+      type: "string",
+      label: "Block ID",
+      description: "The ID of the block to act on, e.g. `1a2b3c4d-5e6f-7890-abcd-ef1234567890` (a 32-character UUID, with or without dashes). A Notion page is itself a block, so this can also be a page ID. Use the **Search** action to resolve a page name into an ID, or the **Retrieve Page Content** action to list the child block IDs within a page.",
+    },
+    propertyId: {
+      type: "string",
+      label: "Property ID",
+      description: "Select a page property or provide a property ID",
+      async options({ pageId }) {
+        this._checkOptionsContext(pageId, "Page ID");
+        const response = await this.retrievePage(pageId);
+
+        const parentType = response.parent.type;
+        try {
+          const { properties } = parentType === "data_source_id"
+            ? await this.retrieveDataSource(response.parent.data_source_id)
+            : response;
+
+          const propEntries = Object.entries(properties);
+          const propIds  = propEntries.length === 1 && Object.values(propEntries)[0][1].id === "title"
+            ?
+            propEntries.map((prop) => ({
+              label: prop[1].type,
+              value: prop[1].id,
+            }))
+            : propEntries.map((prop) => ({
+              label: prop[1].name,
+              value: prop[1].id,
+            }));
+          return propIds;
+        } catch (error) {
+          console.log(error);
+          return [];
+        }
+      },
     },
     propertyTypes: {
       type: "string[]",
       label: "Property Types",
-      description: "Select the page properties",
+      description: "Select one or more page properties",
       optional: true,
-      reloadProps: true,
       async options({
         parentId, parentType,
       }) {
-        const { properties } = parentType === "database"
-          ? await this.retrieveDatabase(parentId)
-          : await this.retrievePage(parentId);
-        return Object.keys(properties);
+        this._checkOptionsContext(parentId, "Data Source ID");
+        try {
+          const { properties } = parentType === "data_source"
+            ? await this.retrieveDataSource(parentId)
+            : await this.retrievePage(parentId);
+          return Object.keys(properties);
+        } catch (error) {
+          console.log(error);
+          return [];
+        }
       },
-    },
-    blockTypes: {
-      type: "string[]",
-      label: "Block Types",
-      description: "Select the block types that will be appended as the page content",
-      options: Object.keys(NOTION_BLOCKS),
-      optional: true,
-      reloadProps: true,
     },
     archived: {
       type: "boolean",
-      label: "Archive page",
-      description: "Set to true to archive (delete) a page. Set to false to un-archive (restore) a page.",
+      label: "Archive Page",
+      description: "Set to `true` to archive (delete) a page. Set to `false` to  un-archive (restore) a page",
       optional: true,
     },
     title: {
       type: "string",
       label: "Page Title",
-      description: "The page title. Defaults to `Untitled`.",
+      description: "The page title (defaults to `Untitled`)",
       optional: true,
     },
-    userIds: {
-      type: "string[]",
-      label: "Users",
-      description: "A list of users",
+    userId: {
+      type: "string",
+      label: "User ID",
+      description: "Select a user, or provide a user ID",
       async options() {
-        const users = await this.getUsers();
+        const { results: users } = await this.getUsers();
 
         return users.map((user) => ({
           label: user.name,
@@ -86,14 +119,79 @@ export default {
         }));
       },
     },
+    fileUploadId: {
+      type: "string",
+      label: "File Upload ID",
+      description: "The ID of the file upload to send.",
+      async options({
+        prevContext, status,
+      }) {
+        const {
+          results, next_cursor: nextCursor,
+        } = await this.listFileUploads({
+          status,
+          page_size: 100,
+          start_cursor: prevContext.nextPageParameters ?? undefined,
+        });
+
+        return {
+          options: results.map(({
+            id: value, filename: label,
+          }) => ({
+            label,
+            value,
+          })),
+          context: {
+            nextPageParameters: nextCursor,
+          },
+        };
+      },
+    },
+    sortDirection: {
+      type: "string",
+      label: "Sort Direction",
+      description: "The direction to sort by",
+      optional: true,
+      options: [
+        "ascending",
+        "descending",
+      ],
+    },
+    pageSize: {
+      type: "integer",
+      label: "Page Size",
+      description: "The number of items from the full list desired in the response (max 100)",
+      default: 100,
+      min: 1,
+      max: 100,
+      optional: true,
+    },
+    startCursor: {
+      type: "string",
+      label: "Start Cursor (page_id)",
+      description: "Leave blank to retrieve the first page of results. Otherwise, the response will be the page of results starting after the provided cursor",
+      optional: true,
+    },
+    pageContent: {
+      type: "string",
+      label: "Page Content",
+      description: "The content of the page, using Markdown syntax. [See the documentation](https://www.notion.com/help/writing-and-editing-basics#markdown-and-shortcuts) for more information",
+      optional: true,
+    },
   },
   methods: {
+    _checkOptionsContext(value, name) {
+      if (value.match(/{{\s?steps/)) {
+        throw new ConfigurationError(`Please use a custom expression to reference a previous value, since you are also using one for \`${name}\``);
+      }
+    },
     _getNotionClient() {
       return new notion.Client({
         auth: this.$auth.oauth_access_token,
+        notionVersion: "2025-09-03",
       });
     },
-    _extractDatabaseTitleOptions(databases) {
+    _extractDataSourceTitleOptions(databases) {
       return databases.map((database) => {
         const title = database.title
           .map((title) => title.plain_text)
@@ -127,8 +225,8 @@ export default {
         },
       };
     },
-    extractDatabaseTitle(database) {
-      return this._extractDatabaseTitleOptions([
+    extractDataSourceTitle(database) {
+      return this._extractDataSourceTitleOptions([
         database,
       ])[0].label;
     },
@@ -137,24 +235,56 @@ export default {
         page,
       ])[0].label;
     },
-    async listDatabases(params = {}) {
+    async listDataSources(params = {}) {
       return this._getNotionClient().search({
         filter: {
           property: "object",
-          value: "database",
+          value: "data_source",
         },
         ...params,
       });
     },
-    async queryDatabase(databaseId, params = {}) {
-      return this._getNotionClient().databases.query({
-        database_id: databaseId,
+    async listTemplates(params = {}) {
+      return this._getNotionClient().dataSources.listTemplates(params);
+    },
+    async retrieveDataSource(dataSourceId) {
+      return this._getNotionClient().dataSources.retrieve({
+        data_source_id: dataSourceId,
+      });
+    },
+    async createDatabase(database) {
+      return this._getNotionClient().databases.create(database);
+    },
+    async updateDataSource(database) {
+      return this._getNotionClient().dataSources.update(database);
+    },
+    async queryDataSource(dataSourceId, params = {}) {
+      return this._getNotionClient().dataSources.query({
+        data_source_id: dataSourceId,
         ...params,
       });
     },
-    async retrieveDatabase(databaseId) {
-      return this._getNotionClient().databases.retrieve({
-        database_id: databaseId,
+    async createFileUpload(file) {
+      return this._getNotionClient().fileUploads.create(file);
+    },
+    async listFileUploads(params = {}) {
+      return this._getNotionClient().fileUploads.list(params);
+    },
+    async sendFileUpload(file) {
+      return this._getNotionClient().fileUploads.send(file);
+    },
+    async completeFileUpload(file) {
+      return this._getNotionClient().fileUploads.complete(file);
+    },
+    async retrieveFileUpload(params) {
+      return this._getNotionClient().fileUploads.retrieve(params);
+    },
+    async updateBlock(block) {
+      return this._getNotionClient().blocks.update(block);
+    },
+    async deleteBlock(blockId) {
+      return this._getNotionClient().blocks.delete({
+        block_id: blockId,
       });
     },
     async createPage(page) {
@@ -165,13 +295,15 @@ export default {
         page_id: pageId,
       });
     },
-    async searchPage(title, params = {}) {
+    async retrievePagePropertyItem(pageId, propertyId) {
+      return this._getNotionClient().pages.properties.retrieve({
+        page_id: pageId,
+        property_id: propertyId,
+      });
+    },
+    async search(title, params = {}) {
       return this._getNotionClient().search({
         query: title,
-        filter: {
-          property: "object",
-          value: "page",
-        },
         ...params,
       });
     },
@@ -182,14 +314,14 @@ export default {
       });
     },
     /**
-     * This generator function scans the pages in a database yields each page
+     * This generator function scans the pages in a data source and yields each page
      * separately.
      *
-     * @param {string} databaseId - The database containing the pages to scan
+     * @param {string} dataSourceId - The data source containing the pages to scan
      * @param {object} [opts] - Options to customize the operation
      * @yield {object} The next page
      */
-    async *getPages(databaseId, opts = {}) {
+    async *getPages(dataSourceId, opts = {}) {
       let cursor;
 
       do {
@@ -197,7 +329,7 @@ export default {
           ...opts,
           start_cursor: cursor,
         };
-        const response = await this.queryDatabase(databaseId, params);
+        const response = await this.queryDataSource(dataSourceId, params);
         const {
           results: pages,
           next_cursor: nextCursor,
@@ -208,7 +340,6 @@ export default {
         }
 
         cursor = nextCursor;
-
       } while (cursor);
     },
     async appendBlock(parentId, blocks) {
@@ -217,42 +348,162 @@ export default {
         children: blocks,
       });
     },
+    async appendBlockWithRetry(parentId, blocks) {
+      return this._withRetry(() => this.appendBlock(parentId, blocks));
+    },
     async retrieveBlock(blockId) {
       return this._getNotionClient().blocks.retrieve({
         block_id: blockId,
       });
     },
-    async retrieveBlockChildren(block, params = {}) {
+    async listAllBlockChildren(blockId, subpagesOnly = false) {
+      const params = {};
       const children = [];
-      if (!block.has_children) return children;
-
       do {
         const {
           results,
           next_cursor: nextCursor,
-        } = await this.listBlockChildren(block.id, params);
+        } = await this.listBlockChildren(blockId, params);
 
-        children.push(...results);
-        params.next_cursor = nextCursor;
-      } while (params.next_cursor);
-
-      (await Promise.all(children.map((child) => this.retrieveBlockChildren(child))))
-        .forEach((c, i) => {
-          children[i].children = c;
-        });
-
+        children.push(...(results.filter((child) => !subpagesOnly || child.type === "child_page")));
+        params.start_cursor = nextCursor;
+      } while (params.start_cursor);
       return children;
     },
-    async listBlockChildren(blockId, params) {
-      return this._getNotionClient().blocks.children.list({
+    async retrieveBlockChildren(block, subpagesOnly = false, concurrency = 3) {
+      if (!block.has_children) return [];
+
+      const root = await this.listAllBlockChildren(block.id, subpagesOnly);
+
+      // Walk the tree one level at a time, with at most `concurrency` requests in
+      // flight. This bounds fan-out but is not a rate limit: bursts that hit Notion's
+      // limit (average 3 requests/second) are retried in listBlockChildren.
+      let level = root;
+      while (level.length) {
+        const parents = level.filter((child) => child.has_children);
+        level.forEach((child) => {
+          child.children = [];
+        });
+
+        const fetched = new Array(parents.length);
+        let next = 0;
+        await Promise.all(Array.from({
+          length: Math.min(concurrency, parents.length),
+        }, async () => {
+          while (next < parents.length) {
+            const i = next++;
+            fetched[i] = await this.listAllBlockChildren(parents[i].id, subpagesOnly);
+          }
+        }));
+
+        parents.forEach((parent, i) => {
+          parent.children = fetched[i];
+        });
+        level = fetched.flat();
+      }
+      return root;
+    },
+    _isRetryable(err, idempotent) {
+      // 429 is always safe to retry: Notion rejected the request without processing it.
+      if (err?.status === 429 || err?.code === "rate_limited") return true;
+      // Transient server errors are only retried for reads; a failed write may have
+      // been applied, so retrying it could duplicate blocks.
+      return idempotent && [
+        502,
+        503,
+        504,
+        529,
+      ].includes(err?.status);
+    },
+    _retryDelayMs(err, attempt) {
+      const headers = err?.headers;
+      const header = typeof headers?.get === "function"
+        ? headers.get("retry-after")
+        : headers?.["retry-after"];
+      const seconds = Number(header);
+      return Number.isFinite(seconds) && seconds > 0
+        ? seconds * 1000
+        : Math.min(1000 * 2 ** attempt, 10000);
+    },
+    /**
+     * Runs `fn`, retrying rate-limited (429) responses and, for idempotent calls,
+     * transient server errors. Honors Retry-After, falling back to exponential backoff.
+     */
+    async _withRetry(fn, {
+      idempotent = false, maxRetries = 5,
+    } = {}) {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          if (!this._isRetryable(err, idempotent) || attempt >= maxRetries) throw err;
+          await new Promise((resolve) => setTimeout(resolve, this._retryDelayMs(err, attempt)));
+        }
+      }
+    },
+    async listBlockChildren(blockId, params, maxRetries = 5) {
+      return this._withRetry(() => this._getNotionClient().blocks.children.list({
         ...params,
         block_id: blockId,
+      }), {
+        idempotent: true,
+        maxRetries,
       });
     },
-    async getUsers() {
-      const response = await this._getNotionClient().users.list();
+    async getUsers(opts = {}) {
+      return this._getNotionClient().users.list(opts);
+    },
+    async getUser(userId) {
+      return this._getNotionClient().users.retrieve({
+        user_id: userId,
+      });
+    },
+    async getPageAsMarkdown(pageId, shouldRetrieveChildren) {
+      const notion = this._getNotionClient();
 
-      return response.results;
+      const n2m = new NotionToMarkdown({
+        notionClient: notion,
+        config: {
+          separateChildPage: true,
+          parseChildPages: shouldRetrieveChildren,
+        },
+      });
+      const blocks = await n2m.pageToMarkdown(pageId);
+      const output = n2m.toMarkdownString(blocks);
+      return shouldRetrieveChildren
+        ? output
+        : output.parent;
+    },
+    async *paginate({
+      fn, params = {}, maxResults = null, ...opts
+    }) {
+      let hasMore = false;
+      let count = 0;
+      let cursor = null;
+
+      do {
+        params.start_cursor = cursor;
+        const {
+          results,
+          next_cursor: nextCursor,
+          has_more: hasMoreResults,
+        } = await fn({
+          params,
+          ...opts,
+        });
+
+        for (const d of results) {
+          yield d;
+
+          if (maxResults && ++count === maxResults) {
+            return count;
+          }
+        }
+
+        hasMore = hasMoreResults;
+        cursor = nextCursor;
+
+      } while (hasMore);
     },
   },
 };

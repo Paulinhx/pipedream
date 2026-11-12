@@ -1,75 +1,136 @@
-// legacy_hash_id: a_l0i8p2
-import { axios } from "@pipedream/platform";
+import { ConfigurationError } from "@pipedream/platform";
+import quickbooks from "../../quickbooks.app.mjs";
+import { parseLineItems } from "../../common/utils.mjs";
 
 export default {
   key: "quickbooks-create-bill",
   name: "Create Bill",
-  description: "Creates a bill.",
-  version: "0.1.1",
+  description: "Creates a bill. [See the documentation](https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/bill#create-a-bill)",
+  version: "0.1.13",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    quickbooks: {
-      type: "app",
-      app: "quickbooks",
-    },
-    vendor_ref_value: {
+    quickbooks,
+    vendorRefValue: {
+      propDefinition: [
+        quickbooks,
+        "vendorIds",
+      ],
       type: "string",
-      description: "Reference to the vendor for this transaction. Query the Vendor name list resource to determine the appropriate Vendor object for this reference. Use Vendor.Id from that object for `VendorRef.value`.",
+      label: "Vendor ID",
+      description: "Reference to the vendor for this transaction",
+      optional: false,
     },
-    line_items: {
-      type: "any",
-      description: "Individual line items of a transaction. Valid Line types include: ItemBasedExpenseLine` and `AccountBasedExpenseLine`. One minimum line item required for the request to succeed.",
+    currencyRefValue: {
+      propDefinition: [
+        quickbooks,
+        "currency",
+      ],
     },
-    vendor_ref_name: {
-      type: "string",
-      description: "Reference to the vendor for this transaction. Query the Vendor name list resource to determine the appropriate Vendor object for this reference. Use `Vendor.Name` from that object for `VendorRef.name`.",
-      optional: true,
+    lineItemsAsObjects: {
+      propDefinition: [
+        quickbooks,
+        "lineItemsAsObjects",
+      ],
+      reloadProps: true,
     },
-    currency_ref_value: {
-      type: "string",
-      description: "A three letter string representing the ISO 4217 code for the currency. For example, `USD`, `AUD`, `EUR`, and so on. This must be defined if multicurrency is enabled for the company.\nMulticurrency is enabled for the company if `Preferences.MultiCurrencyEnabled` is set to `true`. Read more about multicurrency support [here](https://developer.intuit.com/docs?RedirectID=MultCurrencies). Required if multicurrency is enabled for the company.",
-      optional: true,
-    },
-    currency_ref_name: {
-      type: "object",
-      description: "The full name of the currency.",
-      optional: true,
-    },
-    minorversion: {
-      type: "string",
-      description: "Use the minorversion query parameter in REST API requests to access a version of the API other than the generally available version. For example, to invoke minor version 1 of the JournalEntry entity, issue the following request:\n`https://quickbooks.api.intuit.com/v3/company/<realmId>/journalentry/entityId?minorversion=1`",
-      optional: true,
+  },
+  async additionalProps() {
+    const props = {};
+    if (this.lineItemsAsObjects) {
+      props.lineItems = {
+        type: "string[]",
+        label: "Line Items",
+        description: "Line items of a bill. Set DetailType to `AccountBasedExpenseLineDetail`. Example: `{ \"DetailType\": \"AccountBasedExpenseLineDetail\", \"Amount\": 100.0, \"AccountBasedExpenseLineDetail\": { \"AccountRef\": { \"name\": \"Advertising\", \"value\": \"1\" } } }` [See the documentation](https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/bill#create-a-bill) for more information.",
+      };
+      return props;
+    }
+    props.numLineItems = {
+      type: "integer",
+      label: "Number of Line Items",
+      description: "The number of line items to enter",
+      reloadProps: true,
+    };
+    if (!this.numLineItems) {
+      return props;
+    }
+    for (let i = 1; i <= this.numLineItems; i++) {
+      props[`account_${i}`] = {
+        type: "string",
+        label: `Line ${i} - Account ID`,
+        options: async ({ page }) => {
+          return  this.quickbooks.getPropOptions({
+            page,
+            resource: "Account",
+            mapper: ({
+              Id: value, Name: label,
+            }) => ({
+              value,
+              label,
+            }),
+          });
+        },
+      };
+      props[`amount_${i}`] = {
+        type: "string",
+        label: `Line ${i} - Amount`,
+      };
+    }
+    return props;
+  },
+  methods: {
+    buildLineItems() {
+      const lineItems = [];
+      for (let i = 1; i <= this.numLineItems; i++) {
+        lineItems.push({
+          DetailType: "AccountBasedExpenseLineDetail",
+          Amount: this[`amount_${i}`],
+          AccountBasedExpenseLineDetail: {
+            AccountRef: {
+              value: this[`account_${i}`],
+            },
+          },
+        });
+      }
+      return lineItems;
     },
   },
   async run({ $ }) {
-  // See Quickbooks API docs at: https://developer.intuit.com/app/developer/qbo/docs/api/accounting/all-entities/bill#create-a-bill
-
-    if (!this.vendor_ref_value || !this.line_items) {
-      throw new Error("Must provide vendor_ref_value, and line_items parameters.");
+    if (!this.vendorRefValue || (!this.numLineItems && !this.lineItemsAsObjects)) {
+      throw new ConfigurationError("Must provide vendorRefValue, and lineItems parameters.");
     }
 
-    return await axios($, {
-      method: "post",
-      url: `https://quickbooks.api.intuit.com/v3/company/${this.quickbooks.$auth.company_id}/bill`,
-      headers: {
-        "Authorization": `Bearer ${this.quickbooks.$auth.oauth_access_token}`,
-        "accept": "application/json",
-        "content-type": "application/json",
-      },
+    const lines = this.lineItemsAsObjects
+      ? parseLineItems(this.lineItems)
+      : this.buildLineItems();
+
+    lines.forEach((line) => {
+      if (line.DetailType !== "AccountBasedExpenseLineDetail") {
+        throw new ConfigurationError("Line Item DetailType must be `AccountBasedExpenseLineDetail`");
+      }
+    });
+
+    const response = await this.quickbooks.createBill({
+      $,
       data: {
         VendorRef: {
-          value: this.vendor_ref_value,
-          name: this.vendor_ref_name,
+          value: this.vendorRefValue,
         },
-        Line: this.line_items,
+        Line: lines,
         CurrencyRef: {
-          value: this.currency_ref_value,
-          name: this.currency_ref_name,
+          value: this.currencyRefValue,
         },
-      },
-      params: {
-        minorversion: this.minorversion,
       },
     });
+
+    if (response) {
+      $.export("summary", `Successfully created bill with ID ${response.Bill.Id}`);
+    }
+
+    return response;
   },
 };

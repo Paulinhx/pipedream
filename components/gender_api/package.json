@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/gender_api",
+  "version": "0.0.3",
+  "description": "Pipedream Gender API Components",
+  "main": "gender_api.app.mjs",
+  "keywords": [
+    "pipedream",
+    "gender_api"
+  ],
+  "homepage": "https://pipedream.com/apps/gender_api",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

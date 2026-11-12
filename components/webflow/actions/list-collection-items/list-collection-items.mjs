@@ -1,23 +1,27 @@
-import webflow from "../../webflow.app.mjs";
+import app from "../../webflow.app.mjs";
 
 export default {
   key: "webflow-list-collection-items",
   name: "List Collection Items",
-  description: "List Items of a collection. [See the docs here](https://developers.webflow.com/#get-all-items-for-a-collection)",
-  version: "0.0.1",
+  description: "List Items of a collection. [See the documentation](https://developers.webflow.com/data/reference/cms/collection-items/bulk-items/list-items)",
+  version: "2.0.1",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
-    webflow,
+    app,
     siteId: {
       propDefinition: [
-        webflow,
+        app,
         "sites",
       ],
-      optional: true,
     },
     collectionId: {
       propDefinition: [
-        webflow,
+        app,
         "collections",
         (c) => ({
           siteId: c.siteId,
@@ -26,9 +30,9 @@ export default {
     },
   },
   async run({ $ }) {
-    const response = await this.webflow.getItems(0, this.collectionId);
+    const response = await this.app.listCollectionItems(0, this.collectionId);
 
-    $.export("$summary", "Successfully retrieved collections items");
+    $.export("$summary", "Successfully retrieved collection's items");
 
     return response;
   },

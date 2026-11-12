@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/speechace",
+  "version": "0.1.4",
+  "description": "Pipedream Speechace Components",
+  "main": "speechace.app.mjs",
+  "keywords": [
+    "pipedream",
+    "speechace"
+  ],
+  "homepage": "https://pipedream.com/apps/speechace",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "form-data": "^4.0.4"
+  }
+}

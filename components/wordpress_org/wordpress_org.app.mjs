@@ -1,4 +1,5 @@
 import WPAPI from "wpapi";
+import constants from "./common/constants.mjs";
 const PER_PAGE = 100;
 
 export default {
@@ -28,9 +29,10 @@ export default {
       optional: true,
     },
     commentStatus: {
-      type: "boolean",
+      type: "string",
       label: "Comment Status",
       description: "Whether or not comments are allowed on the post",
+      options: constants.COMMENT_STATUS,
       optional: true,
     },
     username: {
@@ -59,7 +61,7 @@ export default {
     email: {
       type: "string",
       label: "Email",
-      description: "  The email address for the user",
+      description: "The email address for the user",
     },
     url: {
       type: "string",
@@ -74,10 +76,11 @@ export default {
       optional: true,
     },
     roles: {
-      type: "string[]",
+      type: "string",
       label: "Roles",
       description: "Roles assigned to the user",
       optional: true,
+      options: constants.ROLES,
     },
     password: {
       type: "string",
@@ -123,6 +126,19 @@ export default {
         }));
       },
     },
+    tags: {
+      type: "string[]",
+      label: "Tags",
+      description: "Tags assigned to the post",
+      optional: true,
+      async options({ page }) {
+        const tags = await this.listTags(page + 1);
+        return tags.map((tag) => ({
+          label: tag?.name,
+          value: tag?.id,
+        }));
+      },
+    },
     post: {
       type: "string",
       label: "Post",
@@ -135,6 +151,37 @@ export default {
         }));
       },
     },
+    user: {
+      type: "string",
+      label: "User",
+      description: "Identifier of the user",
+      async options({ page }) {
+        const users = await this.listUsers(page + 1);
+        return users.map((user) => ({
+          label: user?.name,
+          value: user?.id,
+        }));
+      },
+    },
+    media: {
+      type: "string",
+      label: "Featured Media",
+      description: "Identifier of an uploaded media item",
+      optional: true,
+      async options({ page }) {
+        const media = await this.listMedia(page + 1);
+        return media.map((item) => ({
+          label: item?.title?.rendered || item.id,
+          value: item.id,
+        }));
+      },
+    },
+    meta: {
+      type: "object",
+      label: "Meta",
+      description: "Metafields for the post. Note: Metafield keys must be registered in your Wordpress instance.",
+      optional: true,
+    },
   },
   methods: {
     async getClient() {
@@ -143,13 +190,21 @@ export default {
         username,
         application_password: applicationPassword,
       } = this.$auth;
-      let site;
-      try {
-        site = await WPAPI.discover(`https://${url}`);
-      } catch {
-        site = await WPAPI.discover(`http://${url}`);
+
+      // Normalize URL: preserve existing protocol or default to https://
+      let normalizedUrl = url;
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        // URL already has protocol, use as-is
+        normalizedUrl = url.replace(/\/$/, ""); // Remove trailing slash if present
+      } else {
+        // No protocol provided, default to https://
+        normalizedUrl = `https://${url}`;
       }
-      return site.auth({
+
+      const wp = new WPAPI({
+        endpoint: `${normalizedUrl}/wp-json`,
+      });
+      return wp.auth({
         username,
         password: applicationPassword,
       });
@@ -169,10 +224,29 @@ export default {
       return wp.categories().perPage(PER_PAGE)
         .page(page);
     },
+    async listTags(page) {
+      const wp = await this.getClient();
+      return wp.tags().perPage(PER_PAGE)
+        .page(page);
+    },
     async listPosts(page) {
       const wp = await this.getClient();
       return wp.posts().perPage(PER_PAGE)
         .page(page);
+    },
+    async listUsers(page) {
+      const wp = await this.getClient();
+      return wp.users().perPage(PER_PAGE)
+        .page(page);
+    },
+    async getUser(userId) {
+      const wp = await this.getClient();
+      return wp.users().id(userId);
+    },
+    async updateUser(userId, params) {
+      const wp = await this.getClient();
+      return wp.users().id(userId)
+        .update(params);
     },
     async searchPosts(params, page, perPage = PER_PAGE) {
       const {
@@ -202,6 +276,17 @@ export default {
     async createUser(params) {
       const wp = await this.getClient();
       return wp.users().create(params);
+    },
+    async createMedia(file, params) {
+      const wp = await this.getClient();
+      return wp.media()
+        .file(file)
+        .create(params);
+    },
+    async listMedia(page) {
+      const wp = await this.getClient();
+      return wp.media().perPage(PER_PAGE)
+        .page(page);
     },
   },
 };

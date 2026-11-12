@@ -5,7 +5,12 @@ export default {
   key: "formstack-get-form",
   name: "Get Form",
   description: "Get the details of the specified form. [See docs here](https://formstack.readme.io/docs/form-id-get)",
-  version: "0.0.1",
+  version: "0.0.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   props: {
     formstack,
     formId: {
@@ -23,7 +28,7 @@ export default {
       $,
     });
 
-    $.export("summary", "Successfully retrieved form");
+    $.export("$summary", "Successfully retrieved form");
 
     return response;
   },

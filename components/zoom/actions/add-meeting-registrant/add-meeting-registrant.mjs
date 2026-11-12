@@ -1,143 +1,252 @@
-// legacy_hash_id: a_zNiweO
-import { axios } from "@pipedream/platform";
+import { ConfigurationError } from "@pipedream/platform";
+import constants from "../../common/utils.mjs";
+import app from "../../zoom.app.mjs";
 
 export default {
   key: "zoom-add-meeting-registrant",
   name: "Add Meeting Registrant",
-  description: "Registers a participant for a meeting.",
-  version: "0.2.1",
+  description: "Registers a participant or multiple participants for a meeting. [See the documentation](https://developers.zoom.us/docs/api/rest/reference/zoom-api/methods/#operation/meetingRegistrantCreate)",
+  version: "0.3.14",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    zoom: {
-      type: "app",
-      app: "zoom",
+    app,
+    meetingId: {
+      propDefinition: [
+        app,
+        "meetingId",
+      ],
+      optional: false,
     },
-    meeting_id: {
-      type: "string",
-      description: "The meeting ID.",
-    },
-    occurrence_ids: {
-      type: "string",
-      description: "Occurrence IDs. You can find these with the meeting get API. Multiple values separated by comma.",
-      optional: true,
+    occurrenceIds: {
+      propDefinition: [
+        app,
+        "occurrenceIds",
+      ],
     },
     email: {
-      type: "string",
-      description: "A valid email address of the registrant.",
+      propDefinition: [
+        app,
+        "email",
+      ],
     },
-    first_name: {
-      type: "string",
-      description: "Registrant's first name.",
+    firstName: {
+      propDefinition: [
+        app,
+        "firstName",
+      ],
     },
-    last_name: {
-      type: "string",
-      description: "Registrant's last name.",
+    lastName: {
+      propDefinition: [
+        app,
+        "lastName",
+      ],
     },
     address: {
-      type: "string",
-      description: "Registrant's address.",
-      optional: true,
+      propDefinition: [
+        app,
+        "address",
+      ],
     },
     city: {
-      type: "string",
-      description: "Registrant's city.",
-      optional: true,
+      propDefinition: [
+        app,
+        "city",
+      ],
     },
     country: {
-      type: "string",
-      description: "Registrant's country.",
-      optional: true,
+      propDefinition: [
+        app,
+        "country",
+      ],
     },
     zip: {
-      type: "string",
-      description: "Registrant's Zip/Postal code.",
-      optional: true,
+      propDefinition: [
+        app,
+        "zip",
+      ],
     },
     state: {
-      type: "string",
-      description: "Registrant's State/Province.",
-      optional: true,
+      propDefinition: [
+        app,
+        "state",
+      ],
     },
     phone: {
-      type: "string",
-      description: "Registrant's Phone number.",
-      optional: true,
+      propDefinition: [
+        app,
+        "phone",
+      ],
     },
     industry: {
-      type: "string",
-      description: "Registrant's industry.",
-      optional: true,
+      propDefinition: [
+        app,
+        "industry",
+      ],
     },
     org: {
-      type: "string",
-      description: "Registrant's Organization.",
-      optional: true,
+      propDefinition: [
+        app,
+        "org",
+      ],
     },
-    job_title: {
-      type: "string",
-      description: "Registrant's job title.",
-      optional: true,
+    jobTitle: {
+      propDefinition: [
+        app,
+        "jobTitle",
+      ],
     },
-    purchasing_time_frame: {
-      type: "string",
-      description: "This field can be included to gauge interest of webinar attendees towards buying your product or service.",
-      optional: true,
+    purchasingTimeFrame: {
+      propDefinition: [
+        app,
+        "purchasingTimeFrame",
+      ],
     },
-    role_in_purchase_process: {
-      type: "string",
-      description: "Role in Purchase Process.",
-      optional: true,
+    roleInPurchaseProcess: {
+      propDefinition: [
+        app,
+        "roleInPurchaseProcess",
+      ],
     },
-    no_of_employees: {
-      type: "string",
-      description: "Number of Employees.",
-      optional: true,
+    noOfEmployees: {
+      propDefinition: [
+        app,
+        "noOfEmployees",
+      ],
     },
     comments: {
-      type: "string",
-      description: "A field that allows registrants to provide any questions or comments that they might have.",
-      optional: true,
+      propDefinition: [
+        app,
+        "comments",
+      ],
     },
-    custom_questions: {
-      type: "any",
-      description: "Custom questions.",
+    customQuestions: {
+      propDefinition: [
+        app,
+        "customQuestions",
+      ],
+    },
+    registrants: {
+      type: "object",
+      label: "Registrants",
+      description: `Use this field to enter multiple registrants at once. Will override the single registrant fields if provided. Each registrant should be an object with at least the following properties: email, first_name, last_name. Example:
+      \`[
+        {
+          "email": "test@example.com",
+          "first_name": "John",
+          "last_name": "Doe"
+        }
+      ]\``,
       optional: true,
+      reloadProps: true,
     },
   },
-  async run({ $ }) {
-  //See the API docs here: https://marketplace.zoom.us/docs/api-reference/zoom-api/meetings/meetingregistrantcreate
-    const config = {
-      method: "post",
-      url: `https://api.zoom.us/v2/meetings/${this.meeting_id}/registrants`,
-      params: {
-        occurrence_ids: this.occurrence_ids,
-      },
-      data: {
-        email: this.email,
-        first_name: this.first_name,
-        last_name: this.last_name,
-        address: this.address,
-        city: this.city,
-        country: this.country,
-        zip: this.zip,
-        state: this.state,
-        phone: this.phone,
-        industry: this.industry,
-        org: this.org,
-        job_title: this.job_title,
-        purchasing_time_frame: this.purchasing_time_frame,
-        role_in_purchase_process: this.role_in_purchase_process,
-        no_of_employees: this.no_of_employees,
-        comments: this.comments,
-        custom_questions: typeof this.custom_questions == "undefined"
-          ? this.custom_questions
-          : JSON.parse(this.custom_questions),
-      },
-      headers: {
-        "Authorization": `Bearer ${this.zoom.$auth.oauth_access_token}`,
-        "Content-Type": "application/json",
-      },
-    };
-    return await axios($, config);
+  additionalProps(props) {
+    // Don't require email, firstName, lastName if registrants array is provided
+    props.email.optional = this.registrants
+      ? true
+      : false;
+    props.firstName.optional = this.registrants
+      ? true
+      : false;
+    props.lastName.optional = this.registrants
+      ? true
+      : false;
+    return {};
+  },
+  methods: {
+    addMeetingRegistrant({
+      meetingId, ...args
+    } = {}) {
+      return this.app.create({
+        path: `/meetings/${meetingId}/registrants`,
+        ...args,
+      });
+    },
+  },
+  async run({ $: step }) {
+    const {
+      meetingId,
+      occurrenceIds,
+      email,
+      firstName,
+      lastName,
+      address,
+      city,
+      country,
+      zip,
+      state,
+      phone,
+      industry,
+      org,
+      jobTitle,
+      purchasingTimeFrame,
+      roleInPurchaseProcess,
+      noOfEmployees,
+      comments,
+      customQuestions,
+    } = this;
+
+    // If registrants array is provided, use it. Otherwise, use the single registrant fields.
+    let registrants = constants.parseArray(this.registrants);
+    if (!registrants?.length) {
+      registrants = [
+        {
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          address,
+          city,
+          country,
+          zip,
+          state,
+          phone,
+          industry,
+          org,
+          job_title: jobTitle,
+          purchasing_time_frame: purchasingTimeFrame,
+          role_in_purchase_process: roleInPurchaseProcess,
+          no_of_employees: noOfEmployees,
+          comments,
+          custom_questions: typeof(customQuestions) === "undefined"
+            ? customQuestions
+            : JSON.parse(customQuestions),
+        },
+      ];
+    }
+
+    if (registrants.length > 10) {
+      throw new ConfigurationError("You can only add up to 10 registrants at once.");
+    }
+
+    // Add each registrant to the meeting
+    const responses = [];
+    for (const registrant of registrants) {
+      try {
+        const registration = await this.addMeetingRegistrant({
+          step,
+          meetingId,
+          params: {
+            occurrence_ids: occurrenceIds,
+          },
+          data: registrant,
+        });
+        responses.push(registration);
+      } catch (error) {
+        throw new ConfigurationError(`Added ${responses.length} registrants before encountering an error: ${error.message}`);
+      }
+    }
+
+    if (registrants.length > 1) {
+      step.export("$summary", `Successfully added ${registrants.length} registrants to meeting with ID \`${meetingId}\``);
+      return responses;
+    } else {
+      step.export("$summary", `Successfully added registrant to meeting with ID \`${meetingId}\``);
+      return responses[0];
+    }
   },
 };

@@ -4,14 +4,13 @@ export default {
   props: {
     asana,
     workspace: {
-      label: "Workspace",
-      description: "Gid of a workspace.",
-      type: "string",
       propDefinition: [
         asana,
         "workspaces",
       ],
-      optional: true,
+      label: "Workspace",
+      description: "GID of the workspace, e.g. `1200123456789012`. Use **List Workspaces** to find available workspace GIDs.",
+      type: "string",
     },
     project: {
       label: "Project",
@@ -20,7 +19,6 @@ export default {
         asana,
         "projects",
       ],
-      optional: true,
     },
   },
 };

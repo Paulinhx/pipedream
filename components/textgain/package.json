@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/textgain",
+  "version": "0.0.3",
+  "description": "Pipedream Textgain Components",
+  "main": "textgain.app.mjs",
+  "keywords": [
+    "pipedream",
+    "textgain"
+  ],
+  "homepage": "https://pipedream.com/apps/textgain",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

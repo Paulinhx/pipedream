@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/ontraport",
+  "version": "0.1.0",
+  "description": "Pipedream Ontraport Components",
+  "main": "ontraport.app.mjs",
+  "keywords": [
+    "pipedream",
+    "ontraport"
+  ],
+  "homepage": "https://pipedream.com/apps/ontraport",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

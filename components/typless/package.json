@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/typless",
+  "version": "0.0.5",
+  "description": "Pipedream Typless Components",
+  "main": "typless.app.mjs",
+  "keywords": [
+    "pipedream",
+    "typless"
+  ],
+  "homepage": "https://pipedream.com/apps/typless",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

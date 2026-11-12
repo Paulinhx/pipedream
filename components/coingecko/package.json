@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/coingecko",
+  "version": "0.2.2",
+  "description": "Pipedream CoinGecko Components",
+  "main": "coingecko.app.mjs",
+  "keywords": [
+    "pipedream",
+    "coingecko"
+  ],
+  "homepage": "https://pipedream.com/apps/coingecko",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5"
+  }
+}

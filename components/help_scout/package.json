@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/help_scout",
+  "version": "0.4.1",
+  "description": "Pipedream Help Scout Components",
+  "main": "help_scout.app.mjs",
+  "keywords": [
+    "pipedream",
+    "help_scout"
+  ],
+  "homepage": "https://pipedream.com/apps/help_scout",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

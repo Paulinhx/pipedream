@@ -1,10 +1,15 @@
-import reddit from "../../reddit.app.mjs";
 import { axios } from "@pipedream/platform";
+import reddit from "../../reddit.app.mjs";
 
 export default {
   type: "action",
   key: "reddit-list-subreddits-by-query",
-  version: "0.0.1",
+  version: "0.1.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   name: "List Subreddits by Query",
   description: "List subreddits based on a search criteria. [See the docs here](https://www.reddit.com/dev/api/#GET_subreddits_search)",
   props: {

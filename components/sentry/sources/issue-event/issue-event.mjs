@@ -1,10 +1,10 @@
 import sentry from "../../sentry.app.mjs";
 
 export default {
-  key: "sentry-issue-events",
-  version: "0.0.4",
+  key: "sentry-issue-event",
+  version: "0.2.0",
   name: "New Issue Event (Instant)",
-  description: "Emit new events for issues that have been created or updated.",
+  description: "Emit new events for issues that have been created or updated. Optionally filter the events by project. [See the documentation](https://docs.sentry.io/organization/integrations/integration-platform/webhooks/issues/)",
   type: "source",
   props: {
     db: "$.service.db",
@@ -17,6 +17,15 @@ export default {
       propDefinition: [
         sentry,
         "organizationSlug",
+      ],
+    },
+    projectSlugs: {
+      propDefinition: [
+        sentry,
+        "projectSlugs",
+        ({ organizationSlug }) => ({
+          organizationSlug,
+        }),
       ],
     },
   },
@@ -53,27 +62,12 @@ export default {
     getEventSourceName() {
       return "Issue Event (Instant)";
     },
-    generateMeta(event) {
-      const {
-        body,
-        headers,
-      } = event;
-      const {
-        "request-id": id,
-        "sentry-hook-resource": resourceType,
-        "sentry-hook-timestamp": ts,
-      } = headers;
-      const {
-        action,
-        data,
-      } = body;
-      const { [resourceType]: resource } = data;
-      const summary = `${resourceType} #${resource.id} ${action}`;
-      return {
-        id,
-        summary,
-        ts,
-      };
+    isProjectSelected(issue) {
+      const projectSlugs = [].concat(this.projectSlugs ?? []);
+      if (!projectSlugs.length) {
+        return true;
+      }
+      return projectSlugs.includes(issue?.project?.slug);
     },
   },
   async run(event) {
@@ -89,8 +83,19 @@ export default {
       statusCode: 200,
     });
 
-    const { body } = event;
-    const meta = this.generateMeta(event);
-    this.$emit(body, meta);
+    const {
+      body, body: { data: { issue } },
+    } = event;
+
+    if (!this.isProjectSelected(issue)) {
+      console.log(`Issue ${issue?.id} belongs to project "${issue?.project?.slug}", which is not selected. Skipping.`);
+      return;
+    }
+
+    this.$emit(body, {
+      id: issue.id,
+      summary: issue.title,
+      ts: Date.parse(issue.lastSeen),
+    });
   },
 };

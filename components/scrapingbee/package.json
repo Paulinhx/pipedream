@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/scrapingbee",
+  "version": "0.0.3",
+  "description": "Pipedream ScrapingBee Components",
+  "main": "scrapingbee.app.mjs",
+  "keywords": [
+    "pipedream",
+    "scrapingbee"
+  ],
+  "homepage": "https://pipedream.com/apps/scrapingbee",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

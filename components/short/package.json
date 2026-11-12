@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/short",
+  "version": "0.2.0",
+  "description": "Pipedream Short.io Components",
+  "main": "short.app.mjs",
+  "keywords": [
+    "pipedream",
+    "short"
+  ],
+  "homepage": "https://pipedream.com/apps/short",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8",
+    "lodash": "^4.18.1"
+  }
+}

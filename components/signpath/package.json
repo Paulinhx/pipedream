@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/signpath",
+  "version": "0.1.0",
+  "description": "Pipedream SignPath Components",
+  "main": "signpath.app.mjs",
+  "keywords": [
+    "pipedream",
+    "signpath"
+  ],
+  "homepage": "https://pipedream.com/apps/signpath",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "form-data": "^4.0.5"
+  }
+}

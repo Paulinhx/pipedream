@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/action_network",
+  "version": "0.0.4",
+  "description": "Pipedream Action Network Components",
+  "main": "action_network.app.mjs",
+  "keywords": [
+    "pipedream",
+    "action_network"
+  ],
+  "homepage": "https://pipedream.com/apps/action_network",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

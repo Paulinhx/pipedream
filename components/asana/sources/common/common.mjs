@@ -14,9 +14,8 @@ export default {
       type: "string",
       propDefinition: [
         asana,
-        "workspaces",
+        "workspacesAsync",
       ],
-      optional: true,
     },
   },
   methods: {
@@ -34,12 +33,6 @@ export default {
     _setWebhookId(webhookId) {
       this.db.set("webhookId", webhookId);
     },
-    _getTasks() {
-      return this.db.get("tasks");
-    },
-    _setTasks(tasks) {
-      this.db.set("tasks", tasks);
-    },
     getWebhookFilter() {
       throw new Error("getWebhookFilter is not implemented");
     },
@@ -49,18 +42,16 @@ export default {
   },
   hooks: {
     async activate() {
-      const response = await this.asana.createWebHook({
+      const { data: response } = await this.asana.createWebHook({
         data: {
-          ...this.getWebhookFilter(),
-          target: this.http.endpoint,
+          data: {
+            ...this.getWebhookFilter(),
+            target: this.http.endpoint,
+          },
         },
       });
 
       this._setWebhookId(response.gid);
-
-      if (this.tasks) {
-        this._setTasks(this.tasks);
-      }
     },
     async deactivate() {
       const webhookId = this._getWebhookId();

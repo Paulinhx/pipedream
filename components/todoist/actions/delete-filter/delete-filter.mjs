@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-delete-filter",
   name: "Delete Filter",
-  description: "Deletes a filter. [See the docs here](https://developer.todoist.com/sync/v8/#delete-a-filter)",
-  version: "0.0.1",
+  description: "Deletes a filter. [See the documentation](https://developer.todoist.com/api/v1#tag/Sync/Filters/Delete-a-filter)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,

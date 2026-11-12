@@ -1,0 +1,28 @@
+{
+  "name": "@pipedream/openai",
+  "version": "1.5.1",
+  "description": "Pipedream OpenAI Components",
+  "main": "openai.app.mjs",
+  "keywords": [
+    "pipedream",
+    "openai"
+  ],
+  "homepage": "https://pipedream.com/apps/openai",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "gitHead": "e12480b94cc03bed4808ebc6b13e7fdb3a1ba535",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "bottleneck": "^2.19.5",
+    "file-type": "^21.3.2",
+    "form-data": "^4.0.4",
+    "got": "^12.6.0",
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@pipedream/types": "^0.3.2",
+    "@types/node": "^17.0.45"
+  }
+}

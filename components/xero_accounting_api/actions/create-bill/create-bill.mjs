@@ -1,18 +1,20 @@
 import {
-  formatArrayStrings,
-  removeNullEntries,
-  deleteKeys,
+  formatLineItems,
   isValidDate,
+  removeNullEntries,
 } from "../../common/util.mjs";
-import constant from "../../common/constants.mjs";
 import xeroAccountingApi from "../../xero_accounting_api.app.mjs";
 
 export default {
   key: "xero_accounting_api-create-bill",
   name: "Create Bill",
-  description:
-    "Creates a new bill (Accounts Payable)[See the docs here](https://developer.xero.com/documentation/api/accounting/invoices)",
-  version: "0.0.1",
+  description: "Creates a new bill (Accounts Payable)[See the docs here](https://developer.xero.com/documentation/api/accounting/invoices)",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     xeroAccountingApi,
@@ -22,97 +24,70 @@ export default {
         "tenantId",
       ],
     },
-    InvoiceNumber: {
+    invoiceNumber: {
       type: "string",
       optional: true,
-      label: "Invoice number",
+      label: "Invoice Number",
       description: "Unique alpha numeric code identifying invoice",
     },
-    Reference: {
+    reference: {
       type: "string",
       optional: true,
       label: "Reference",
       description: "ACCREC only - additional reference number",
     },
-    Contact: {
-      type: "object",
-      label: "Contact information",
-      description: `Provide an object. Enter the column name for the key and the corresponding column value. 
-      [See object documentation](https://developer.xero.com/documentation/api/accounting/contacts/#post-contacts). 
-        Example:
-        \`{
-            "ContactID":"Existing contact ID. *Note: If contactID is populated, other key-value pairs would be ignored",
-            "Name":"Tmann Inc",
-            "FirstName":"Sir",
-            "LastName":"Bush",
-            "EmailAddress": "jonny@mailinator.com"
-        }\``,
+    contactId: {
+      propDefinition: [
+        xeroAccountingApi,
+        "contactId",
+        (c) => ({
+          tenantId: c.tenantId,
+        }),
+      ],
     },
-    LineItems: {
-      type: "string[]",
-      label: "Line items",
-      description: `Provide multiple items using the example below. At least one is required to create a complete Invoice. 
-        Example:
-        \`{
-            "Description":"Football",
-            "Quantity":"20",
-            "UnitAmount":"50000",
-            "TaxType":"Refer to https://developer.xero.com/documentation/api/accounting/types#report-tax-types",
-        }\``,
+    lineItems: {
+      propDefinition: [
+        xeroAccountingApi,
+        "lineItems",
+      ],
     },
-    Date: {
+    date: {
       type: "string",
       optional: true,
-      label: "Invoice date",
+      label: "Invoice Date",
       description: "Date invoice was issued - YYYY-MM-DD",
     },
-    DueDate: {
+    dueDate: {
       type: "string",
       optional: true,
-      label: "Invoice due date",
+      label: "Invoice Due Date",
       description: "Date invoice is due - YYYY-MM-DD",
     },
-    CurrencyCode: {
+    currencyCode: {
       type: "string",
       optional: true,
-      label: "The invoice currency",
+      label: "The Invoice Currency",
       description:
         "The currency that invoice has been raised in. Refer to [object documentation](https://www.xe.com/iso4217.php)",
     },
   },
   async run({ $ }) {
-    const {
-      tenantId,
-      Contact,
-      InvoiceNumber,
-      Reference,
-      LineItems,
-      Date,
-      DueDate,
-      CurrencyCode,
-    } = this;
-    const data = removeNullEntries({
-      Type: "ACCPAY",
-      Contact: Contact?.ContactID
-        ? deleteKeys(Contact, [
-          "Name",
-          "FirstName",
-          "LastName",
-          "EmailAddress",
-        ])
-        : Contact,
-      LineItems: formatArrayStrings(
-        LineItems,
-        constant.ALLOWED_LINEITEMS_KEYS,
-        "LineItems",
-      ),
-      Date: isValidDate(Date, "Date") && Date,
-      DueDate: isValidDate(DueDate, "DueDate") && DueDate,
-      CurrencyCode,
-      InvoiceNumber,
-      Reference,
+    const response = await this.xeroAccountingApi.createInvoice({
+      $,
+      tenantId: this.tenantId,
+      data: removeNullEntries({
+        Type: "ACCPAY",
+        Contact: {
+          ContactID: this.contactId,
+        },
+        LineItems: formatLineItems(this.lineItems),
+        Date: isValidDate(this.date, "Date") && this.date,
+        DueDate: isValidDate(this.dueDate, "DueDate") && this.dueDate,
+        CurrencyCode: this.currencyCode,
+        InvoiceNumber: this.invoiceNumber,
+        Reference: this.reference,
+      }),
     });
-    const response = await this.xeroAccountingApi.createInvoice($, tenantId, data);
     response && $.export("$summary", "Bill successfully created");
     return response;
   },

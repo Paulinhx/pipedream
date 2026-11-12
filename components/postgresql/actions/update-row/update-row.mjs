@@ -1,17 +1,32 @@
 import postgresql from "../../postgresql.app.mjs";
+import { parseRowValues } from "../../common/utils.mjs";
 
 export default {
   name: "Update Row",
   key: "postgresql-update-row",
-  description: "Updates an existing row. [See Docs](https://node-postgres.com/features/queries)",
-  version: "0.0.2",
+  description: "Updates an existing row. [See the documentation](https://node-postgres.com/features/queries)",
+  version: "2.0.9",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     postgresql,
+    schema: {
+      propDefinition: [
+        postgresql,
+        "schema",
+      ],
+    },
     table: {
       propDefinition: [
         postgresql,
         "table",
+        (c) => ({
+          schema: c.schema,
+        }),
       ],
     },
     column: {
@@ -20,6 +35,7 @@ export default {
         "column",
         (c) => ({
           table: c.table,
+          schema: c.schema,
         }),
       ],
       label: "Lookup Column",
@@ -32,6 +48,7 @@ export default {
         (c) => ({
           table: c.table,
           column: c.column,
+          schema: c.schema,
         }),
       ],
     },
@@ -40,28 +57,28 @@ export default {
         postgresql,
         "rowValues",
       ],
-    },
-    rejectUnauthorized: {
-      propDefinition: [
-        postgresql,
-        "rejectUnauthorized",
-      ],
+      description: "JSON representation of your new table row values. For example: `{ \"product_name\": \"Laptop Pro 15\", \"price\": 1200.50, \"stock_quantity\": 50 }`",
     },
   },
   async run({ $ }) {
     const {
+      schema,
       table,
       column,
       value,
       rowValues,
-      rejectUnauthorized,
     } = this;
+
+    const parsedRowValues = parseRowValues(rowValues);
+    const errorMsg = "Row not updated due to an error. ";
+
     const res = await this.postgresql.updateRow(
+      schema,
       table,
       column,
       value,
-      rowValues,
-      rejectUnauthorized,
+      parsedRowValues,
+      errorMsg,
     );
     const summary = res
       ? "Row updated"

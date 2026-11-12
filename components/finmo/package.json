@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/finmo",
+  "version": "0.0.3",
+  "description": "Pipedream Finmo Components",
+  "main": "finmo.app.mjs",
+  "keywords": [
+    "pipedream",
+    "finmo"
+  ],
+  "homepage": "https://pipedream.com/apps/finmo",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,13 +1,19 @@
 import common from "../common/base.mjs";
-import constants from "../../constants.mjs";
+import constants from "../../common/constants.mjs";
 
 export default {
   ...common,
   key: "google_contacts-list-contacts",
   name: "List Contacts",
-  description: "Lists all contacts of the authenticated user. [See the docs here](https://developers.google.com/people/api/rest/v1/people.connections/list)",
-  version: "0.0.1",
+  description: "Lists all contacts of the authenticated user. [See the documentation](https://developers.google.com/people/api/rest/v1/people.connections/list)",
+  version: "0.0.11",
+  annotations: {
+    "destructiveHint": false,
+    "openWorldHint": true,
+    "readOnlyHint": true,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     ...common.props,
     fields: {
@@ -26,7 +32,7 @@ export default {
       const contacts = [];
       do {
         const {
-          connections,
+          connections = [],
           nextPageToken,
         } = await this.googleContacts.listContacts(client, params);
         params.pageToken = nextPageToken;

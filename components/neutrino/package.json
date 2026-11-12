@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/neutrino",
+  "version": "0.0.3",
+  "description": "Pipedream Neutrino Components",
+  "main": "neutrino.app.mjs",
+  "keywords": [
+    "pipedream",
+    "neutrino"
+  ],
+  "homepage": "https://pipedream.com/apps/neutrino",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

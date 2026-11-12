@@ -1,27 +1,35 @@
-import bigcommerce from "../../bigcommerce.app.mjs";
-import productProps from "../../common/product-props.mjs";
+import common from "../common/product.mjs";
 
 export default {
+  ...common,
   key: "bigcommerce-create-product",
   name: "Create Product",
   description:
     "Create a product. [See the docs here](https://developer.bigcommerce.com/api-reference/366928572e59e-create-a-product)",
-  version: "0.0.2",
-  type: "action",
-  props: {
-    bigcommerce,
-    ...productProps,
+  version: "1.0.0",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
   },
-  async run({ $ }) {
-    const {
-      bigcommerce, ...props
-    } = this;
-    const response = await bigcommerce.createProduct({
-      $,
-      props,
-    });
-
-    $.export("$summary", `Successfully created product ${this.name}`);
-    return response.data;
+  type: "action",
+  methods: {
+    ...common.methods,
+    createProduct(args = {}) {
+      return this.app._makeRequest({
+        method: "POST",
+        path: "/catalog/products",
+        ...args,
+      });
+    },
+    getRequestFn() {
+      return this.createProduct;
+    },
+    getRequestFnArgs(args = {}) {
+      return args;
+    },
+    getSummary(response) {
+      return `Successfully created product with ID \`${response.data.id}\``;
+    },
   },
 };

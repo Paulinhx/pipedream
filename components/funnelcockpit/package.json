@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/funnelcockpit",
+  "version": "0.0.2",
+  "description": "Pipedream FunnelCockpit Components",
+  "main": "funnelcockpit.app.mjs",
+  "keywords": [
+    "pipedream",
+    "funnelcockpit"
+  ],
+  "homepage": "https://pipedream.com/apps/funnelcockpit",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

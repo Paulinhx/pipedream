@@ -1,28 +1,23 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/task-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-delete-checklist-item",
   name: "Delete Checklist Item",
-  description: "Deletes item in a checklist. See the docs [here](https://clickup.com/api) in **Checklists  / Delete Checklist Item** section.",
-  version: "0.0.1",
+  description: "Deletes item in a checklist. [See the documentation](https://clickup.com/api) in **Checklists / Delete Checklist Item** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
     folderId: {
       propDefinition: [
-        clickup,
-        "folders",
+        common.props.clickup,
+        "folderId",
         (c) => ({
           spaceId: c.spaceId,
         }),
@@ -31,41 +26,46 @@ export default {
     },
     listId: {
       propDefinition: [
-        clickup,
-        "lists",
+        common.props.clickup,
+        "listId",
         (c) => ({
-          spaceId: c.spaceId,
           folderId: c.folderId,
+          spaceId: c.spaceId,
         }),
       ],
-      optional: true,
     },
     taskId: {
       propDefinition: [
-        clickup,
-        "tasks",
+        common.props.clickup,
+        "taskId",
         (c) => ({
           listId: c.listId,
+          useCustomTaskIds: c.useCustomTaskIds,
+          authorizedTeamId: c.authorizedTeamId,
         }),
       ],
-      optional: true,
+      description: "To show options please select a **List** first",
     },
     checklistId: {
       propDefinition: [
-        clickup,
-        "checklists",
+        common.props.clickup,
+        "checklistId",
         (c) => ({
           taskId: c.taskId,
+          useCustomTaskIds: c.useCustomTaskIds,
+          authorizedTeamId: c.authorizedTeamId,
         }),
       ],
     },
     checklistItemId: {
       propDefinition: [
-        clickup,
-        "checklistItems",
+        common.props.clickup,
+        "checklistItemId",
         (c) => ({
           taskId: c.taskId,
           checklistId: c.checklistId,
+          useCustomTaskIds: c.useCustomTaskIds,
+          authorizedTeamId: c.authorizedTeamId,
         }),
       ],
     },

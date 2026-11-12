@@ -1,0 +1,24 @@
+{
+  "name": "@pipedream/sharepoint",
+  "version": "1.0.0",
+  "description": "Pipedream Microsoft Sharepoint Online Components",
+  "main": "sharepoint.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sharepoint"
+  ],
+  "homepage": "https://pipedream.com/apps/sharepoint",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@pipedream/platform": "^3.1.1",
+    "isomorphic-fetch": "^3.0.0",
+    "lodash.pickby": "^4.6.0",
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5",
+    "turndown": "^7.2.4"
+  }
+}

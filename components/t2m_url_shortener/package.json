@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/t2m_url_shortener",
+  "version": "0.0.3",
+  "description": "Pipedream T2M URL Shortener Components",
+  "main": "t2m_url_shortener.app.mjs",
+  "keywords": [
+    "pipedream",
+    "t2m_url_shortener"
+  ],
+  "homepage": "https://pipedream.com/apps/t2m_url_shortener",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

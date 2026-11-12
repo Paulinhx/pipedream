@@ -1,73 +1,338 @@
+import { createPrivateKey } from "crypto";
 import snowflake from "snowflake-sdk";
 import { promisify } from "util";
+import {
+  sqlProxy, sqlProp, ConfigurationError,
+} from "@pipedream/platform";
+import utils from "./common/utils.mjs";
+
+snowflake.configure({
+  logLevel: "WARN",
+});
 
 export default {
   app: "snowflake",
   type: "app",
   propDefinitions: {
+    database: {
+      type: "string",
+      label: "Database",
+      description: "The database to use",
+      async options() {
+        const options = await this.listDatabases();
+        return options.map((i) => i.name);
+      },
+    },
+    schema: {
+      type: "string",
+      label: "Schema",
+      description: "The schema to use",
+      async options({ database }) {
+        const options = await this.listSchemas(database);
+        return options.map((i) => i.name);
+      },
+    },
     tableName: {
       type: "string",
       label: "Table Name",
-      async options() {
-        const options = await this.listTables();
-        return options.map((i) => i.name);
+      description: "The name of the Snowflake table you want to run the query on",
+      async options({
+        database, schema,
+      }) {
+        const options = await this.listTables({
+          database,
+          schema,
+        });
+        return options.map((i) => ({
+          value: `${database}.${schema}.${i.name}`,
+          label: i.name,
+        }));
       },
     },
     columns: {
       type: "string[]",
       label: "Columns",
-      description: "Select the columns to insert data",
+      description: "Select the columns you want to insert data into",
       async options({ tableName }) {
         const fields = await this.listFieldsForTable(tableName);
         return fields.map((field) => field.name);
       },
     },
     values: {
+      type: "string",
+      label: "Row Values",
+      description:
+        "**Provide an array of arrays**. Each nested array should represent a row, with each element of the nested array representing a value (e.g., passing `[[\"Foo\",1,2],[\"Bar\",3,4]]` will insert two rows of data with three columns each). The most common pattern is to reference an array of arrays [exported by a previous step](https://pipedream.com/docs/workflows/steps/#step-exports) (e.g., `{{steps.foo.$return_value}}`). You may also enter or construct a string that will `JSON.parse()` to an array of arrays.",
+    },
+    emitIndividualEvents: {
+      type: "boolean",
+      label: "Emit individual events",
+      description: "Defaults to `true`, triggering workflows on each record in the result set. Set to `false` to emit records in batch (advanced)",
+      optional: true,
+      default: true,
+    },
+    warehouses: {
       type: "string[]",
-      label: "Values",
-      description: "Insert values for the selected columns respectively. For string values, wrap them in **single quotes**. Example: `'This is a string'`",
+      label: "Warehouse Name",
+      description: "**Optional**. The name of the warehouse(s) you want to watch for changes. If not provided, changes will be emitted for all warehouses this account has access to.",
+      async options() {
+        const options = await this.listWarehouses();
+        return options.map((i) => i.name);
+      },
+    },
+    users: {
+      type: "string[]",
+      label: "User Name",
+      description: "**Optional**. The name of the user(s) you want to watch for changes. If not provided, changes will be emitted for all users this account has access to.",
+      async options() {
+        const options = await this.listUsers();
+        return options.map((i) => i.login_name);
+      },
+    },
+    session: {
+      type: "string",
+      label: "Session",
+      description: "A serialized session created by the **Start SQL Session** action, e.g. `{{steps.start_sql_session.$return_value.session}}`. When provided, this action runs in that session, preserving session state such as temporary tables, `USE` context, and session parameters. Sessions expire server-side after ~4 hours or your account's idle timeout.",
+      optional: true,
+      secret: true,
     },
   },
   methods: {
+    ...sqlProxy.methods,
+    ...sqlProp.methods,
     async _getConnection() {
       if (this.connection) {
         return this.connection;
       }
 
-      this.connection = snowflake.createConnection(this.$auth);
+      const options = this.getClientConfiguration();
+      this.connection = snowflake.createConnection(options);
       await promisify(this.connection.connect).bind(this.connection)();
       return this.connection;
     },
-    async getRows(statement) {
+    _extractPrivateKey(key, passphrase) {
+      if (!key?.startsWith("-----BEGIN ENCRYPTED PRIVATE KEY-----")) {
+        // Key undefined or is not encrypted, no need to extract anything
+        return key;
+      }
+
+      const privateKeyObject = createPrivateKey({
+        key,
+        format: "pem",
+        passphrase,
+      });
+      return privateKeyObject.export({
+        format: "pem",
+        type: "pkcs8",
+      });
+    },
+    /**
+     * A helper method to get the configuration object that's directly fed to
+     * the Snowflake client constructor. Used by other features (like SQL proxy)
+     * to initialize their client in an identical way.
+     *
+     * @returns The configuration object for the Snowflake client
+     */
+    getClientConfiguration() {
+      // Snowflake docs:
+      // https://docs.snowflake.com/en/developer-guide/node-js/nodejs-driver-options#authentication-options
+      const {
+        private_key: originalPrivateKey,
+        private_key_pass: privateKeyPass,
+        ...auth
+      } = this.$auth;
+      const privateKey = this._extractPrivateKey(originalPrivateKey, privateKeyPass);
+      const authenticator = privateKey
+        ? "SNOWFLAKE_JWT"
+        : "SNOWFLAKE";
+      return {
+        ...auth,
+        application: "PIPEDREAM_PIPEDREAM",
+        authenticator,
+        privateKey,
+        privateKeyPass,
+      };
+    },
+    /**
+     * A helper method to get the schema of the database. Used by other features
+     * (like the `sql` prop) to enrich the code editor and provide the user with
+     * auto-complete and fields suggestion.
+     *
+     * @returns {DbInfo} The schema of the database, which is a
+     * JSON-serializable object.
+     */
+    async getSchema() {
+      const sqlText = `
+        SELECT LOWER(t.table_schema) AS "tableSchema",
+            LOWER(t.table_name) AS "tableName",
+            TO_NUMERIC(t.row_count) AS "rowCount",
+            LOWER(c.column_name) AS "columnName",
+            LOWER(c.data_type) AS "dataType",
+            LOWER(c.is_nullable) AS "isNullable",
+            LOWER(c.column_default) AS "columnDefault"
+        FROM information_schema.tables AS t
+            JOIN information_schema.columns AS c ON t.table_name = c.table_name
+            AND t.table_schema = c.table_schema
+        WHERE t.table_schema = ?
+        ORDER BY t.table_name,
+            c.ordinal_position;
+      `;
+      const binds = [
+        this.$auth.schema,
+      ];
+      const rows = await this.executeQuery({
+        sqlText,
+        binds,
+      });
+      return rows.reduce((acc, row) => {
+        acc[row.tableName] ??= {
+          metadata: {
+            rowCount: row.rowCount,
+          },
+          schema: {},
+        };
+        acc[row.tableName].schema[row.columnName] = {
+          ...row,
+        };
+        return acc;
+      }, {});
+    },
+    proxyAdapter(preparedStatement = {}) {
+      const {
+        sqlText: query = "",
+        binds: params = [],
+      } = preparedStatement;
+      return {
+        query,
+        params,
+      };
+    },
+    executeQueryAdapter(proxyArgs = {}) {
+      const {
+        query: sqlText = "",
+        params: binds = [],
+      } = proxyArgs;
+      return {
+        sqlText,
+        binds,
+      };
+    },
+    async serializeSession() {
+      const connection = await this._getConnection();
+      return snowflake.serializeConnection(connection);
+    },
+    restoreSession(serializedSession) {
+      try {
+        this.connection = snowflake.deserializeConnection(
+          this.getClientConfiguration(),
+          serializedSession,
+        );
+        this._restoredSession = true;
+      } catch (err) {
+        throw new ConfigurationError(`Could not restore session: ${err.message}. Re-run the Start SQL Session action to create a new session.`);
+      }
+    },
+    async executeQuery(statement) {
       const connection = await this._getConnection();
       const executedStatement = connection.execute(statement);
-      return executedStatement.streamRows();
-    },
-    async collectRows(statement) {
-      const rowStream = await this.getRows(statement);
+
+      const rowStream = await executedStatement.streamRows();
       const rows = [];
       for await (const row of rowStream) {
         rows.push(row);
       }
       return rows;
     },
-    async *collectRowsPaginated(statement, pageSize = 1) {
-      const rowStream = await this.getRows(statement);
-      let rows = [];
-      for await (const row of rowStream) {
-        rows.push(row);
-        if (rows.length === pageSize) {
-          yield rows;
-          rows = [];
+    /**
+     * Executes a statement directly on the current snowflake-sdk connection.
+     *
+     * This exists specifically for restored sessions. When the account uses the
+     * shared static IP (`use_pd_sql_proxy`), the platform routes `executeQuery`
+     * through the SQL proxy, which is stateless — it opens a NEW Snowflake
+     * session for every request and therefore cannot see a restored session's
+     * temporary tables, `USE` context, or session parameters. Running on the
+     * deserialized connection here bypasses the proxy so session state persists.
+     * (Named differently from `executeQuery` so the proxy routing does not
+     * replace this implementation.)
+     *
+     * Trade-off: queries sent this way do NOT egress from the shared static IP,
+     * so session reuse is incompatible with IP-allowlist-only Snowflake network
+     * policies. Session reuse fundamentally needs a persistent connection, which
+     * the stateless proxy cannot provide.
+     */
+    async executeQueryDirect(statement) {
+      const connection = await this._getConnection();
+      try {
+        const executedStatement = connection.execute(statement);
+        const rowStream = await executedStatement.streamRows();
+        const rows = [];
+        for await (const row of rowStream) {
+          rows.push(row);
         }
+        return rows;
+      } catch (err) {
+        // Snowflake GS error codes: 390112 session token expired, 390113 master
+        // token not found, 390114 auth token expired, 390115 session no longer exists
+        const sessionErrorCodes = [
+          390112,
+          390113,
+          390114,
+          390115,
+        ];
+        if (this._restoredSession && sessionErrorCodes.includes(Number(err.code))) {
+          throw new ConfigurationError(`Session expired or invalid (${err.message}). Re-run the Start SQL Session action to create a new session.`);
+        }
+        throw err;
       }
-      yield rows;
     },
-    async listTables() {
-      const sqlText = "SHOW TABLES";
-      return this.collectRows({
+    async listTables({
+      database, schema,
+    }) {
+      let sqlText = `SHOW TABLES IN SCHEMA ${database}.${schema}`;
+      return this.executeQuery({
         sqlText,
       });
+    },
+    async listDatabases() {
+      const sqlText = "SHOW DATABASES";
+      return this.executeQuery({
+        sqlText,
+      });
+    },
+    async listSchemas(database) {
+      const sqlText = "SHOW SCHEMAS IN DATABASE IDENTIFIER(:1)";
+      return this.executeQuery({
+        sqlText,
+        binds: [
+          database,
+        ],
+      });
+    },
+    async listWarehouses() {
+      const sqlText = "SHOW WAREHOUSES";
+      return this.executeQuery({
+        sqlText,
+      });
+    },
+    async listUsers() {
+      const sqlText = "SHOW USERS";
+      return this.executeQuery({
+        sqlText,
+      });
+    },
+    async maxQueryHistoryTimestamp() {
+      const sqlText = "SELECT MAX(START_TIME) AS max_ts FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY";
+      const maxTs = await this.executeQuery({
+        sqlText,
+      });
+      return +new Date(maxTs[0]?.MAX_TS);
+    },
+    async maxTaskHistoryTimestamp() {
+      const sqlText = "SELECT MAX(QUERY_START_TIME) AS max_ts FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())";
+      const maxTs = await this.executeQuery({
+        sqlText,
+      });
+      return +new Date(maxTs[0]?.MAX_TS);
     },
     async listFieldsForTable(tableName) {
       const sqlText = "DESCRIBE TABLE IDENTIFIER(:1)";
@@ -78,18 +343,213 @@ export default {
         sqlText,
         binds,
       };
-      return this.collectRows(statement);
+      return this.executeQuery(statement);
     },
-    async insertRow(tableName, columns, values) {
-      const sqlText = `INSERT INTO ${tableName} (${columns.join(",")}) VALUES (${values.join(",")});`;
+    // Query Snowflake query history.
+    // start and endTime bound the query. Both expect epoch ms timestamps.
+    // filters is a SQL statement that will be ANDed with the query.
+    async queryHistory(startTime, endTime, filters) {
+      const sqlText = `SELECT *
+      FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+      WHERE START_TIME >= to_timestamp_ltz(${startTime}, 3)
+      AND START_TIME < to_timestamp_ltz(${endTime}, 3)
+      AND ${filters}
+      ORDER BY START_TIME ASC;`;
+      const statement = {
+        sqlText,
+      };
+      console.log(`Running query: ${sqlText}`);
+      return this.executeQuery(statement);
+    },
+    async getFailedTasksInDatabase({
+      startTime, database, schemas, taskName,
+    }) {
       const binds = [
-        tableName,
+        startTime,
+        database,
       ];
+
+      let schemaList = [];
+      for (const schema of schemas) {
+        schemaList.push("REGEXP_LIKE(SCHEMA_NAME, ?)");
+        binds.push(schema);
+      }
+
+      const taskNameWhere = taskName
+        ? "AND REGEXP_LIKE(NAME, ?)"
+        : "";
+
+      if (taskName) {
+        binds.push(taskName.toUpperCase());
+      }
+
+      const sqlText = `SELECT *
+      FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY(
+        RESULT_LIMIT => 10000,
+        ERROR_ONLY => TRUE,
+        SCHEDULED_TIME_RANGE_START => to_timestamp_ltz(?, 3)
+      ))
+      WHERE database_name = ?
+      AND (${schemaList.join(" OR ")})
+      ${taskNameWhere}
+      ORDER BY SCHEDULED_TIME ASC, QUERY_START_TIME ASC, COMPLETED_TIME ASC;`;
       const statement = {
         sqlText,
         binds,
       };
-      return this.collectRows(statement);
+      return this.executeQuery(statement);
+    },
+    async getFailedTasksInWarehouse({
+      startTime, endTime, warehouse,
+    }) {
+      const sqlText = `SELECT *
+      FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+      WHERE QUERY_START_TIME >= to_timestamp_ltz(:1, 3)
+      AND QUERY_START_TIME < to_timestamp_ltz(:2, 3)
+      AND state = 'FAILED'
+      AND warehouse = :3
+      ORDER BY QUERY_START_TIME ASC;`;
+      const statement = {
+        sqlText,
+        binds: [
+          startTime,
+          endTime,
+          warehouse,
+        ],
+      };
+      return this.executeQuery(statement);
+    },
+    async getChangesForSpecificObject(startTime, endTime, objectType) {
+      const filters = `QUERY_TYPE != 'SELECT' AND (QUERY_TEXT ILIKE '%CREATE ${objectType}%' OR QUERY_TEXT ILIKE '%ALTER ${objectType}%' OR QUERY_TEXT ILIKE '%DROP ${objectType}%')`;
+      return this.queryHistory(startTime, endTime, filters);
+    },
+    async insertRow(tableName, values) {
+      const columns = Object.keys(values);
+      const binds = Object.values(values);
+      const sqlText = `INSERT INTO ${tableName} (${columns.join(",")}) VALUES (${columns.map(() => "?").join(", ")});`;
+      const statement = {
+        sqlText,
+        binds,
+      };
+      return this.executeQuery(statement);
+    },
+    async _insertRowsOriginal(tableName, columns, values) {
+      // Create placeholders for all rows
+      const rowPlaceholders = values.map(() =>
+        `(${columns.map(() => "?").join(", ")})`).join(", ");
+
+      const sqlText = `INSERT INTO ${tableName} (${columns.join(",")}) VALUES ${rowPlaceholders}`;
+
+      // Flatten all values into a single array for binding
+      const binds = values.flat();
+
+      const statement = {
+        sqlText,
+        binds,
+      };
+
+      return this.executeQuery(statement);
+    },
+    async insertRows(tableName, columns, values, options = {}) {
+      const {
+        batchSize = 100,
+        maxPayloadSizeMB = 5,
+        enableBatching = true,
+      } = options;
+
+      // If batching is disabled or small dataset, use original approach
+      if (!enableBatching || values.length <= 50) {
+        return this._insertRowsOriginal(tableName, columns, values);
+      }
+
+      // Estimate payload size for dynamic batch sizing
+      const sampleRowData = values.slice(0, Math.min(10, values.length));
+      const sampleSize = utils.estimatePayloadSize(sampleRowData);
+      const avgRowSize = sampleSize / sampleRowData.length;
+      const maxSizeBytes = maxPayloadSizeMB * 1024 * 1024;
+
+      // Calculate optimal batch size with safety margin
+      const calculatedBatchSize = Math.floor((maxSizeBytes * 0.8) / avgRowSize);
+      const optimalBatchSize = Math.min(
+        Math.max(calculatedBatchSize, 10), // Minimum 10 rows per batch
+        Math.min(batchSize, 500), // Maximum 500 rows per batch
+      );
+
+      console.log(`Processing ${values.length} rows in batches of ${optimalBatchSize}`);
+
+      // Split into batches
+      const batches = utils.createBatches(values, optimalBatchSize);
+
+      // Process batches sequentially
+      const results = [];
+      let totalRowsProcessed = 0;
+      let successfulBatches = 0;
+      let failedBatches = 0;
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+
+        try {
+          console.log(`Processing batch ${i + 1}/${batches.length} (${batch.length} rows)`);
+
+          const batchResult = await this._insertRowsOriginal(tableName, columns, batch);
+
+          results.push({
+            batchIndex: i + 1,
+            rowsProcessed: batch.length,
+            success: true,
+            result: batchResult,
+          });
+
+          totalRowsProcessed += batch.length;
+          successfulBatches++;
+
+          // Small delay between batches to prevent overwhelming the server
+          if (i < batches.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+
+        } catch (error) {
+          console.log(`Batch ${i + 1} failed:`, error.message);
+
+          results.push({
+            batchIndex: i + 1,
+            rowsProcessed: 0,
+            success: false,
+            error: error.message,
+          });
+
+          failedBatches++;
+
+          // Continue processing remaining batches
+        }
+      }
+
+      const summary = {
+        totalRows: values.length,
+        totalBatches: batches.length,
+        successfulBatches,
+        failedBatches,
+        totalRowsProcessed,
+        batchSize: optimalBatchSize,
+        results,
+      };
+
+      console.log(`Batch processing completed: ${totalRowsProcessed}/${values.length} rows processed`);
+
+      if (failedBatches > 0) {
+        const error = new ConfigurationError(
+          `Batch insert partially failed: \`${totalRowsProcessed}/${values.length}\` rows inserted. \`${failedBatches}\` batches failed.`,
+        );
+        error.summary = summary;
+        throw error;
+      }
+
+      return {
+        success: true,
+        message: `Successfully inserted ${totalRowsProcessed} rows in ${batches.length} batches`,
+        summary,
+      };
     },
   },
 };

@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/codereadr",
+  "version": "0.2.1",
+  "description": "Pipedream CodeREADr Components",
+  "main": "codereadr.app.mjs",
+  "keywords": [
+    "pipedream",
+    "codereadr"
+  ],
+  "homepage": "https://pipedream.com/apps/codereadr",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8",
+    "xml2json-light": "^1.0.6"
+  }
+}

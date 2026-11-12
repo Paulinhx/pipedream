@@ -17,6 +17,7 @@ const OBJECT_TYPE = {
   NOTE: "note",
   EMAIL: "email",
   TASK: "task",
+  LEAD: "lead",
 };
 
 /**
@@ -77,10 +78,97 @@ const OBJECT_TYPES = [
     label: "Tasks",
     value: OBJECT_TYPE.TASK,
   },
+  {
+    label: "Leads",
+    value: OBJECT_TYPE.LEAD,
+  },
+];
+
+const SEARCHABLE_OBJECT_TYPES_ARRAY = [
+  OBJECT_TYPE.COMPANY,
+  OBJECT_TYPE.CONTACT,
+  OBJECT_TYPE.DEAL,
+  OBJECT_TYPE.FEEDBACK_SUBMISSION,
+  OBJECT_TYPE.PRODUCT,
+  OBJECT_TYPE.TICKET,
+  OBJECT_TYPE.LINE_ITEM,
+  OBJECT_TYPE.LEAD,
+];
+const SEARCHABLE_OBJECT_TYPES = OBJECT_TYPES.filter(
+  (type) => SEARCHABLE_OBJECT_TYPES_ARRAY.includes(type.value),
+);
+
+const ENGAGEMENT_TYPES = [
+  {
+    label: "Note",
+    value: "NOTE",
+  },
+  {
+    label: "Task",
+    value: "TASK",
+  },
+  {
+    label: "Meeting",
+    value: "MEETING",
+  },
+  {
+    label: "Email",
+    value: "EMAIL",
+  },
+  {
+    label: "Call",
+    value: "CALL",
+  },
+];
+
+const EMAIL_EVENT_TYPES = [
+  {
+    label: "Sent",
+    value: "SENT",
+  },
+  {
+    label: "Dropped",
+    value: "DROPPED",
+  },
+  {
+    label: "Processed",
+    value: "PROCESSED",
+  },
+  {
+    label: "Delivered",
+    value: "DELIVERED",
+  },
+  {
+    label: "Deferred",
+    value: "DEFERRED",
+  },
+  {
+    label: "Bounce",
+    value: "BOUNCE",
+  },
+  {
+    label: "Open",
+    value: "OPEN",
+  },
+  {
+    label: "Click",
+    value: "CLICK",
+  },
+  {
+    label: "Status Change",
+    value: "STATUSCHANGE",
+  },
+  {
+    label: "Spam Report",
+    value: "SPAMREPORT",
+  },
 ];
 
 export {
   OBJECT_TYPE,
   OBJECT_TYPES,
   HUBSPOT_OWNER,
+  SEARCHABLE_OBJECT_TYPES,
+  ENGAGEMENT_TYPES,
+  EMAIL_EVENT_TYPES,
 };

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/docuwriter_ai",
+  "version": "0.1.2",
+  "description": "Pipedream DocuWriter.ai Components",
+  "main": "docuwriter_ai.app.mjs",
+  "keywords": [
+    "pipedream",
+    "docuwriter_ai"
+  ],
+  "homepage": "https://pipedream.com/apps/docuwriter_ai",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.0.3"
+  }
+}

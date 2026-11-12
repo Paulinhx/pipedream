@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/data247",
+  "version": "0.0.3",
+  "description": "Pipedream Data247 Components",
+  "main": "data247.app.mjs",
+  "keywords": [
+    "pipedream",
+    "data247"
+  ],
+  "homepage": "https://pipedream.com/apps/data247",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

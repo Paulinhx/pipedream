@@ -1,0 +1,167 @@
+import {
+  App,
+  Component,
+  ComponentsListRequest,
+} from "@pipedream/sdk";
+import {
+  useId,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
+import Select, { components } from "react-select";
+import type { MenuListProps } from "react-select";
+import { useComponents } from "../hooks/use-components";
+import {
+  useCustomize,
+  type BaseReactSelectProps,
+} from "../hooks/customization-context";
+import {
+  createBaseSelectStyles,
+  resolveSelectColors,
+} from "../utils/select-styles";
+
+type SelectComponentProps = {
+  app?: Partial<App> & { nameSlug: string; };
+  componentType?: "action" | "trigger";
+  value?: Partial<Component> & { key: string; };
+  onChange?: (component?: Component) => void;
+  /**
+   * Additional options for fetching components (e.g., registry)
+   */
+  componentsOptions?: Omit<ComponentsListRequest, "app" | "componentType">;
+};
+
+export function SelectComponent({
+  app,
+  componentType,
+  value,
+  onChange,
+  componentsOptions,
+}: SelectComponentProps) {
+  const instanceId = useId();
+  const {
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    components: componentsList,
+  } = useComponents({
+    ...componentsOptions ?? {},
+    app: app?.nameSlug,
+    componentType,
+  });
+
+  const { MenuList } = components;
+  const {
+    select, theme,
+  } = useCustomize();
+
+  // Memoize color resolution to avoid recalculating on every render
+  const resolvedColors = useMemo(() => resolveSelectColors(theme.colors), [
+    theme.colors,
+  ]);
+
+  // Memoize base select styles - only recalculate when colors or boxShadow change
+  const baseSelectStyles = useMemo(() => createBaseSelectStyles<Component>({
+    colors: {
+      surface: resolvedColors.surface,
+      border: resolvedColors.border,
+      text: resolvedColors.text,
+      textStrong: resolvedColors.textStrong,
+      hoverBg: resolvedColors.hoverBg,
+      selectedBg: resolvedColors.selectedBg,
+      selectedHoverBg: resolvedColors.selectedHoverBg,
+    },
+    boxShadow: theme.boxShadow,
+  }), [
+    resolvedColors,
+    theme.boxShadow,
+  ]);
+
+  const isLoadingMoreRef = useRef(isLoadingMore);
+  isLoadingMoreRef.current = isLoadingMore;
+
+  // Memoize the selected value to prevent unnecessary recalculations
+  const selectedValue = useMemo(() => {
+    return componentsList?.find((c: Component) => c.key === value?.key) || null;
+  }, [
+    componentsList,
+    value?.key,
+  ]);
+
+  // Memoize loadMore callback
+  const handleMenuScrollToBottom = useCallback(() => {
+    if (hasMore && !isLoadingMore) {
+      loadMore();
+    }
+  }, [
+    hasMore,
+    isLoadingMore,
+    loadMore,
+  ]);
+
+  const baseSelectProps: BaseReactSelectProps<Component> = {
+    styles: baseSelectStyles,
+  };
+
+  const selectProps = select.getProps("selectComponent", baseSelectProps);
+
+  // Memoize custom components to prevent remounting
+  const customComponents = useMemo(() => ({
+    MenuList: (props: MenuListProps<Component>) => (
+      <MenuList {...props}>
+        {props.children}
+        {isLoadingMoreRef.current && (
+          <div style={{
+            padding: "8px 12px",
+            textAlign: "center",
+            color: "#666",
+            fontSize: "14px",
+          }}>
+            Loading more {componentType === "action"
+              ? "actions"
+              : "triggers"}...
+          </div>
+        )}
+      </MenuList>
+    ),
+    IndicatorSeparator: () => null,
+  }), [
+    componentType,
+    MenuList,
+  ]);
+
+  return (
+    <Select
+      instanceId={instanceId}
+      className="react-select-container text-sm"
+      {...selectProps}
+      classNamePrefix="react-select"
+      options={componentsList}
+      getOptionLabel={(o) => o.name || o.key}
+      getOptionValue={(o) => o.key}
+      value={selectedValue}
+      onChange={(o) => onChange?.((o as Component) || undefined)}
+      onMenuScrollToBottom={handleMenuScrollToBottom}
+      isLoading={isLoading}
+      components={{
+        ...selectProps.components,
+        ...customComponents,
+      }}
+      menuPortalTarget={
+        typeof document !== "undefined"
+          ? document.body
+          : null
+      }
+      menuPosition="fixed"
+      styles={{
+        ...(selectProps.styles ?? {}),
+        menuPortal: (base) => ({
+          ...base,
+          zIndex: 99999,
+        }),
+      }}
+    />
+  );
+}

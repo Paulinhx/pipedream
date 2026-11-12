@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/niceboard",
+  "version": "0.1.0",
+  "description": "Pipedream Niceboard Components",
+  "main": "niceboard.app.mjs",
+  "keywords": [
+    "pipedream",
+    "niceboard"
+  ],
+  "homepage": "https://pipedream.com/apps/niceboard",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

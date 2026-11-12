@@ -1,0 +1,158 @@
+import startCase from "lodash/startCase.js";
+import { v4 as uuidv4 } from "uuid";
+import common from "../common/common.mjs";
+import constants from "../../common/constants.mjs";
+
+export default {
+  ...common,
+  hooks: {
+    ...common.hooks,
+    async deploy() {
+      const objectType = this.getObjectType();
+      const nameField = await this.salesforce.getNameFieldForObjectType(objectType);
+      this.setNameField(nameField);
+
+      // emit historical events
+      try {
+        const { records } = await this.query({
+          query: `SELECT Id FROM ${objectType} ORDER BY ${constants.FIELD_NAME.CREATED_DATE} DESC LIMIT ${constants.DEPLOY_HISTORICAL_LIMIT}`,
+        });
+        const ids = records.map((r) => r.Id);
+        for (const id of ids.slice(-constants.DEPLOY_HISTORICAL_LIMIT).reverse()) {
+          const object = await this.salesforce.getSObject(objectType, id);
+          const event = {
+            body: {
+              "New": object,
+              "UserId": id,
+            },
+          };
+          this.processWebhookEvent(event);
+        }
+      } catch (err) {
+        console.log("Error seeding historical records during deploy:", err);
+        console.log("The source will still be created and will emit new records going forward.");
+      }
+    },
+    async activate() {
+      // Attempt to create the webhook
+      const secretToken = uuidv4();
+      let webhookData;
+      const objectType = this.getObjectType();
+      try {
+        webhookData = await this.createWebhook({
+          endpointUrl: this.http.endpoint,
+          sObjectType: objectType,
+          event: this.getEventType(),
+          secretToken,
+          fieldsToCheck: this.getFieldsToCheck(),
+          fieldsToCheckMode: this.getFieldsToCheckMode(),
+          skipValidation: true, // neccessary for custom objects
+        });
+        console.log("Webhook created successfully");
+      } catch (err) {
+        console.log("Error creating webhook:", err);
+        console.log("The source will operate on the polling schedule instead.");
+
+        const latestDateCovered = this.getLatestDateCovered();
+        if (!latestDateCovered) {
+          const now = new Date().toISOString();
+          this.setLatestDateCovered(now);
+        }
+
+        await this.timerActivateHook?.();
+      }
+      this._setSecretToken(secretToken);
+      this._setWebhookData(webhookData);
+
+      const nameField = await this.salesforce.getNameFieldForObjectType(objectType);
+      this.setNameField(nameField);
+    },
+  },
+  methods: {
+    ...common.methods,
+    generateTimerMeta(item, fieldName) {
+      const objectType = this.getObjectType();
+      const {
+        CreatedDate: createdDate,
+        [fieldName]: name,
+        Id: id,
+      } = item;
+      const entityType = startCase(objectType);
+      const summary = `New ${entityType} created: ${name ?? id}`;
+      const ts = Date.parse(createdDate);
+      return {
+        id,
+        summary,
+        ts,
+      };
+    },
+    generateWebhookMeta(data) {
+      const nameField = this.getNameField();
+      const { New: newObject } = data.body;
+      const {
+        CreatedDate: createdDate,
+        Id: id,
+        [nameField]: name,
+      } = newObject;
+      const summary = `New ${this.getObjectType()} created: ${name ?? id}`;
+      const ts = Date.parse(createdDate);
+      return {
+        id,
+        summary,
+        ts,
+      };
+    },
+    getEventType() {
+      return "new";
+    },
+    async processTimerEvent(eventData) {
+      const {
+        getObjectTypeColumns,
+        getNameField,
+        generateTimerMeta,
+        $emit: emit,
+      } = this;
+
+      const {
+        startTimestamp,
+        startId,
+        endTimestamp,
+      } = eventData;
+
+      const fieldName = getNameField();
+      const columns = getObjectTypeColumns();
+      const dateFieldName = constants.FIELD_NAME.CREATED_DATE;
+
+      // Oldest first, so emitting in order keeps events chronological
+      const events = await this.paginate({
+        objectType: this.getObjectType(),
+        startTimestamp,
+        startId,
+        endTimestamp,
+        columns,
+        dateFieldName,
+      });
+
+      this.setPollingCursor(events, dateFieldName);
+
+      events.forEach((item) => {
+        const meta = generateTimerMeta(item, fieldName);
+        emit(item, meta);
+      });
+    },
+    async timerActivateHook() {
+      const {
+        getObjectTypeDescription,
+        setObjectTypeColumns,
+      } = this;
+
+      let columns = this.fieldsToObtain;
+      if (!columns?.length) {
+        const { fields } = await getObjectTypeDescription(this.getObjectType());
+        columns = fields.map(({ name }) => name);
+      }
+
+      setObjectTypeColumns(columns);
+    },
+  },
+};

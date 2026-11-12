@@ -1,3 +1,8 @@
+/**
+ * Should support the following data types:
+ * https://pipedream.com/docs/data-stores/#supported-data-types
+ */
+
 export default {
   type: "app",
   app: "data_stores",
@@ -15,6 +20,19 @@ export default {
         return dataStore.keys();
       },
     },
+    value: {
+      label: "Value",
+      type: "any",
+      description: "Enter a string, object, or array.",
+    },
+    ttl: {
+      label: "Time to Live (TTL)",
+      type: "integer",
+      description: "The number of seconds until this record expires and is automatically deleted. Examples: 3600 (1 hour), 86400 (1 day), 604800 (1 week). Leave blank for records that should not expire.",
+      optional: true,
+      min: 0,
+      max: 31536000, // 1 year (safe upper limit)
+    },
     addRecordIfNotFound: {
       label: "Create a new record if the key is not found?",
       description: "Create a new record if no records are found for the specified key.",
@@ -31,33 +49,57 @@ export default {
     shouldAddRecord(option) {
       return option === "Yes";
     },
-    valueProp() {
-      return {
-        value: {
-          label: "Value",
-          type: "any",
-          description: "Enter a string, object, or array.",
-        },
-      };
-    },
     parseValue(value) {
       if (typeof value !== "string") {
         return value;
       }
 
       try {
-        return JSON.parse(this.sanitizeJson(value));
-      } catch (err) {
+        return JSON.parse(value);
+      } catch {
         return value;
       }
     },
-    //Because user might enter a JSON as JS object;
-    //This method converts a JS object string to a JSON string before parsing it
-    //e.g. {a:"b", 'c':1} => {"a":"b", "c":1}
-    //We don't use eval here because of security reasons.
-    //Using eval may cause something undesired run in the script.
-    sanitizeJson(str) {
-      return str.replace(/(['"])?([a-z0-9A-Z_]+)(['"])?:/g, "\"$2\": ");
+    formatTtl(seconds) {
+      if (!seconds) return "";
+
+      // Format TTL in a human-readable way
+      if (seconds < 60) {
+        return `${seconds} second${seconds === 1
+          ? ""
+          : "s"}`;
+      }
+      if (seconds < 3600) {
+        const minutes = Math.round(seconds / 60);
+        return `${minutes} minute${minutes === 1
+          ? ""
+          : "s"}`;
+      }
+      if (seconds < 86400) {
+        const hours = Math.round(seconds / 3600);
+        return `${hours} hour${hours === 1
+          ? ""
+          : "s"}`;
+      }
+      if (seconds < 604800) {
+        const days = Math.round(seconds / 86400);
+        return `${days} day${days === 1
+          ? ""
+          : "s"}`;
+      }
+      const weeks = Math.round(seconds / 604800);
+      return `${weeks} week${weeks === 1
+        ? ""
+        : "s"}`;
+    },
+    async updateTtlIfNeeded(dataStore, key, ttl) {
+      if (!ttl) return false;
+
+      if (await dataStore.has(key)) {
+        await dataStore.setTtl(key, ttl);
+        return true;
+      }
+      return false;
     },
   },
 };

@@ -1,39 +1,55 @@
-import common from "../common-webhook.mjs";
+import actions from "../common/actions.mjs";
+import common from "../common/common-webhook.mjs";
 
 export default {
   ...common,
   key: "trello-new-activity",
-  name: "New Activity (Instant)",
+  name: "New Board Activity (Instant)",
   description: "Emit new event for new activity on a board.",
-  version: "0.0.4",
+  version: "0.1.6",
   type: "source",
   props: {
     ...common.props,
     board: {
       propDefinition: [
-        common.props.trello,
+        common.props.app,
         "board",
       ],
+    },
+    activityTypes: {
+      type: "string[]",
+      label: "Activity Types",
+      description: "Filter incoming events by the activity type",
+      options: actions,
+      optional: true,
     },
   },
   methods: {
     ...common.methods,
-    async getResult(event) {
-      return event.body;
+    getSampleEvents() {
+      return this.app.getBoardActivity({
+        boardId: this.board,
+      });
     },
-    isRelevant({ event }) {
-      const boardId = event.body?.action?.data?.board?.id;
-      return !this.board || this.board === boardId;
+    getSortField() {
+      return "date";
     },
-    generateMeta({ action }) {
+    isRelevant({ action }) {
+      const {
+        data, type,
+      } = action;
+      return ((!this.board || this.board === data?.board?.id)
+        && (!this.activityTypes?.length || this.activityTypes.includes(type)));
+    },
+    generateMeta(action) {
       const {
         id,
-        type: summary,
+        type,
         date,
       } = action;
       return {
         id,
-        summary,
+        summary: `New ${type} activity`,
         ts: Date.parse(date),
       };
     },

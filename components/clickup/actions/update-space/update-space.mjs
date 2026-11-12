@@ -1,23 +1,19 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/space-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-update-space",
   name: "Update Space",
-  description: "Update a space. See the docs [here](https://clickup.com/api) in **Spaces  / Update Space** section.",
-  version: "0.0.1",
+  description: "Update a space. [See the documentation](https://clickup.com/api) in **Spaces / Update Space** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-    },
     name: {
       label: "Name",
       type: "string",

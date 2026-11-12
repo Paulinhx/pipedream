@@ -1,28 +1,33 @@
-// legacy_hash_id: a_B0i8rE
-import fs from "fs";
-import FormData from "form-data";
-import { axios } from "@pipedream/platform";
+import { getFileStreamAndMetadata } from "@pipedream/platform";
+import xeroAccountingApi from "../../xero_accounting_api.app.mjs";
 
 export default {
   key: "xero_accounting_api-upload-file",
   name: "Upload File",
-  description: "Uploads a file to the specified document.",
-  version: "0.2.1",
+  description: "Uploads a file to the specified document. [See the documentation](https://developer.xero.com/documentation/api/accounting/invoices#upload-attachment)",
+  version: "1.0.7",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    xero_accounting_api: {
-      type: "app",
-      app: "xero_accounting_api",
+    xeroAccountingApi,
+    tenantId: {
+      propDefinition: [
+        xeroAccountingApi,
+        "tenantId",
+      ],
     },
-    tenant_id: {
+    filePathOrUrl: {
       type: "string",
-      description: "Id of the organization tenant to use on the Xero Accounting API. See [Get Tenant Connections](https://pipedream.com/@sergio/xero-accounting-api-get-tenant-connections-p_OKCzOgn/edit) for a workflow example on how to pull this data.",
+      label: "File Path or URL",
+      description: "The file to upload. Provide either a file URL or a path to a file in the `/tmp` directory (for example, `/tmp/myFile.txt`)",
+      format: "file-ref",
     },
-    attachment_filename: {
-      type: "string",
-      description: "Name of the file to upload as an attachment to the Xero document.",
-    },
-    document_type: {
+    documentType: {
+      label: "Document Type",
       type: "string",
       description: "Document type of where the attachment will be sent to. This is used in as part of the Xero Account API endpoint where the request is sent against.",
       options: [
@@ -37,32 +42,49 @@ export default {
         "RepeatingInvoices",
       ],
     },
-    document_id: {
+    documentId: {
+      label: "Document ID",
       type: "string",
       description: "Xero identifier of the document where the attachment will be sent to.",
     },
+    syncDir: {
+      type: "dir",
+      accessMode: "read",
+      sync: true,
+      optional: true,
+    },
+  },
+  methods: {
+    streamToBuffer(stream) {
+      return new Promise((resolve, reject) => {
+        const chunks = [];
+        stream.on("data", (chunk) => chunks.push(chunk));
+        stream.on("end", () => resolve(Buffer.concat(chunks)));
+        stream.on("error", reject);
+      });
+    },
   },
   async run({ $ }) {
-    //See the API docs: https://developer.xero.com/documentation/api/invoices#upload-attachment
-    //See a workflow example of this action: https://pipedream.com/@sergio/xero-accounting-api-upload-file-p_rvCqADQ/edit
+    const {
+      stream, metadata,
+    } = await getFileStreamAndMetadata(this.filePathOrUrl);
+    const fileBinary = await this.streamToBuffer(stream);
 
-    if (!this.tenant_id) {
-      throw new Error("Must provide tenant_id parameter.");
-    }
-
-    let data = new FormData();
-    const file = fs.createReadStream(`/tmp/${this.attachment_filename}`);
-    data.append("file", file);
-
-    //Sends the request against Xero Accounting API
-    return await axios($, {
-      method: "post",
-      url: `https://api.xero.com/api.xro/2.0/${this.document_type}/${this.document_id}/Attachments/${attachment_filename}`,
+    const response = await this.xeroAccountingApi.uploadFile({
+      $,
+      tenantId: this.tenantId,
+      documentType: this.documentType,
+      documentId: this.documentId,
+      fileName: metadata.name,
       headers: {
-        "Authorization": `Bearer ${this.xero_accounting_api.$auth.oauth_access_token}`,
-        "xero-tenant-id": this.tenant_id,
+        "Content-Type": metadata.contentType,
+        "Content-Length": metadata.size,
+        "Accept": "application/json",
       },
-      data,
+      data: Buffer.from(fileBinary, "binary"),
     });
+
+    $.export("$summary", `Successfully uploaded file to ${this.documentType} with ID: ${this.documentId}`);
+    return response;
   },
 };

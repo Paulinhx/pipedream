@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/teamdeck",
+  "version": "0.0.5",
+  "description": "Pipedream Teamdeck Components",
+  "main": "teamdeck.app.mjs",
+  "keywords": [
+    "pipedream",
+    "teamdeck"
+  ],
+  "homepage": "https://pipedream.com/apps/teamdeck",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

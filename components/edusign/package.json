@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/edusign",
+  "version": "0.3.0",
+  "description": "Pipedream Edusign Components",
+  "main": "edusign.app.mjs",
+  "keywords": [
+    "pipedream",
+    "edusign"
+  ],
+  "homepage": "https://pipedream.com/apps/edusign",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

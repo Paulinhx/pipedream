@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/bill",
+  "version": "0.0.3",
+  "description": "Pipedream BILL Components",
+  "main": "bill.app.mjs",
+  "keywords": [
+    "pipedream",
+    "bill"
+  ],
+  "homepage": "https://pipedream.com/apps/bill",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

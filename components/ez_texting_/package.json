@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/ez_texting_",
+  "version": "0.0.2",
+  "description": "Pipedream EZ Texting_ Components",
+  "main": "ez_texting_.app.mjs",
+  "keywords": [
+    "pipedream",
+    "ez_texting_"
+  ],
+  "homepage": "https://pipedream.com/apps/ez_texting_",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

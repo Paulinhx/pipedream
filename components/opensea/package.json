@@ -1,0 +1,20 @@
+{
+  "name": "@pipedream/opensea",
+  "version": "0.0.4",
+  "description": "Pipedream Opensea Components",
+  "main": "opensea.app.mjs",
+  "keywords": [
+    "pipedream",
+    "opensea"
+  ],
+  "homepage": "https://pipedream.com/apps/opensea",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "bottleneck": "^2.19.5",
+    "md5": "^2.3.0"
+  }
+}

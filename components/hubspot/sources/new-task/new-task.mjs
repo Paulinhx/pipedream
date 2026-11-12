@@ -1,39 +1,71 @@
-import common from "../common.mjs";
+import {
+  DEFAULT_LIMIT, OBJECT_TYPES,
+} from "../../common/constants.mjs";
+import common from "../common/common.mjs";
 
 export default {
   ...common,
   key: "hubspot-new-task",
-  name: "New Calendar Task",
-  description: "Emit new event for each new task added.",
-  version: "0.0.4",
-  dedupe: "unique",
+  name: "New Task Created",
+  description:
+    "Emit new event for each new task created. [See the documentation](https://developers.hubspot.com/docs/api-reference/latest/crm/activities/tasks/search/search-tasks)",
+  version: "1.0.29",
   type: "source",
-  hooks: {},
+  dedupe: "unique",
   methods: {
     ...common.methods,
+    getTs(task) {
+      return Date.parse(task.createdAt);
+    },
     generateMeta(task) {
-      const {
-        id,
-        name,
-        eventType,
-      } = task;
       return {
-        id,
-        summary: `${name} - ${eventType}`,
-        ts: Date.now(),
+        id: task.id,
+        summary: `New Task: ${task.properties.hs_task_subject || task.id}`,
+        ts: this.getTs(task),
       };
     },
-    getParams() {
-      const yearFromNow = new Date();
-      yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
-      return yearFromNow.getTime();
+    isRelevant(task, createdAfter) {
+      return this.getTs(task) > createdAfter;
+    },
+    async getParams(after) {
+      const { results: allProperties } = await this.hubspot.getProperties({
+        objectType: "tasks",
+      });
+      return this.addDateFilter({
+        object: "tasks",
+        data: {
+          limit: DEFAULT_LIMIT,
+          properties: allProperties.map(({ name }) => name),
+          sorts: [
+            {
+              propertyName: "hs_createdate",
+              direction: "DESCENDING",
+            },
+          ],
+        },
+      }, "hs_createdate", after);
+    },
+    async getAssociationTypes() {
+      const { results: custom } = await this.hubspot.listSchemas();
+      return [
+        ...OBJECT_TYPES.map(({ value }) => value),
+        ...(custom?.map(({ fullyQualifiedName }) => fullyQualifiedName) || []),
+      ];
     },
     async processResults(after, params) {
-      const results = await this.hubspot.getCalendarTasks(params);
-      for (const task of results) {
-        const meta = this.generateMeta(task);
-        this.$emit(task, meta);
-      }
+      const associationTypes = await this.getAssociationTypes();
+      await this.paginate(
+        params,
+        async (opts) => {
+          const page = await this.hubspot.searchCRM(opts);
+          return {
+            ...page,
+            results: await this.withAssociations("tasks", page.results || [], associationTypes),
+          };
+        },
+        "results",
+        after,
+      );
     },
   },
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/plasmic",
+  "version": "0.0.3",
+  "description": "Pipedream Plasmic Components",
+  "main": "plasmic.app.mjs",
+  "keywords": [
+    "pipedream",
+    "plasmic"
+  ],
+  "homepage": "https://pipedream.com/apps/plasmic",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

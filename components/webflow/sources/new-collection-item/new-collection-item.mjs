@@ -1,11 +1,11 @@
-import common from "../collection-common.mjs";
+import common from "../common/common.mjs";
 
 export default {
   type: "source",
   key: "webflow-new-collection-item",
-  name: "New Collection Item",
-  description: "Emit new event when a collection item is created. [See the docs here](https://developers.webflow.com/#item-model)",
-  version: "0.1.1",
+  name: "New Collection Item Created",
+  description: "Emit new event when a collection item is created. [See the documentation](https://developers.webflow.com/data/reference/webhooks/events/collection-item-created)",
+  version: "2.0.0",
   ...common,
   methods: {
     ...common.methods,
@@ -13,10 +13,13 @@ export default {
       return "collection_item_created";
     },
     generateMeta(data) {
+      const {
+        id, fieldData,
+      } = data;
       return {
-        id: data._id,
-        summary: `New collection item ${data.slug} created`,
-        ts: Date.parse(data.createdOn),
+        id,
+        summary: `New item: ${fieldData?.slug ?? fieldData?.name ?? id}`,
+        ts: Date.parse(data["createdOn"]),
       };
     },
   },

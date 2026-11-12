@@ -1,6 +1,8 @@
 const WEBHOOK_ID = "webhookId";
 const LINEAR_DELIVERY_HEADER = "linear-delivery";
-const DEFAULT_LIMIT = 50;
+const DEFAULT_LIMIT = 100;
+const DEFAULT_MAX_RECORDS = 200;
+const DEFAULT_NO_QUERY_LIMIT = 20;
 
 const ACTION = {
   CREATE: "create",
@@ -12,18 +14,23 @@ const RESOURCE_TYPE = {
   ISSUE: "Issue",
   ISSUE_LABEL: "IssueLabel",
   PROJECT: "Project",
+  PROJECT_UPDATE: "ProjectUpdate",
   CYCLE: "Cycle",
   REACTION: "Reaction",
 };
 
 const RESOURCE_TYPES = Object.values(RESOURCE_TYPE);
 
-// https://developers.linear.app/docs/graphql/webhooks#how-does-a-webhook-work
+// https://linear.app/developers/webhooks#how-does-a-webhook-work
 // To make sure a Webhook POST is truly created by Linear, check the request
 // that originates from one of the following IPs:
 const CLIENT_IPS = [
   "35.231.147.226",
   "35.243.134.228",
+  "34.140.253.14",
+  "34.38.87.206",
+  "34.134.222.122",
+  "35.222.25.142",
 ];
 
 const FIELD = {
@@ -42,14 +49,56 @@ const ORDER_BY_OPTIONS = [
   },
 ];
 
+const PRIORITY_OPTIONS = [
+  {
+    value: 0,
+    label: "No priority",
+  },
+  {
+    value: 1,
+    label: "Urgent",
+  },
+  {
+    value: 2,
+    label: "High",
+  },
+  {
+    value: 3,
+    label: "Normal",
+  },
+  {
+    value: 4,
+    label: "Low",
+  },
+];
+
+const HEALTH_OPTIONS = [
+  {
+    label: "On Track",
+    value: "onTrack",
+  },
+  {
+    label: "At Risk",
+    value: "atRisk",
+  },
+  {
+    label: "Off Track",
+    value: "offTrack",
+  },
+];
+
 export default {
   WEBHOOK_ID,
   LINEAR_DELIVERY_HEADER,
   DEFAULT_LIMIT,
+  DEFAULT_MAX_RECORDS,
+  DEFAULT_NO_QUERY_LIMIT,
   ACTION,
   RESOURCE_TYPE,
   RESOURCE_TYPES,
   CLIENT_IPS,
   ORDER_BY_OPTIONS,
   FIELD,
+  PRIORITY_OPTIONS,
+  HEALTH_OPTIONS,
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/mav",
+  "version": "0.0.3",
+  "description": "Pipedream Mav Components",
+  "main": "mav.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mav"
+  ],
+  "homepage": "https://pipedream.com/apps/mav",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

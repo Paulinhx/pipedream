@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-update-section",
   name: "Update Section",
-  description: "Updates a section. [See the docs here](https://developer.todoist.com/rest/v1/#update-a-section)",
-  version: "0.0.1",
+  description: "Updates a section. [See the documentation](https://developer.todoist.com/api/v1#tag/Sections/operation/update_section_api_v1_sections__section_id__post)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,
@@ -23,6 +28,7 @@ export default {
         }),
       ],
       description: "The section to update",
+      optional: false,
     },
     name: {
       propDefinition: [

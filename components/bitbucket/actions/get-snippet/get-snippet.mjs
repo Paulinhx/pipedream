@@ -5,7 +5,12 @@ export default {
   key: "bitbucket-get-snippet",
   name: "Get snippet",
   description: "Get a snippet. [See docs here](https://developer.atlassian.com/cloud/bitbucket/rest/api-group-snippets/#api-snippets-workspace-encoded-id-get)",
-  version: "0.0.1",
+  version: "0.0.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     ...base.props,
@@ -30,7 +35,7 @@ export default {
       snippetId,
     }, $);
 
-    $.export("summary", "Successfully retrieved snippet");
+    $.export("$summary", "Successfully retrieved snippet");
 
     return response;
   },

@@ -1,0 +1,134 @@
+import {
+  DEFAULT_DEAL_PROPERTIES,
+  DEFAULT_LIMIT,
+} from "../../common/constants.mjs";
+import common from "../common/common.mjs";
+import sampleEmit from "./test-event.mjs";
+
+export default {
+  ...common,
+  key: "hubspot-new-or-updated-deal",
+  name: "New or Updated Deal",
+  description: "Emit new event for each new or updated deal in HubSpot",
+  version: "0.0.35",
+  dedupe: "unique",
+  type: "source",
+  props: {
+    ...common.props,
+    info: {
+      type: "alert",
+      alertType: "info",
+      content: `Properties:\n\`${DEFAULT_DEAL_PROPERTIES.join(", ")}\``,
+    },
+    properties: {
+      propDefinition: [
+        common.props.hubspot,
+        "dealProperties",
+        () => ({
+          excludeDefaultProperties: true,
+        }),
+      ],
+      label: "Additional properties to retrieve",
+    },
+    pipeline: {
+      propDefinition: [
+        common.props.hubspot,
+        "dealPipeline",
+      ],
+      description: "Filter deals by pipeline",
+      optional: true,
+    },
+    stage: {
+      propDefinition: [
+        common.props.hubspot,
+        "stages",
+        (c) => ({
+          pipeline: c.pipeline,
+        }),
+      ],
+      type: "string",
+      label: "Stage",
+      description: "Filter deals by stage",
+      optional: true,
+    },
+    newOnly: {
+      type: "boolean",
+      label: "New Only",
+      description: "Emit events only for new deals",
+      default: false,
+      optional: true,
+    },
+  },
+  methods: {
+    ...common.methods,
+    getTs(deal) {
+      return this.newOnly
+        ? Date.parse(deal.createdAt)
+        : Date.parse(deal.updatedAt);
+    },
+    generateMeta(deal) {
+      const {
+        id, properties,
+      } = deal;
+      const ts = this.getTs(deal);
+      return {
+        id: this.newOnly
+          ? id
+          : `${id}-${ts}`,
+        summary: properties.dealname,
+        ts,
+      };
+    },
+    isRelevant(deal, updatedAfter) {
+      return this.getTs(deal) > updatedAfter;
+    },
+    getParams(after) {
+      const { properties = [] } = this;
+      const dateProperty = this.newOnly
+        ? "createdate"
+        : "hs_lastmodifieddate";
+      const params = {
+        data: {
+          limit: DEFAULT_LIMIT,
+          sorts: [
+            {
+              propertyName: dateProperty,
+              direction: "DESCENDING",
+            },
+          ],
+          properties: [
+            ...DEFAULT_DEAL_PROPERTIES,
+            ...properties,
+          ],
+        },
+        object: "deals",
+      };
+      if (this.pipeline) {
+        const filters = [
+          {
+            propertyName: "pipeline",
+            operator: "EQ",
+            value: this.pipeline,
+          },
+        ];
+        if (this.stage) {
+          filters.push({
+            propertyName: "dealstage",
+            operator: "EQ",
+            value: this.stage,
+          });
+        }
+        params.data.filterGroups = [
+          {
+            filters,
+          },
+        ];
+      }
+      return this.addDateFilter(params, dateProperty, after);
+    },
+    async processResults(after, params) {
+      await this.searchCRM(params, after);
+    },
+  },
+  sampleEmit,
+};

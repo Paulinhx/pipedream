@@ -1,28 +1,23 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/list-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-get-custom-fields",
   name: "Get Custom Fields",
-  description: "Get a list of custom fields. See the docs [here](https://clickup.com/api) in **Custom Fields  / Get Accessible Custom Fields** section.",
-  version: "0.0.1",
+  description: "Get a list of custom fields. [See the documentation](https://clickup.com/api) in **Custom Fields / Get Accessible Custom Fields** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
     folderId: {
       propDefinition: [
-        clickup,
-        "folders",
+        common.props.clickup,
+        "folderId",
         (c) => ({
           spaceId: c.spaceId,
         }),
@@ -31,11 +26,11 @@ export default {
     },
     listId: {
       propDefinition: [
-        clickup,
-        "lists",
+        common.props.clickup,
+        "listId",
         (c) => ({
-          spaceId: c.spaceId,
           folderId: c.folderId,
+          spaceId: c.spaceId,
         }),
       ],
     },

@@ -1,39 +1,87 @@
-import common from "../common.mjs";
+import youtubeDataApi from "../../youtube_data_api.app.mjs";
+import common from "./common.mjs";
 
 export default {
   ...common,
   type: "source",
   key: "youtube_data_api-new-videos-by-search",
   name: "New Videos by Search",
-  description:
-    "Emit new event for each new YouTube video matching a search query.",
-  version: "0.0.6",
+  description: "Emit new event for each new YouTube video matching the search criteria.",
+  version: "0.0.11",
   dedupe: "unique",
   props: {
-    ...common.props,
+    youtubeDataApi,
     q: {
-      type: "string",
-      label: "Search Query",
-      description: "Search for new videos that match these keywords.",
+      propDefinition: [
+        youtubeDataApi,
+        "q",
+      ],
+    },
+    channelId: {
+      propDefinition: [
+        youtubeDataApi,
+        "channelId",
+      ],
+      optional: true,
+    },
+    videoDuration: {
+      propDefinition: [
+        youtubeDataApi,
+        "videoDuration",
+      ],
+    },
+    videoDefinition: {
+      propDefinition: [
+        youtubeDataApi,
+        "videoDefinition",
+      ],
+    },
+    videoCaption: {
+      propDefinition: [
+        youtubeDataApi,
+        "videoCaption",
+      ],
+    },
+    videoLicense: {
+      propDefinition: [
+        youtubeDataApi,
+        "videoLicense",
+      ],
+    },
+    regionCode: {
+      propDefinition: [
+        youtubeDataApi,
+        "regionCode",
+      ],
+    },
+    videoCategoryId: {
+      propDefinition: [
+        youtubeDataApi,
+        "videoCategoryId",
+        (c) => ({
+          regionCode: c.regionCode,
+        }),
+      ],
+      optional: true,
+    },
+    location: {
+      propDefinition: [
+        youtubeDataApi,
+        "location",
+      ],
+    },
+    locationRadius: {
+      propDefinition: [
+        youtubeDataApi,
+        "locationRadius",
+      ],
     },
     maxResults: {
       propDefinition: [
-        common.props.youtubeDataApi,
+        youtubeDataApi,
         "maxResults",
       ],
     },
-  },
-  hooks: {
-    ...common.hooks,
-    deploy() {},
-  },
-  methods: {
-    ...common.methods,
-    getParams() {
-      return {
-        q: this.q,
-        maxResults: this.maxResults,
-      };
-    },
+    ...common.props,
   },
 };

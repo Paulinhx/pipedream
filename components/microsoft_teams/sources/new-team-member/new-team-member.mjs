@@ -4,8 +4,8 @@ export default {
   ...base,
   key: "microsoft_teams-new-team-member",
   name: "New Team Member",
-  description: "Emit new event when a new member is added to a team",
-  version: "0.0.1",
+  description: "Emit new event when a new member is added to a team. [See the documentation](https://learn.microsoft.com/en-us/graph/api/team-list-members?view=graph-rest-1.0&tabs=http)",
+  version: "0.0.16",
   type: "source",
   dedupe: "unique",
   props: {
@@ -34,12 +34,12 @@ export default {
         ts: Date.now(),
       };
     },
-  },
-  async run() {
-    const resources = await this.getResources();
-    for (const resource of resources) {
-      const meta = this.generateMeta(resource);
-      this.$emit(resource, meta);
-    }
+    async processEvents() {
+      const resources = await this.getResources();
+      for (const resource of resources) {
+        const meta = this.generateMeta(resource);
+        this.$emit(resource, meta);
+      }
+    },
   },
 };

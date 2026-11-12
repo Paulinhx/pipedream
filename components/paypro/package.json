@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/paypro",
+  "version": "0.0.4",
+  "description": "Pipedream PayPro Components",
+  "main": "paypro.app.mjs",
+  "keywords": [
+    "pipedream",
+    "paypro"
+  ],
+  "homepage": "https://pipedream.com/apps/paypro",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

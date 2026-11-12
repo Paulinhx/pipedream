@@ -4,12 +4,18 @@ import common from "../common/common.mjs";
 export default {
   key: "asana-create-task",
   name: "Create Task",
-  description: "Creates a new task. [See the docs here](https://developers.asana.com/docs/create-a-task)",
-  version: "0.3.0",
+  description: "Creates a new task in Asana. Use this to add a standalone task to a workspace or project. For subtasks, use **Create Subtask** instead; for template-based tasks, use **Create Task from Template**. Returns the new task record including its `gid`. Example: call with `taskName: 'Review Q3 report'`, `workspace: '1200123456789012'`, `due_on: '2026-10-01'` → returns `{gid: '1202345678901234', name: 'Review Q3 report', resource_type: 'task'}`. [See the documentation](https://developers.asana.com/docs/create-a-task)",
+  version: "1.0.0",
+  ai: "optimized",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    name: {
+    taskName: {
       label: "Name",
       description: "Name of the task. This is generally a short sentence fragment that fits on a line in the UI for maximum readability. However, it can be longer.",
       type: "string",
@@ -23,7 +29,7 @@ export default {
     },
     assignee: {
       label: "Assignee",
-      description: "Gid of a user.",
+      description: "Gid of a user. Use **List Users** to find available user GIDs.",
       type: "string",
       optional: true,
       propDefinition: [
@@ -33,15 +39,12 @@ export default {
     },
     assignee_section: {
       label: "Assignee Section",
-      description: "The assignee section is a subdivision of a project that groups tasks together in the assignee's \"My Tasks\" list.",
+      description: "The assignee section is a subdivision of a project that groups tasks together in the assignee's \"My Tasks\" list (a section GID, e.g. `1203456789012345`). Use **Get Tasks From Task List** with `optFields` including `assignee_section` to retrieve the authenticated user's own My Tasks section GIDs. GIDs for another assignee's sections must come from that person's own My Tasks list, not from this account.",
       type: "string",
       optional: true,
       propDefinition: [
         asana,
         "sections",
-        (c) => ({
-          project: c.project,
-        }),
       ],
     },
     completed: {
@@ -64,7 +67,7 @@ export default {
     },
     followers: {
       label: "Followers",
-      description: "An array of strings identifying users. These can either be the string \"me\", an email, or the gid of a user.",
+      description: "An array of strings identifying users. These can either be the string \"me\", an email, or the gid of a user (e.g. `1198765432109876`). Use **List Users** to find available user GIDs.",
       type: "string[]",
       optional: true,
       propDefinition: [
@@ -86,15 +89,12 @@ export default {
     },
     parent: {
       label: "Parent",
-      description: "Gid of a task.",
+      description: "Gid of the parent task, e.g. `1202345678901234`. Use **Search Tasks** to find available task GIDs.",
       type: "string",
       optional: true,
       propDefinition: [
         asana,
         "tasks",
-        (c) => ({
-          project: c.project,
-        }),
       ],
     },
     start_on: {
@@ -117,11 +117,12 @@ export default {
     let customFields;
     if (this.custom_fields) customFields = JSON.parse(this.custom_fields);
 
-    const response = await this.asana._makeRequest("tasks", {
+    const response = await this.asana._makeRequest({
+      path: "tasks",
       method: "post",
       data: {
         data: {
-          name: this.name,
+          name: this.taskName,
           assignee: this.assignee,
           assignee_section: this.assignee_section,
           completed: this.completed,
@@ -138,7 +139,8 @@ export default {
           custom_fields: customFields,
         },
       },
-    }, $);
+      $,
+    });
 
     $.export("$summary", "Successfully created task");
 

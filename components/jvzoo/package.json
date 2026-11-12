@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/jvzoo",
+  "version": "0.0.2",
+  "description": "Pipedream Jvzoo Components",
+  "main": "jvzoo.app.mjs",
+  "keywords": [
+    "pipedream",
+    "jvzoo"
+  ],
+  "homepage": "https://pipedream.com/apps/jvzoo",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

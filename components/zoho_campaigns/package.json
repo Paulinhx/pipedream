@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/zoho_campaigns",
+  "version": "0.2.0",
+  "description": "Pipedream Zoho Campaigns Components",
+  "main": "zoho_campaigns.app.mjs",
+  "keywords": [
+    "pipedream",
+    "zoho_campaigns"
+  ],
+  "homepage": "https://pipedream.com/apps/zoho_campaigns",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

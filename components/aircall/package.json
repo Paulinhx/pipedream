@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/aircall",
+  "version": "0.5.1",
+  "description": "Pipedream Aircall Components",
+  "main": "aircall.app.mjs",
+  "keywords": [
+    "pipedream",
+    "aircall"
+  ],
+  "homepage": "https://pipedream.com/apps/aircall",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

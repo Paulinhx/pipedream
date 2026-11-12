@@ -1,50 +1,52 @@
-import salesforce from "../../salesforce_rest_api.app.mjs";
-import salesforceCase from "../../common/sobjects/case.mjs";
-import {
-  pickBy, pick,
-} from "lodash-es";
-import { toSingleLineString } from "../../common/utils.mjs";
+import common, { getProps } from "../common/base-create-update.mjs";
+import caseObj from "../../common/sobjects/case.mjs";
+
+const docsLink = "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_case.htm";
 
 export default {
+  ...common,
   key: "salesforce_rest_api-create-case",
   name: "Create Case",
-  description: toSingleLineString(`
-    Creates a Salesforce case, which represents a customer issue or problem.
-    See [Case SObject](https://developer.salesforce.com/docs/atlas.en-us.228.0.object_reference.meta/object_reference/sforce_api_objects_case.htm)
-    and [Create Record](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_sobject_create.htm)
-  `),
-  version: "0.2.2",
+  description: "Create a Salesforce support case (a customer issue or request)."
+    + " Use **List Cases** to check whether a matching case already exists before creating a duplicate."
+    + " After creating, use **Create Case Comment** to add notes or **List Case Feed Items** to read its activity."
+    + " "
+    + `[See the documentation](${docsLink})`,
+  version: "1.0.1",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
-  props: {
-    salesforce,
-    SuppliedEmail: {
-      type: "string",
-      label: "Supplied email",
-      description: "The email address that was entered when the case was created. Label is Email.If your organization has an active auto-response rule, SuppliedEmail is required when creating a case via the API. Auto-response rules use the email in the contact specified by ContactId. If no email address is in the contact record, the email specified here is used.",
-    },
-    selector: {
-      propDefinition: [
-        salesforce,
-        "fieldSelector",
-      ],
-      description: `${salesforce.propDefinitions.fieldSelector.description} Case`,
-      options: () => Object.keys(salesforceCase),
-      reloadProps: true,
-    },
+  ai: "optimized",
+  methods: {
+    ...common.methods,
   },
-  async additionalProps() {
-    return this.salesforce.additionalProps(this.selector, salesforceCase);
-  },
+  props: getProps({
+    objType: caseObj,
+    docsLink,
+  }),
   async run({ $ }) {
-    const data = pickBy(pick(this, [
-      "SuppliedEmail",
-      ...this.selector,
-    ]));
-    const response = await this.salesforce.createCase({
+    /* eslint-disable no-unused-vars */
+    const {
+      salesforce,
+      getAdditionalFields,
+      formatDateTimeProps,
+      docsInfo,
+      additionalFields,
+      ...data
+    } = this;
+    /* eslint-enable no-unused-vars */
+    const response = await salesforce.createRecord("Case", {
       $,
-      data,
+      data: {
+        ...data,
+        ...getAdditionalFields(),
+      },
     });
-    $.export("$summary", `Successfully created case for ${this.SuppliedEmail}`);
+    const summary = (this.SuppliedName && ` "${this.SuppliedName}"`) ?? (this.SuppliedEmail && ` with email ${this.SuppliedEmail}`) ?? "";
+    $.export("$summary", `Successfully created case${summary}`);
     return response;
   },
 };

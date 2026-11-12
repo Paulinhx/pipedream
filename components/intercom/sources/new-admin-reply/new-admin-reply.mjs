@@ -1,11 +1,11 @@
-import common from "../common.mjs";
+import common from "../common/common.mjs";
 
 export default {
   ...common,
   key: "intercom-new-admin-reply",
   name: "New Reply From Admin",
   description: "Emit new event each time an admin replies to a conversation.",
-  version: "0.0.2",
+  version: "0.0.9",
   type: "source",
   dedupe: "unique",
   methods: {
@@ -33,7 +33,9 @@ export default {
       if (conversation.statistics.last_admin_reply_at > lastAdminReplyAt)
         lastAdminReplyAt = conversation.statistics.last_admin_reply_at;
       const conversationData = (
-        await this.intercom.getConversation(conversation.id)
+        await this.intercom.getConversation({
+          conversationId: conversation.id,
+        })
       );
       const totalCount = conversationData.conversation_parts.total_count;
       const conversationBody =

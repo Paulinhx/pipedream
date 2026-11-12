@@ -1,4 +1,6 @@
-import pipedrive from "pipedrive";
+// x-pd-ai: optimized
+import pd from "pipedrive";
+import { axios } from "@pipedream/platform";
 import constants from "./common/constants.mjs";
 
 export default {
@@ -26,35 +28,26 @@ export default {
       description: "ID of the person this deal will be associated with",
       optional: true,
       async options({ prevContext }) {
-        const {
-          moreItemsInCollection,
-          start,
-        } = prevContext;
-
-        if (moreItemsInCollection === false) {
+        if (prevContext?.cursor === false) {
           return [];
         }
-
         const {
           data: persons,
           additional_data: additionalData,
         } = await this.getPersons({
-          start,
+          cursor: prevContext.cursor,
           limit: constants.DEFAULT_PAGE_LIMIT,
         });
 
-        const options = persons.map(({
-          id, name,
-        }) => ({
-          label: name,
-          value: id,
-        }));
-
         return {
-          options,
+          options: persons.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })),
           context: {
-            moreItemsInCollection: additionalData.pagination.more_items_in_collection,
-            start: additionalData.pagination.next_start,
+            cursor: additionalData.next_cursor || false,
           },
         };
       },
@@ -65,35 +58,25 @@ export default {
       description: "ID of the organization this deal will be associated with",
       optional: true,
       async options({ prevContext }) {
-        const {
-          moreItemsInCollection,
-          start,
-        } = prevContext;
-
-        if (moreItemsInCollection === false) {
+        if (prevContext?.cursor === false) {
           return [];
         }
-
         const {
           data: organizations,
           additional_data: additionalData,
         } = await this.getOrganizations({
-          start,
+          cursor: prevContext.cursor,
           limit: constants.DEFAULT_PAGE_LIMIT,
         });
-
-        const options = organizations.map(({
-          id, name,
-        }) => ({
-          label: name,
-          value: id,
-        }));
-
         return {
-          options,
+          options: organizations.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })),
           context: {
-            moreItemsInCollection: additionalData.pagination.more_items_in_collection,
-            start: additionalData.pagination.next_start,
+            cursor: additionalData.next_cursor || false,
           },
         };
       },
@@ -111,7 +94,7 @@ export default {
       optional: true,
     },
     visibleTo: {
-      type: "string",
+      type: "integer",
       label: "Visible To",
       description: "Visibility of the deal. If omitted, visibility will be set to the default visibility setting of this item type for the authorized user.",
       optional: true,
@@ -120,7 +103,7 @@ export default {
     addTime: {
       type: "string",
       label: "Add Time",
-      description: "Optional creation date & time of the deal in UTC. Requires admin user API token. Format: `YYYY-MM-DD HH:MM:SS`",
+      description: "The creation date and time of the deal. Requires admin user API token. Format: `YYYY-MM-DDTHH:MM:SSZ`",
       optional: true,
     },
     dealTitle: {
@@ -145,14 +128,29 @@ export default {
       label: "Stage ID",
       description: "ID of the stage this deal will be placed in a pipeline (note that you can't supply the ID of the pipeline as this will be assigned automatically based on `stage_id`). If omitted, the deal will be placed in the first stage of the default pipeline. Get the `stage_id` from [here](https://developers.pipedrive.com/docs/api/v1/#!/Stages/get_stages).",
       optional: true,
-      async options() {
-        const { data: stages } = await this.getStages();
-        return stages.map(({
-          id, name,
-        }) => ({
-          label: name,
-          value: id,
-        }));
+      async options({ prevContext }) {
+        if (prevContext.cursor === false) {
+          return [];
+        }
+        const {
+          data: stages,
+          additional_data: additionalData,
+        } = await this.getStages({
+          cursor: prevContext.cursor,
+          limit: constants.DEFAULT_PAGE_LIMIT,
+        });
+
+        return {
+          options: stages?.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })),
+          context: {
+            cursor: additionalData.next_cursor || false,
+          },
+        };
       },
     },
     status: {
@@ -162,16 +160,23 @@ export default {
       optional: true,
       options: constants.STATUS_OPTIONS,
     },
-    start: {
-      type: "integer",
-      label: "Pagination start",
-      description: "Pagination start. Note that the pagination is based on main results and does not include related items when using `search_for_related_items` parameter.",
+    projectStatus: {
+      type: "string",
+      label: "Status",
+      description: "The status of the project. One of: open, completed, canceled, deleted.",
+      options: constants.PROJECT_STATUS_OPTIONS,
       optional: true,
     },
-    limit: {
-      type: "integer",
-      label: "Limit",
-      description: "Items shown per page.",
+    projectPhaseId: {
+      type: "string",
+      label: "Phase ID",
+      description: "The ID of the project phase. Run **List Project Phases** first to obtain a valid phase ID.",
+      optional: true,
+    },
+    projectBoardId: {
+      type: "string",
+      label: "Board ID",
+      description: "The ID of the project board. Run **List Project Boards** first to obtain a valid board ID.",
       optional: true,
     },
     dealId: {
@@ -180,192 +185,804 @@ export default {
       description: "ID of the deal this activity will be associated with",
       optional: true,
       async options({ prevContext }) {
-        const {
-          moreItemsInCollection,
-          start,
-        } = prevContext;
-
-        if (moreItemsInCollection === false) {
+        if (prevContext?.cursor === false) {
           return [];
         }
-
         const {
           data: deals,
           additional_data: additionalData,
         } = await this.getDeals({
-          start,
+          cursor: prevContext.cursor,
           limit: constants.DEFAULT_PAGE_LIMIT,
         });
 
-        const options = deals.map(({
-          id, title,
-        }) => ({
-          label: title,
-          value: id,
-        }));
-
         return {
-          options,
+          options: deals?.map(({
+            id, title,
+          }) => ({
+            label: title,
+            value: id,
+          })),
           context: {
-            moreItemsInCollection: additionalData.pagination.more_items_in_collection,
-            start: additionalData.pagination.next_start,
+            cursor: additionalData.next_cursor,
           },
         };
       },
     },
+    pipelineId: {
+      type: "integer",
+      label: "Pipeline ID",
+      description: "ID of the pipeline this activity will be associated with",
+      optional: true,
+      async options({ prevContext }) {
+        if (prevContext?.cursor === false) {
+          return [];
+        }
+        const {
+          data: pipelines,
+          additional_data: additionalData,
+        } = await this.getPipelines({
+          cursor: prevContext.cursor,
+          limit: constants.DEFAULT_PAGE_LIMIT,
+        });
+
+        return {
+          options: pipelines?.map(({
+            id, title,
+          }) => ({
+            label: title,
+            value: id,
+          })),
+          context: {
+            cursor: additionalData.next_cursor || false,
+          },
+        };
+      },
+    },
+    leadId: {
+      type: "string",
+      label: "Lead ID",
+      description: "ID of the lead this activity will be associated with",
+      optional: true,
+      async options({ prevContext }) {
+        if (prevContext?.nextStart === false) {
+          return [];
+        }
+        const {
+          data: leads,
+          additional_data: additionalData,
+        } = await this.getLeads({
+          start: prevContext.nextStart,
+          limit: constants.DEFAULT_PAGE_LIMIT,
+        });
+
+        return {
+          options: leads?.map(({
+            id, title,
+          }) => ({
+            label: title,
+            value: id,
+          })),
+          context: {
+            nextStart: additionalData.next_start || false,
+          },
+        };
+      },
+    },
+    projectId: {
+      type: "string",
+      label: "Project ID",
+      description: "ID of the project this activity will be associated with",
+      optional: true,
+      async options({ prevContext }) {
+        if (prevContext?.nextStart === false) {
+          return [];
+        }
+        const {
+          data: projects,
+          additional_data: additionalData,
+        } = await this.getProjects({
+          start: prevContext.nextStart,
+          limit: constants.DEFAULT_PAGE_LIMIT,
+        });
+
+        return {
+          options: projects?.map(({
+            id, title,
+          }) => ({
+            label: title,
+            value: id,
+          })),
+          context: {
+            nextStart: additionalData.next_start || false,
+          },
+        };
+      },
+    },
+    leadLabelIds: {
+      type: "string[]",
+      label: "Lead Label IDs",
+      description: "The IDs of the lead labels to associate with the lead",
+      optional: true,
+      async options() {
+        const { data: leadLabels } = await this.getLeadLabels();
+
+        return leadLabels?.map(({
+          id, name,
+        }) => ({
+          label: name,
+          value: id,
+        }));
+      },
+    },
+    filterId: {
+      type: "integer",
+      label: "Lead Filter ID",
+      description: "The ID of a filter to apply to leads",
+      optional: true,
+      async options({ filterType = "leads" }) {
+        const { data: filters } = await this.getFilters({
+          type: filterType,
+        });
+
+        return filters?.map(({
+          id, name,
+        }) => ({
+          label: name,
+          value: id,
+        }));
+      },
+    },
+    emails: {
+      type: "string[]",
+      label: "Emails",
+      description: "Email addresses (one or more) associated with the person, presented in the same manner as received by GET request of a person. **Example: {\"value\":\"email1@email.com\", \"primary\":true, \"label\":\"work\"}**",
+      optional: true,
+    },
+    phones: {
+      type: "string[]",
+      label: "Phones",
+      description: "Phone numbers (one or more) associated with the person, presented in the same manner as received by GET request of a person. **Example: {\"value\":\"12345\", \"primary\":true, \"label\":\"work\"}**",
+      optional: true,
+    },
+    isDeleted: {
+      type: "boolean",
+      label: "Is Deleted",
+      description: "Whether the deal is deleted or not",
+      optional: true,
+    },
+    isArchived: {
+      type: "boolean",
+      label: "Is Archived",
+      description: "Whether the deal is archived or not",
+      optional: true,
+    },
+    archiveTime: {
+      type: "string",
+      label: "Archive Time",
+      description: "The optional date and time of archiving the deal in UTC. Format: `YYYY-MM-DD HH:MM:SS`. If omitted and **Is Archived** is `true`, it will be set to the current date and time.",
+      optional: true,
+    },
+    closeTime: {
+      type: "string",
+      label: "Close Time",
+      description: "The date and time of closing the deal. Can only be set if deal status is won or lost. Format: `YYYY-MM-DD HH:MM:SS`",
+      optional: true,
+    },
+    wonTime: {
+      type: "string",
+      label: "Won Time",
+      description: "The date and time of changing the deal status as won. Can only be set if deal status is won. Format: `YYYY-MM-DD HH:MM:SS`",
+      optional: true,
+    },
+    lostTime: {
+      type: "string",
+      label: "Lost Time",
+      description: "The date and time of changing the deal status as lost. Can only be set if deal status is lost. Format: `YYYY-MM-DD HH:MM:SS`",
+      optional: true,
+    },
+    expectedCloseDate: {
+      type: "string",
+      label: "Expected Close Date",
+      description: "The expected close date of the deal. Format: `YYYY-MM-DD`",
+      optional: true,
+    },
+    customFields: {
+      type: "object",
+      label: "Custom Fields",
+      description: "An object where each key represents a custom field. All custom fields are referenced as randomly generated 40-character hashes",
+      optional: true,
+    },
+    labelIds: {
+      type: "integer[]",
+      label: "Label IDs",
+      description: "The IDs of labels assigned to the deal",
+      optional: true,
+      async options() {
+        const { data } = await this.getDealCustomFields();
+        const labelField = data.find(({ key }) => key === "label");
+        return labelField?.options?.map(({
+          id: value, label,
+        }) => ({
+          label,
+          value,
+        })) || [];
+      },
+    },
+    personLabelIds: {
+      type: "integer[]",
+      label: "Person Label IDs",
+      description: "The IDs of the person labels to associate with the person",
+      async options() {
+        const { data } = await this.getPersonCustomFields();
+        const labelField = data.find(({ key }) => key === "label");
+        return labelField?.options?.map(({
+          id: value, label,
+        }) => ({
+          label,
+          value,
+        })) || [];
+      },
+    },
+    organizationLabelIds: {
+      type: "integer[]",
+      label: "Organization Label IDs",
+      description: "The IDs of the organization labels to associate with the organization",
+      async options() {
+        const { data } = await this.getOrganizationCustomFields();
+        const labelField = data.find(({ field_code: fieldCode }) => fieldCode === "label_ids");
+        return labelField?.options?.map(({
+          id: value, label,
+        }) => ({
+          label,
+          value,
+        })) || [];
+      },
+    },
+    includeAllCustomFields: {
+      type: "boolean",
+      label: "Include All Custom Fields",
+      description: "When enabled, all custom fields will be included in the results",
+      optional: true,
+    },
+    entityId: {
+      type: "string",
+      label: "Entity ID",
+      description: "ID of the entity to remove labels from",
+      async options({
+        type, prevContext,
+      }) {
+        if (prevContext?.cursor === false || prevContext?.nextStart === false) {
+          return [];
+        }
+        switch (type) {
+        case "lead": {
+          const {
+            data: leads,
+            additional_data: additionalData,
+          } = await this.getLeads({
+            start: prevContext?.nextStart,
+            limit: constants.DEFAULT_PAGE_LIMIT,
+          });
+          return {
+            options: leads?.map(({
+              id, title,
+            }) => ({
+              label: title,
+              value: id,
+            })),
+            context: {
+              nextStart: additionalData?.next_start || false,
+            },
+          };
+        }
+        case "person": {
+          const {
+            data: persons,
+            additional_data: additionalData,
+          } = await this.getPersons({
+            cursor: prevContext?.cursor,
+            limit: constants.DEFAULT_PAGE_LIMIT,
+          });
+          return {
+            options: persons?.map(({
+              id, name,
+            }) => ({
+              label: name,
+              value: id,
+            })),
+            context: {
+              cursor: additionalData?.next_cursor || false,
+            },
+          };
+        }
+        case "deal": {
+          const {
+            data: deals,
+            additional_data: additionalData,
+          } = await this.getDeals({
+            cursor: prevContext?.cursor,
+            limit: constants.DEFAULT_PAGE_LIMIT,
+          });
+          return {
+            options: deals?.map(({
+              id, title,
+            }) => ({
+              label: title,
+              value: id,
+            })),
+            context: {
+              cursor: additionalData?.next_cursor || false,
+            },
+          };
+        }
+        case "organization": {
+          const {
+            data: organizations,
+            additional_data: additionalData,
+          } = await this.getOrganizations({
+            cursor: prevContext?.cursor,
+            limit: constants.DEFAULT_PAGE_LIMIT,
+          });
+          return {
+            options: organizations?.map(({
+              id, name,
+            }) => ({
+              label: name,
+              value: id,
+            })),
+            context: {
+              cursor: additionalData?.next_cursor || false,
+            },
+          };
+        }
+        default:
+          return [];
+        }
+      },
+    },
+    removeLabelIds: {
+      type: "string[]",
+      label: "Labels to Remove",
+      description: "The labels to remove from the entity",
+      async options({ type }) {
+        switch (type) {
+        case "lead": {
+          const { data: leadLabels } = await this.getLeadLabels();
+          return leadLabels?.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })) || [];
+        }
+        case "person": {
+          const { data } = await this.getPersonCustomFields();
+          const labelField = data.find(({ key }) => key === "label");
+          return labelField?.options?.map(({
+            id: value, label,
+          }) => ({
+            label,
+            value,
+          })) || [];
+        }
+        case "deal": {
+          const { data } = await this.getDealCustomFields();
+          const labelField = data.find(({ key }) => key === "label");
+          return labelField?.options?.map(({
+            id: value, label,
+          }) => ({
+            label,
+            value,
+          })) || [];
+        }
+        case "organization": {
+          const { data } = await this.getOrganizationCustomFields();
+          const labelField = data.find(({ field_code: fieldCode }) => fieldCode === "label_ids");
+          return labelField?.options?.map(({
+            id: value, label,
+          }) => ({
+            label,
+            value,
+          })) || [];
+        }
+        default:
+          return [];
+        }
+      },
+    },
   },
   methods: {
-    setupToken() {
-      const api = pipedrive.ApiClient.instance;
-      api.authentications.oauth2.accessToken = this.$auth.oauth_access_token;
+    api(model, version = "v1") {
+      const config = new pd[version].Configuration({
+        accessToken: this.$auth.oauth_access_token,
+        basePath: `${this.$auth.api_domain}/api/${version}`,
+      });
+      return new pd[version][model](config);
     },
-    api(className) {
-      this.setupToken();
-      return new pipedrive[className]();
+    getActivityTypes(opts) {
+      const activityTypesApi = this.api("ActivityTypesApi");
+      return activityTypesApi.getActivityTypes(opts);
     },
-    buildOpts(property, opts) {
-      return pipedrive[property].constructFromObject(opts);
+    getDeals(opts = {}) {
+      const dealApi = this.api("DealsApi", "v2");
+      return dealApi.getDeals(opts);
     },
-    async addActivity(opts = {}) {
-      const [
-        className,
-        addProperty,
-      ] = constants.API.ACTIVITIES;
-      try {
-        const activityOpts = this.buildOpts(addProperty, opts);
-        return this.api(className).addActivity(activityOpts);
-      } catch (error) {
-        console.error(error);
-        throw new Error(error);
-      }
+    getPipelines(opts = {}) {
+      const pipelineApi = this.api("PipelinesApi", "v2");
+      return pipelineApi.getPipelines(opts);
     },
-    async addDeal(opts = {}) {
-      const [
-        className,
-        addProperty,
-      ] = constants.API.DEALS;
-      return this.api(className).addDeal(this.buildOpts(addProperty, opts));
+    getLeads(opts = {}) {
+      const leadApi = this.api("LeadsApi");
+      return leadApi.getLeads(opts);
     },
-    async updateDeal(opts = {}) {
-      const {
-        dealId,
-        ...otherOpts
-      } = opts;
-      const [
-        className,,
-        updateProperty,
-      ] = constants.API.DEALS;
-      return this.api(className).updateDeal(dealId, this.buildOpts(updateProperty, otherOpts));
+    getProjects(opts = {}) {
+      const projectApi = this.api("ProjectsApi");
+      return projectApi.getProjects(opts);
     },
-    async addOrganization(opts = {}) {
-      const [
-        className,
-        addProperty,
-      ] = constants.API.ORGANIZATIONS;
-      return this.api(className).addOrganization(this.buildOpts(addProperty, opts));
+    getOrganizations(opts = {}) {
+      const organizationApi = this.api("OrganizationsApi", "v2");
+      return organizationApi.getOrganizations(opts);
     },
-    async addPerson(opts = {}) {
-      const [
-        className,
-      ] = constants.API.PERSONS;
-      return this.api(className).addPerson(opts);
+    getPersons(opts = {}) {
+      const personApi = this.api("PersonsApi", "v2");
+      return personApi.getPersons(opts);
     },
-    async searchPersons(opts = {}) {
-      const {
-        term,
-        ...otherOpts
-      } = opts;
-      const [
-        className,
-      ] = constants.API.PERSONS;
-      return this.api(className).searchPersons(term, otherOpts);
+    getUsers(opts) {
+      const UsersApi = this.api("UsersApi");
+      return UsersApi.getUsers(opts);
     },
-    async getDeals(opts = {}) {
-      const [
-        className,
-      ] = constants.API.DEALS;
-      return this.api(className).getDeals(opts);
+    getStages(opts) {
+      const stagesApi = this.api("StagesApi", "v2");
+      return stagesApi.getStages(opts);
     },
-    async getPersons(opts = {}) {
-      const [
-        className,
-      ] = constants.API.PERSONS;
-      return this.api(className).getPersons(opts);
+    getLeadLabels(opts) {
+      const leadLabelsApi = this.api("LeadLabelsApi");
+      return leadLabelsApi.getLeadLabels(opts);
     },
-    async getUsers(opts) {
-      const [
-        className,
-      ] = constants.API.USERS;
-      return this.api(className).getUsers(opts);
+    getFilters(opts = {}) {
+      const filtersApi = this.api("FiltersApi");
+      return filtersApi.getFilters(opts);
     },
-    async getActivityTypes(opts) {
-      const [
-        className,
-      ] = constants.API.ACTIVITY_TYPES;
-      return this.api(className).getActivityTypes(opts);
+    getNotes(opts = {}) {
+      const notesApi = this.api("NotesApi");
+      return notesApi.getNotes(opts);
     },
-    async getOrganizations(opts = {}) {
-      const [
-        className,
-      ] = constants.API.ORGANIZATIONS;
-      return this.api(className).getOrganizations(opts);
+    getDealCustomFields(opts) {
+      const dealCustomFieldsApi = this.api("DealFieldsApi");
+      return dealCustomFieldsApi.getDealFields(opts);
     },
-    async getStages(opts) {
-      const [
-        className,
-      ] = constants.API.STAGES;
-      return this.api(className).getStages(opts);
+    getPersonCustomFields(opts) {
+      const personCustomFieldsApi = this.api("PersonFieldsApi");
+      return personCustomFieldsApi.getPersonFields(opts);
     },
-    async *getResourcesStream({
-      resourceFn,
-      resourceFnArgs,
-      limit = constants.DEFAULT_PAGE_LIMIT,
-      max,
-      lastResourceProperty,
-      done,
+    getOrganizationCustomFields(opts) {
+      const organizationCustomFieldsApi = this.api("OrganizationFieldsApi", "v2");
+      return organizationCustomFieldsApi.getOrganizationFields(opts);
+    },
+    addActivity(opts = {}) {
+      const activityApi = this.api("ActivitiesApi", "v2");
+      return activityApi.addActivity({
+        AddActivityRequest: opts,
+      });
+    },
+    addNote(opts = {}) {
+      const noteApi = this.api("NotesApi");
+      return noteApi.addNote({
+        AddNoteRequest: opts,
+      });
+    },
+    addDeal(opts = {}) {
+      const dealsApi = this.api("DealsApi", "v2");
+      return dealsApi.addDeal({
+        AddDealRequest: opts,
+      });
+    },
+    addOrganization(opts = {}) {
+      const organizationApi = this.api("OrganizationsApi", "v2");
+      return organizationApi.addOrganization({
+        AddOrganizationRequest: opts,
+      });
+    },
+    addPerson(opts = {}) {
+      const personsApi = this.api("PersonsApi", "v2");
+      return personsApi.addPerson({
+        AddPersonRequest: opts,
+      });
+    },
+    addLead(opts = {}) {
+      const leadApi = this.api("LeadsApi");
+      return leadApi.addLead({
+        AddLeadRequest: opts,
+      });
+    },
+    addWebhook(opts = {}) {
+      const webhooksApi = this.api("WebhooksApi");
+      return webhooksApi.addWebhook({
+        AddWebhookRequest: opts,
+      });
+    },
+    deleteWebhook(webhookId) {
+      const webhooksApi = this.api("WebhooksApi");
+      return webhooksApi.deleteWebhook({
+        id: webhookId,
+      });
+    },
+    searchPersons(opts = {}) {
+      const personsApi = this.api("PersonsApi", "v2");
+      return personsApi.searchPersons(opts);
+    },
+    updateDeal({
+      dealId, ...opts
     }) {
-      let page = 0;
-      let resourcesCount = 0;
-
-      while (true) {
-        const nextResponse =
-          await resourceFn({
-            ...resourceFnArgs,
-            limit,
-            start: page * limit,
-          });
-
-        if (!nextResponse) {
-          throw new Error("No response from the Pipedrive API.");
+      const dealsApi = this.api("DealsApi", "v2");
+      return dealsApi.updateDeal({
+        id: dealId,
+        UpdateDealRequest: opts,
+      });
+    },
+    updatePerson({
+      personId, ...opts
+    }) {
+      const personsApi = this.api("PersonsApi", "v2");
+      return personsApi.updatePerson({
+        id: personId,
+        UpdatePersonRequest: opts,
+      });
+    },
+    updateLead({
+      leadId, ...opts
+    }) {
+      const leadsApi = this.api("LeadsApi");
+      return leadsApi.updateLead({
+        id: leadId,
+        UpdateLeadRequest: opts,
+      });
+    },
+    updateOrganization({
+      organizationId, ...opts
+    }) {
+      const organizationsApi = this.api("OrganizationsApi", "v2");
+      return organizationsApi.updateOrganization({
+        id: organizationId,
+        UpdateOrganizationRequest: opts,
+      });
+    },
+    getDeal(dealId) {
+      const dealsApi = this.api("DealsApi", "v2");
+      return dealsApi.getDeal({
+        id: dealId,
+      });
+    },
+    getOrganization(organizationId) {
+      const organizationsApi = this.api("OrganizationsApi", "v2");
+      return organizationsApi.getOrganization({
+        id: organizationId,
+      });
+    },
+    deleteNote(noteId) {
+      const notesApi = this.api("NotesApi");
+      return notesApi.deleteNote({
+        id: noteId,
+      });
+    },
+    // Projects, project boards + phases, and Tasks live on Pipedrive's
+    // /api/v2/* REST endpoints but the JS SDK's v2 exports don't include
+    // ProjectsApi, TasksApi, BoardsApi, or PhasesApi. Route through raw
+    // axios with a small helper that stamps the auth header + baseURL.
+    _v2Request({
+      $, path, method = "GET", params, data,
+    }) {
+      return axios($, {
+        method,
+        url: `${this.$auth.api_domain}/api/v2${path}`,
+        headers: {
+          Authorization: `Bearer ${this.$auth.oauth_access_token}`,
+        },
+        params,
+        data,
+      });
+    },
+    // The v2 REST API rejects string ids with "body/<field> must be integer".
+    // Props (and propDefinitions with async options) surface ids as strings, and
+    // *Ids props as string[], so coerce the known numeric fields to integers
+    // before sending. Non-numeric or absent values are left untouched.
+    _coerceV2Ids(data = {}) {
+      const INT_FIELDS = [
+        "board_id",
+        "phase_id",
+        "owner_id",
+        "project_id",
+        "parent_task_id",
+        "priority",
+        "stage_id",
+      ];
+      const INT_ARRAY_FIELDS = [
+        "deal_ids",
+        "person_ids",
+        "org_ids",
+        "label_ids",
+        "assignee_ids",
+      ];
+      const toInt = (v) => {
+        const n = Number(v);
+        return Number.isNaN(n)
+          ? v
+          : n;
+      };
+      const out = {
+        ...data,
+      };
+      for (const f of INT_FIELDS) {
+        if (out[f] !== undefined && out[f] !== null && out[f] !== "") out[f] = toInt(out[f]);
+      }
+      for (const f of INT_ARRAY_FIELDS) {
+        if (Array.isArray(out[f])) {
+          out[f] = out[f]
+            .filter((v) => v !== undefined && v !== null && v !== "")
+            .map(toInt);
         }
-
+      }
+      return out;
+    },
+    listProjects({
+      $, ...params
+    } = {}) {
+      return this._v2Request({
+        $,
+        path: "/projects",
+        params,
+      });
+    },
+    addProject({
+      $, ...data
+    } = {}) {
+      return this._v2Request({
+        $,
+        method: "POST",
+        path: "/projects",
+        data: this._coerceV2Ids(data),
+      });
+    },
+    getProject({
+      $, projectId,
+    }) {
+      return this._v2Request({
+        $,
+        path: `/projects/${projectId}`,
+      });
+    },
+    updateProject({
+      $, projectId, ...data
+    }) {
+      return this._v2Request({
+        $,
+        method: "PATCH",
+        path: `/projects/${projectId}`,
+        data: this._coerceV2Ids(data),
+      });
+    },
+    deleteProject({
+      $, projectId,
+    }) {
+      return this._v2Request({
+        $,
+        method: "DELETE",
+        path: `/projects/${projectId}`,
+      });
+    },
+    getProjectBoards({ $ } = {}) {
+      return this._v2Request({
+        $,
+        path: "/boards",
+      });
+    },
+    getProjectPhases({
+      $, boardId,
+    }) {
+      return this._v2Request({
+        $,
+        path: "/phases",
+        params: {
+          board_id: boardId,
+        },
+      });
+    },
+    listTasks({
+      $, ...params
+    } = {}) {
+      return this._v2Request({
+        $,
+        path: "/tasks",
+        params,
+      });
+    },
+    addTask({
+      $, ...data
+    } = {}) {
+      return this._v2Request({
+        $,
+        method: "POST",
+        path: "/tasks",
+        data: this._coerceV2Ids(data),
+      });
+    },
+    getTask({
+      $, taskId,
+    }) {
+      return this._v2Request({
+        $,
+        path: `/tasks/${taskId}`,
+      });
+    },
+    updateTask({
+      $, taskId, ...data
+    }) {
+      return this._v2Request({
+        $,
+        method: "PATCH",
+        path: `/tasks/${taskId}`,
+        data: this._coerceV2Ids(data),
+      });
+    },
+    deleteTask({
+      $, taskId,
+    }) {
+      return this._v2Request({
+        $,
+        method: "DELETE",
+        path: `/tasks/${taskId}`,
+      });
+    },
+    getPerson(personId) {
+      const personsApi = this.api("PersonsApi", "v2");
+      return personsApi.getPerson({
+        id: personId,
+      });
+    },
+    getLead(leadId) {
+      const leadApi = this.api("LeadsApi");
+      return leadApi.getLead({
+        id: leadId,
+      });
+    },
+    searchLeads(opts = {}) {
+      const leadApi = this.api("LeadsApi", "v2");
+      return leadApi.searchLeads(opts);
+    },
+    async *paginate({
+      fn, params, max,
+    }) {
+      params = {
+        ...params,
+        start: 0,
+        limit: 100,
+      };
+      let hasMore, count = 0;
+      do {
         const {
-          data: nextResources,
-          additional_data: additionalData,
-        } = nextResponse;
-
-        const { more_items_in_collection: moreItemsInCollection } = additionalData.pagination;
-
-        for (const resource of nextResources || []) {
-          const isDone = done && done({
-            lastResourceProperty,
-            resource,
-          });
-
-          if (isDone) {
-            return;
-          }
-
-          resourcesCount += 1;
-          yield resource;
-        }
-
-        if (!moreItemsInCollection || (max && resourcesCount >= max)) {
+          data, additional_data: additionalData,
+        } = await fn(params);
+        if (!data?.length) {
           return;
         }
-
-        page += 1;
+        for (const item of data) {
+          yield item;
+          if (max && ++count >= max) {
+            return;
+          }
+        }
+        params.start += params.limit;
+        hasMore = additionalData.pagination.more_items_in_collection;
+      } while (hasMore);
+    },
+    async getPaginatedResources(opts) {
+      const results = [];
+      const resources = this.paginate(opts);
+      for await (const resource of resources) {
+        results.push(resource);
       }
+      return results;
     },
   },
 };

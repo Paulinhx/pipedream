@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/propeller",
+  "version": "0.0.5",
+  "description": "Pipedream Propeller Components",
+  "main": "propeller.app.mjs",
+  "keywords": [
+    "pipedream",
+    "propeller"
+  ],
+  "homepage": "https://pipedream.com/apps/propeller",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

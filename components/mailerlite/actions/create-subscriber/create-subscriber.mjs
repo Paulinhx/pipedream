@@ -1,11 +1,16 @@
-import mailerlite from "../../mailerlite.app.mjs";
 import utils from "../../common/utils.mjs";
+import mailerlite from "../../mailerlite.app.mjs";
 
 export default {
   key: "mailerlite-create-subscriber",
   name: "Create Subscriber",
-  description: "Create a new subscriber. [See docs](https://developers.mailerlite.com/reference/create-a-subscriber)",
-  version: "0.0.1",
+  description: "Create a new subscriber. [See the documentation](https://developers.mailerlite.com/docs/subscribers.html#create-update-subscriber)",
+  version: "0.0.5",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     mailerlite,
@@ -34,11 +39,16 @@ export default {
   async run({ $ }) {
     const data = {
       email: this.email,
-      name: this.name,
-      type: this.type,
+      fields: {
+        name: this.name,
+      },
+      status: this.type,
     };
 
-    const resp = await this.mailerlite.createSubscriber(utils.removeUndefined(data));
+    const resp = await this.mailerlite.createSubscriber({
+      $,
+      data: utils.removeUndefined(data),
+    });
     $.export("$summary", "Successfully created subscriber");
     return resp;
   },

@@ -1,31 +1,34 @@
-import axios from "axios";
 import drive from "@googleapis/drive";
+import { axios } from "@pipedream/platform";
+import mimeDb from "mime-db";
 import { v4 as uuid } from "uuid";
 import isoLanguages from "./actions/language-codes.mjs";
-import mimeDb from "mime-db";
 const mimeTypes = Object.keys(mimeDb);
 
-import {
-  GOOGLE_DRIVE_UPDATE_TYPES,
-  MY_DRIVE_VALUE,
-  WEBHOOK_SUBSCRIPTION_EXPIRATION_TIME_MILLISECONDS,
-  GOOGLE_DRIVE_FOLDER_MIME_TYPE,
-  GOOGLE_DRIVE_ROLES,
-  GOOGLE_DRIVE_GRANTEE_TYPES,
-  GOOGLE_DRIVE_GRANTEE_ANYONE,
-  GOOGLE_DRIVE_ROLE_READER,
-  GOOGLE_DRIVE_UPLOAD_TYPES
-} from "./constants.mjs";
 import googleMimeTypes from "./actions/google-mime-types.mjs";
+import {
+  DEFAULT_MAX_EMITS_PER_RUN,
+  GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+  GOOGLE_DRIVE_GRANTEE_TYPES,
+  GOOGLE_DRIVE_UPDATE_TYPE_OPTIONS,
+  GOOGLE_DRIVE_UPDATE_TYPES,
+  GOOGLE_DRIVE_UPLOAD_TYPE_OPTIONS,
+  MAX_CHANGES_PAGES_PER_RUN,
+  MAX_EMITS_PER_RUN,
+  MY_DRIVE_VALUE,
+  RATE_LIMIT_ERROR_REASONS,
+  RETRYABLE_STATUS_CODES,
+  WEBHOOK_SUBSCRIPTION_EXPIRATION_TIME_MILLISECONDS,
+} from "./common/constants.mjs";
 
 import {
-  isMyDrive,
   getDriveId,
+  getFilePaths,
   getListFilesOpts,
+  isMyDrive,
   omitEmptyStringValues,
   toSingleLineString,
-  getFilePaths,
-} from "./utils.mjs";
+} from "./common/utils.mjs";
 
 export default {
   type: "app",
@@ -34,12 +37,36 @@ export default {
     watchedDrive: {
       type: "string",
       label: "Drive",
-      description: "Defaults to `My Drive`. To select a [Shared Drive](https://support.google.com/a/users/answer/9310351) instead, select it from this list.",
+      description: "Select a specific drive to search. Defaults to **All Drives** (My Drive and all Shared Drives you have access to) when no selection is made. To limit to your personal drive or a [Shared Drive](https://support.google.com/a/users/answer/9310351), select it from this list.",
       optional: true,
-      default: MY_DRIVE_VALUE,
       async options({ prevContext }) {
         const { nextPageToken } = prevContext;
         return this._listDriveOptions(nextPageToken);
+      },
+    },
+    sharedDrive: {
+      type: "string",
+      label: "Shared Drive",
+      description: "Select a [Shared Drive](https://support.google.com/a/users/answer/9310351) or leave blank to retrieve all available shared drives.",
+      optional: true,
+      async options({ prevContext }) {
+        const { nextPageToken } = prevContext;
+        return this._listDriveOptions(nextPageToken, false);
+      },
+    },
+    themeId: {
+      type: "string",
+      label: "Theme ID",
+      description: "The theme from which the background image and color will be set. Cannot be set if `Color` or `Background Image Link` are used.",
+      optional: true,
+      async options() {
+        const { driveThemes } = await this.getAbout("driveThemes");
+        return driveThemes?.map(({
+          id, colorRgb,
+        }) => ({
+          label: `${id} (${colorRgb})`,
+          value: id,
+        }));
       },
     },
     folderId: {
@@ -51,6 +78,9 @@ export default {
         drive,
         baseOpts = {
           q: `mimeType = '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}'`,
+          sharedWithMe: true,
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         },
       }) {
         const { nextPageToken } = prevContext;
@@ -101,53 +131,59 @@ export default {
           return [];
         }
         let parentFolders = await Promise.all(
-          file.parents.map((parentId) => this.getFile(parentId, {
+          (file.parents || []).map((parentId) => this.getFile(parentId, {
             fields: "id,name",
           })),
         );
-        return parentFolders.map(({
-          id, name,
-        }) => ({
-          value: id,
-          label: name,
-        }));
+        return parentFolders
+          .filter((folder) => folder?.id)
+          .map(({
+            id, name,
+          }) => ({
+            value: id,
+            label: name,
+          }));
       },
     },
     updateTypes: {
       type: "string[]",
       label: "Types of updates",
-      description: `The types of updates you want to watch for on these files. 
-        [See Google's docs]
-        (https://developers.google.com/drive/api/v3/push#understanding-drive-api-notification-events).`,
+      description: `The types of updates you want to watch for on these files.
+        [See Google's docs](https://developers.google.com/drive/api/v3/push#understanding-drive-api-notification-events).`,
       default: GOOGLE_DRIVE_UPDATE_TYPES,
-      options: GOOGLE_DRIVE_UPDATE_TYPES,
+      options: GOOGLE_DRIVE_UPDATE_TYPE_OPTIONS,
     },
     watchForPropertiesChanges: {
       type: "boolean",
       label: "Watch for changes to file properties",
-      description: `Watch for changes to [file properties](https://developers.google.com/drive/api/v3/properties)
-        in addition to changes to content. **Defaults to \`false\`, watching for only changes to content**.`,
+      description: `Watch for changes to [custom file properties](https://developers.google.com/drive/api/v3/properties)
+        in addition to changes to content. **Defaults to \`false\`, watching only for changes to content**.`,
       optional: true,
       default: false,
     },
-    fileUrl: {
-      type: "string",
-      label: "File URL",
-      description: toSingleLineString(`
-        The URL of the file you want to upload to Google Drive. Must specify either **File URL** 
-        or **File Path**.
-      `),
+    changesPageSize: {
+      type: "integer",
+      label: "Changes Page Size",
+      description: "Maximum number of changes to fetch per API call (max 1000). Lower values mean more API calls per run. Example: `500`",
+      min: 1,
+      max: 1000,
+      default: 1000,
+      optional: true,
+    },
+    maxEmitsPerRun: {
+      type: "integer",
+      label: "Max Events Per Run",
+      description: `Stop after about this many events and resume on the next run (max ${MAX_EMITS_PER_RUN}). A single page of changes larger than this is still processed in full. Example: \`1000\``,
+      min: 1,
+      max: MAX_EMITS_PER_RUN,
+      default: DEFAULT_MAX_EMITS_PER_RUN,
       optional: true,
     },
     filePath: {
       type: "string",
-      label: "File Path",
-      description: toSingleLineString(`
-        The path to the file saved to the [\`/tmp\`
-        directory](https://pipedream.com/docs/workflows/steps/code/nodejs/working-with-files/#the-tmp-directory)
-        (e.g. \`/tmp/myFile.csv\`). Must specify either **File URL** or **File Path**.
-      `),
-      optional: true,
+      label: "File Path or URL",
+      description: "The file content to upload. Provide either a file URL or a path to a file in the `/tmp` directory (for example, `/tmp/myFile.txt`)",
+      format: "file-ref",
     },
     fileName: {
       type: "string",
@@ -158,7 +194,13 @@ export default {
     fileNameSearchTerm: {
       type: "string",
       label: "Search Name",
-      description: "Enter the name of a file to search for.",
+      description: "Search for a file by name (equivalent to the query `name contains [value]`).",
+      optional: true,
+    },
+    searchQuery: {
+      type: "string",
+      label: "Search Query",
+      description: "Search for a file with a query. [See the documentation](https://developers.google.com/drive/api/guides/ref-search-terms) for more information. If specified, `Search Name` will be ignored.",
       optional: true,
     },
     mimeType: {
@@ -182,14 +224,8 @@ export default {
     uploadType: {
       type: "string",
       label: "Upload Type",
-      description: `The type of upload request to the /upload URI. If you are uploading data
-        (using an /upload URI), this field is required. If you are creating a metadata-only file,
-        this field is not required. 
-        media - Simple upload. Upload the media only, without any metadata.
-        multipart - Multipart upload. Upload both the media and its metadata, in a single request.
-        resumable - Resumable upload. Upload the file in a resumable fashion, using a series of 
-        at least two requests where the first request includes the metadata.`,
-      options: GOOGLE_DRIVE_UPLOAD_TYPES
+      description: "The type of upload request to the /upload URI. Required if you are uploading data, but not if are creating a metadata-only file. [See the documentation](https://developers.google.com/drive/api/reference/rest/v2/files/update#path-parameters) for more information.",
+      options: GOOGLE_DRIVE_UPLOAD_TYPE_OPTIONS,
     },
     useDomainAdminAccess: {
       type: "boolean",
@@ -198,36 +234,12 @@ export default {
       optional: true,
       default: false,
     },
-    role: {
-      type: "string",
-      label: "Role",
-      description: "The role granted by this permission",
-      optional: true,
-      default: GOOGLE_DRIVE_ROLE_READER,
-      options: GOOGLE_DRIVE_ROLES,
-    },
     type: {
       type: "string",
       label: "Type",
       description:
-        "The type of the grantee. If **Type** is `user` or `group`, you must provide an **Email Address** for the user or group. When **Type** is `domain`, you must provide a `Domain`. Sharing with a domain is only valid for G Suite users.",
-      optional: true,
-      default: GOOGLE_DRIVE_GRANTEE_ANYONE,
+        "The type of the grantee. Sharing with a domain is only valid for G Suite users.",
       options: GOOGLE_DRIVE_GRANTEE_TYPES,
-    },
-    domain: {
-      type: "string",
-      label: "Domain",
-      description:
-        "The domain of the G Suite organization to which this permission refers if **Type** is `domain` (e.g., `yourcomapany.com`)",
-      optional: true,
-    },
-    emailAddress: {
-      type: "string",
-      label: "Email Address",
-      description:
-        "The email address of the user or group to which this permission refers if **Type** is `user` or `group`",
-      optional: true,
     },
     ocrLanguage: {
       type: "string",
@@ -249,9 +261,148 @@ export default {
       label: "Keep Revision Forever",
       description: toSingleLineString(`
         Whether to set the 'keepForever' field in the new head revision. This is only applicable
-        to files with binary content in Google Drive. Only 200 revisions for the file can be kept 
+        to files with binary content in Google Drive. Only 200 revisions for the file can be kept
         forever. If the limit is reached, try deleting pinned revisions.
       `),
+      optional: true,
+    },
+    accessProposalId: {
+      type: "string",
+      label: "Access Proposal ID",
+      description: "The identifier of an access proposal (when a user requests access to a file/folder)",
+      async options({
+        fileId, prevContext,
+      }) {
+        if (!fileId) {
+          return [];
+        }
+        const { pageToken } = prevContext;
+        const {
+          accessProposals, nextPageToken,
+        } = await this.listAccessProposals({
+          fileId,
+          pageToken,
+        });
+        return {
+          options: accessProposals?.map(({
+            proposalId: value, requesterEmailAddress: label,
+          }) => ({
+            label,
+            value,
+          })) || [],
+          context: {
+            pageToken: nextPageToken,
+          },
+        };
+      },
+    },
+    commentId: {
+      type: "string",
+      label: "Comment ID",
+      description: "The ID of the comment to delete.",
+      async options({
+        fileId, prevContext, driveId,
+      }) {
+        const { pageToken } = prevContext;
+        const {
+          data: {
+            comments, nextPageToken,
+          },
+        } = await this.listSyncComments(
+          driveId,
+          fileId,
+          {
+            pageToken,
+          },
+        );
+
+        return {
+          options: comments?.map(({
+            id, content,
+          }) => ({
+            label: content,
+            value: id,
+          })) || [],
+          context: {
+            pageToken: nextPageToken,
+          },
+        };
+      },
+    },
+    replyId: {
+      type: "string",
+      label: "Reply ID",
+      description: "The ID of the reply to get info for.",
+      async options({
+        fileId, commentId, prevContext,
+      }) {
+        const { pageToken } = prevContext;
+        const {
+          replies, nextPageToken,
+        } = await this.listReplies(
+          pageToken,
+          {
+            fileId,
+            commentId,
+          },
+        );
+
+        return {
+          options: replies?.map(({
+            id, content,
+          }) => ({
+            label: content,
+            value: id,
+          })) || [],
+          context: {
+            pageToken: nextPageToken,
+          },
+        };
+      },
+    },
+    permissionId: {
+      type: "string",
+      label: "Permission ID",
+      description: "The ID of the permission",
+      async options({
+        fileId, prevContext,
+      }) {
+        const { pageToken } = prevContext;
+        const {
+          permissions, nextPageToken,
+        } = await this.listPermissions(
+          pageToken,
+          fileId,
+        );
+
+        return {
+          options: permissions
+            ?.filter(({ role }) => role !== "owner")
+            .map(({
+              id, type, role, emailAddress,
+            }) => ({
+              label: `${type} - ${role}${emailAddress
+                ? ` - ${emailAddress}`
+                : ""}`,
+              value: id,
+            })) || [],
+          context: {
+            pageToken: nextPageToken,
+          },
+        };
+      },
+    },
+    maxResults: {
+      type: "integer",
+      label: "Max Results",
+      description: "The maximum number of files to return per call. Example: `25`.",
+      optional: true,
+      min: 1,
+    },
+    pageToken: {
+      type: "string",
+      label: "Page Token",
+      description: "The `nextPageToken` returned by a previous call, to continue from where it stopped. Example: `~!!~AI9FV7Q...`.",
       optional: true,
     },
   },
@@ -267,8 +418,9 @@ export default {
       auth.setCredentials({
         access_token: this.$auth.oauth_access_token,
       });
+      const version = "v3";
       return drive.drive({
-        version: "v3",
+        version,
         auth,
       });
     },
@@ -276,15 +428,13 @@ export default {
     // which we can use to fetch the file's metadata. So we use axios here
     // (vs. the Node client) to get that.
     async getFileMetadata(url) {
-      return (
-        await axios({
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.$auth.oauth_access_token}`,
-          },
-          url,
-        })
-      ).data;
+      return axios(this, {
+        method: "GET",
+        url,
+        headers: {
+          Authorization: `Bearer ${this.$auth.oauth_access_token}`,
+        },
+      });
     },
     /**
      * This method yields a list of changes that occurred to files in a
@@ -307,15 +457,27 @@ export default {
      * returned by this same method.
      * @param {string} [driveId]  - the shared drive from which changes are
      * returned
+     * @param {number} [pageSize=1000] - the maximum number of changes to return
+     * per page
+     * @param {string} [fileFields] - the file fields to return for each change,
+     * e.g. `id,name,parents`. Defaults to the API's minimal file fields
+     * @param {object} [options] - `stopOnRateLimit` ends the stream instead of
+     * throwing; `changeFilter` drops changes before they are yielded
      * @yields
      * @type {ChangesPage}
      */
-    async *listChanges(pageToken, driveId) {
+    async *listChanges(pageToken, driveId, pageSize = 1000, fileFields, options = {}) {
+      const {
+        stopOnRateLimit = false, changeFilter,
+      } = options;
       const drive = this.drive();
       let changeRequest = {
         pageToken,
-        pageSize: 1000,
+        pageSize,
       };
+      if (fileFields) {
+        changeRequest.fields = `nextPageToken,newStartPageToken,changes(time,file(${fileFields}))`;
+      }
 
       // As with many of the methods for Google Drive, we must
       // pass a request of a different shape when we're requesting
@@ -330,7 +492,18 @@ export default {
       }
 
       while (true) {
-        const { data } = await drive.changes.list(changeRequest);
+        let data;
+        try {
+          ({ data } = await this.retryWithExponentialBackoff(
+            () => drive.changes.list(changeRequest),
+          ));
+        } catch (error) {
+          if (!stopOnRateLimit || !this.isRateLimitError(error)) {
+            throw error;
+          }
+          console.log(`Rate limited by Google Drive (${error.message}). Stopping; remaining changes resume on the next run.`);
+          return;
+        }
         const {
           changes = [],
           newStartPageToken,
@@ -339,13 +512,22 @@ export default {
 
         // Some changes do not include an associated file object. Return only
         // those that do
-        const changedFiles = changes
-          .map((change) => change.file)
-          .filter((f) => typeof f === "object");
+        const withFiles = changes.filter((change) => typeof change.file === "object");
+        const kept = [];
+        for (const change of withFiles) {
+          if (!changeFilter || await changeFilter(change)) {
+            kept.push(change);
+          }
+        }
+        if (kept.length < withFiles.length) {
+          console.log(`Skipped ${withFiles.length - kept.length} changes filtered by the source`);
+        }
+        const changedFiles = kept.map((change) => change.file);
 
         yield {
           changedFiles,
           nextPageToken: nextPageToken || newStartPageToken,
+          isLastPage: Boolean(newStartPageToken),
         };
 
         if (newStartPageToken) {
@@ -356,6 +538,46 @@ export default {
 
         changeRequest.pageToken = nextPageToken;
       }
+    },
+    // Returns true once the feed is drained; stops early at the emit or page cap
+    async processChangesPages({
+      pageToken,
+      driveId,
+      pageSize,
+      fileFields,
+      maxEmits,
+      processPage,
+      savePageToken,
+      changeFilter,
+    }) {
+      const changedFilesStream = this.listChanges(pageToken, driveId, pageSize, fileFields, {
+        stopOnRateLimit: true,
+        changeFilter,
+      });
+      const cap = maxEmits ?? DEFAULT_MAX_EMITS_PER_RUN;
+      let pages = 0;
+      let emitted = 0;
+      for await (const {
+        changedFiles, nextPageToken, isLastPage,
+      } of changedFilesStream) {
+        if (emitted && emitted + changedFiles.length > cap) {
+          console.log(`Emitted ${emitted} events; remaining changes resume on the next run.`);
+          return false;
+        }
+
+        emitted += (await processPage(changedFiles)) ?? changedFiles.length;
+        savePageToken(nextPageToken);
+
+        if (isLastPage) {
+          return true;
+        }
+        if (emitted >= cap || ++pages >= MAX_CHANGES_PAGES_PER_RUN) {
+          console.log(`Emitted ${emitted} events; remaining changes resume on the next run.`);
+          return false;
+        }
+      }
+      // Rate limited
+      return false;
     },
     async getPageToken(driveId) {
       const drive = this.drive();
@@ -443,7 +665,7 @@ export default {
           pageToken,
         );
 
-        for (const drive in drives) {
+        for (const drive of drives) {
           yield drive;
         }
 
@@ -457,9 +679,9 @@ export default {
         pageToken = nextPageToken;
       }
     },
-    async _listDriveOptions(pageToken) {
+    async _listDriveOptions(pageToken, myDrive = true) {
       const {
-        drives,
+        drives = [],
         nextPageToken,
       } = await this.listDrivesInPage(pageToken);
 
@@ -468,19 +690,21 @@ export default {
       // only do this during the first page of options (i.e. when `pageToken` is
       // undefined).
       const options =
-        pageToken !== undefined
-          ? []
-          : [
+        myDrive && pageToken === undefined
+          ? [
             {
               label: "My Drive",
               value: MY_DRIVE_VALUE,
             },
-          ];
+          ]
+          : [];
       for (const d of drives) {
-        options.push({
-          label: d.name,
-          value: d.id,
-        });
+        if (d?.id) {
+          options.push({
+            label: d.name,
+            value: d.id,
+          });
+        }
       }
       return {
         options,
@@ -530,16 +754,18 @@ export default {
      */
     async listFilesOptions(pageToken, extraOpts = {}) {
       const {
-        files,
+        files = [],
         nextPageToken,
       } = await this.listFilesInPage(
         pageToken,
         extraOpts,
       );
-      const options = files.map((file) => ({
-        label: file.name,
-        value: file.id,
-      }));
+      const options = files
+        .filter((file) => file?.id)
+        .map((file) => ({
+          label: file.name,
+          value: file.id,
+        }));
       return {
         options,
         context: {
@@ -595,19 +821,21 @@ export default {
         opts,
       );
       const [
-        { files: folders },
+        { files: folders = [] },
         {
-          files, nextPageToken,
+          files = [], nextPageToken,
         },
       ] = await Promise.all([
         foldersPromise,
         filesPromise,
       ]);
       const filePaths = this.getFilePaths(files, folders);
-      const options = files.map((file) => ({
-        label: filePaths[file.id],
-        value: file.id,
-      }));
+      const options = files
+        .filter((file) => file?.id)
+        .map((file) => ({
+          label: filePaths[file.id],
+          value: file.id,
+        }));
       return {
         options,
         context: {
@@ -627,6 +855,7 @@ export default {
      * @type {Comment}
      */
     async *listComments(fileId, startModifiedTime = null) {
+      let data;
       const drive = this.drive();
       const opts = {
         fileId,
@@ -634,12 +863,17 @@ export default {
         pageSize: 100,
       };
 
-      if (startModifiedTime !== null) {
+      if (startModifiedTime !== null && startModifiedTime !== undefined) {
         opts.startModifiedTime = new Date(startModifiedTime).toISOString();
       }
 
       while (true) {
-        const { data } = await drive.comments.list(opts);
+        try {
+          ({ data } = await drive.comments.list(opts));
+        } catch (error) {
+          console.log("listComments error!!", error);
+          break;
+        }
         const {
           comments = [],
           nextPageToken,
@@ -658,6 +892,90 @@ export default {
 
         opts.pageToken = nextPageToken;
       }
+    },
+    listSyncComments(driveId, fileId, args = {}) {
+      const drive = this.drive();
+      return drive.comments.list({
+        driveId,
+        fileId,
+        fields: "*",
+        ...args,
+      });
+    },
+    getComment(fileId, commentId, includeDeleted) {
+      const drive = this.drive();
+      return drive.comments.get({
+        commentId,
+        fileId,
+        includeDeleted,
+        fields: "*",
+      });
+    },
+    createComment(fileId, requestBody) {
+      const drive = this.drive();
+      return drive.comments.create({
+        fileId,
+        requestBody,
+        fields: "*",
+      });
+    },
+    deleteComment(commentId, fileId) {
+      const drive = this.drive();
+      return drive.comments.delete({
+        fileId,
+        commentId,
+        fields: "*",
+      });
+    },
+    createCommentReply(fileId, commentId, requestBody) {
+      const drive = this.drive();
+      return drive.replies.create({
+        fileId,
+        commentId,
+        requestBody,
+        fields: "*",
+      });
+    },
+    async listReplies(pageToken, opts = {}) {
+      const drive = this.drive();
+      const { data } = await drive.replies.list({
+        pageToken,
+        ...opts,
+        fields: "*",
+      });
+      return data;
+    },
+    getReply(replyId, fileId, commentId) {
+      const drive = this.drive();
+      return drive.replies.get({
+        replyId,
+        fileId,
+        commentId,
+        fields: "*",
+      });
+    },
+    updateReply(args = {}) {
+      const drive = this.drive();
+      return drive.replies.update({
+        ...args,
+        fields: "*",
+      });
+    },
+    deleteReply(args = {}) {
+      const drive = this.drive();
+      return drive.replies.delete({
+        ...args,
+        fields: "*",
+      });
+    },
+    updateComment(commentId, fileId, requestBody) {
+      const drive = this.drive();
+      return drive.comments.update({
+        fileId,
+        commentId,
+        requestBody,
+        fields: "*",
+      });
     },
     _makeWatchRequestBody(id, address) {
       const expiration =
@@ -693,12 +1011,12 @@ export default {
       // When watching for changes to an entire account, we must pass a pageToken,
       // which points to the moment in time we want to start watching for changes:
       // https://developers.google.com/drive/api/v3/manage-changes
+      const fn = () => drive.changes.watch(watchRequest);
+      const { data } = await this.retryWithExponentialBackoff(fn);
       const {
         expiration,
         resourceId,
-      } = (
-        await drive.changes.watch(watchRequest)
-      ).data;
+      } = data;
       console.log(`Watch request for drive successful, expiry: ${expiration}`);
       return {
         expiration: parseInt(expiration),
@@ -708,16 +1026,16 @@ export default {
     async watchFile(id, address, fileId) {
       const drive = this.drive();
       const requestBody = this._makeWatchRequestBody(id, address);
+      const fn = () => drive.files.watch({
+        fileId,
+        requestBody,
+        supportsAllDrives: true,
+      });
+      const { data } = await this.retryWithExponentialBackoff(fn);
       const {
         expiration,
         resourceId,
-      } = (
-        await drive.files.watch({
-          fileId,
-          requestBody,
-          supportsAllDrives: true,
-        })
-      ).data;
+      } = data;
       console.log(
         `Watch request for file ${fileId} successful, expiry: ${expiration}`,
       );
@@ -811,8 +1129,6 @@ export default {
       };
     },
     async activateFileHook(channelID, url, fileId) {
-      channelID = channelID || uuid();
-
       const {
         expiration,
         resourceId,
@@ -825,7 +1141,6 @@ export default {
       return {
         expiration,
         resourceId,
-        channelID,
       };
     },
     async deactivateHook(channelID, resourceId) {
@@ -846,16 +1161,16 @@ export default {
       await this.stopNotifications(channelID, resourceId);
     },
     async renewSubscription(drive, subscription, url, channelID, pageToken) {
-      const newChannelID = channelID || uuid();
       const driveId = this.getDriveId(drive);
       const newPageToken = pageToken || (await this.getPageToken(driveId));
 
       const {
         expiration,
         resourceId,
+        newChannelID,
       } = await this.checkResubscription(
         subscription,
-        newChannelID,
+        channelID,
         newPageToken,
         url,
         drive,
@@ -875,6 +1190,7 @@ export default {
       endpoint,
       drive,
     ) {
+      const newChannelID = uuid();
       const driveId = this.getDriveId(drive);
       if (subscription && subscription.resourceId) {
         console.log(
@@ -888,7 +1204,7 @@ export default {
         expiration,
         resourceId,
       } = await this.watchDrive(
-        channelID,
+        newChannelID,
         endpoint,
         pageToken,
         driveId,
@@ -896,14 +1212,20 @@ export default {
       return {
         expiration,
         resourceId,
+        newChannelID,
       };
     },
-    async renewFileSubscription(subscription, url, channelID, fileId, nextRunTimestamp) {
+    async renewFileSubscription(
+      subscription,
+      url,
+      channelID,
+      newChannelID,
+      fileId,
+      nextRunTimestamp,
+    ) {
       if (nextRunTimestamp && subscription?.expiration < nextRunTimestamp) {
         return subscription;
       }
-
-      const newChannelID = channelID || uuid();
 
       if (subscription?.resourceId) {
         console.log(
@@ -918,13 +1240,12 @@ export default {
         expiration,
         resourceId,
       } = await this.watchFile(
-        channelID,
+        newChannelID,
         url,
         fileId,
       );
 
       return {
-        newChannelID,
         expiration,
         resourceId,
       };
@@ -1080,6 +1401,7 @@ export default {
       const {
         mimeType,
         supportsAllDrives = true,
+        uploadType,
         ...extraParams
       } = opts;
       const drive = this.drive();
@@ -1090,6 +1412,7 @@ export default {
           media: {
             mimeType,
             body: fileStream,
+            uploadType,
           },
           ...extraParams,
         })
@@ -1127,12 +1450,14 @@ export default {
         addParents,
         supportsAllDrives = true,
         requestBody,
+        uploadType,
         ...extraParams
       } = opts;
       const drive = this.drive();
       return (
         await drive.files.update({
           fileId,
+          uploadType,
           removeParents,
           addParents,
           fields,
@@ -1254,7 +1579,7 @@ export default {
      */
     async createPermission(fileId, opts = {}) {
       const {
-        role = "reader",
+        role,
         type,
         domain,
         emailAddress,
@@ -1271,6 +1596,26 @@ export default {
             domain,
             emailAddress,
           }),
+        })
+      ).data;
+    },
+    async deletePermission(opts = {}) {
+      const drive = this.drive();
+      return (
+        await drive.permissions.delete({
+          supportsAllDrives: true,
+          ...opts,
+        })
+      ).data;
+    },
+    async listPermissions(pageToken, fileId) {
+      const drive = this.drive();
+      return (
+        await drive.permissions.list({
+          supportsAllDrives: true,
+          fields: "permissions(id,type,role,emailAddress),nextPageToken",
+          pageToken,
+          fileId,
         })
       ).data;
     },
@@ -1423,6 +1768,51 @@ export default {
      */
     async getExportFormats() {
       return (await this.getAbout("exportFormats")).exportFormats;
+    },
+    async listAccessProposals(opts = {}) {
+      const drive = this.drive();
+      return (await drive.accessproposals.list(opts)).data;
+    },
+    async resolveAccessProposal(opts = {}) {
+      const drive = this.drive();
+      return (await drive.accessproposals.resolve(opts)).data;
+    },
+    isRetryableError(error, statusCode) {
+      return RETRYABLE_STATUS_CODES.includes(statusCode)
+        || this.isRateLimitError(error, statusCode);
+    },
+    isRateLimitError(error, statusCode = error.status || error.response?.status) {
+      if (statusCode === 429) {
+        return true;
+      }
+      const errors = error.errors ?? error.response?.data?.error?.errors ?? [];
+      return statusCode === 403
+        && errors.some(({ reason }) => RATE_LIMIT_ERROR_REASONS.includes(reason));
+    },
+    retryWithExponentialBackoff(func, maxAttempts = 3, baseDelayS = 2) {
+      let attempt = 0;
+
+      const execute = async () => {
+        try {
+          return await func();
+        } catch (error) {
+          const statusCode = error.status || error.response?.status;
+          if (attempt >= maxAttempts || !this.isRetryableError(error, statusCode)) {
+            throw error;
+          }
+
+          const errorMessage = error.message || error.response?.data?.message || error.response?.statusText || "Unknown error";
+          console.log(`Received ${statusCode} error: ${errorMessage}. Retrying attempt ${attempt + 1}/${maxAttempts}...`);
+
+          const delayMs = Math.pow(baseDelayS, attempt) * 1000;
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+          attempt++;
+          return execute();
+        }
+      };
+
+      return execute();
     },
   },
 };

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/sympla",
+  "version": "0.1.0",
+  "description": "Pipedream Sympla Components",
+  "main": "sympla.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sympla"
+  ],
+  "homepage": "https://pipedream.com/apps/sympla",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^1.6.8"
+  }
+}

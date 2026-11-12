@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/virustotal",
+  "version": "0.0.5",
+  "description": "Pipedream VirusTotal  Components",
+  "main": "virustotal.app.mjs",
+  "keywords": [
+    "pipedream",
+    "virustotal"
+  ],
+  "homepage": "https://pipedream.com/apps/virustotal",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

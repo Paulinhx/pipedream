@@ -1,10 +1,15 @@
-import reddit from "../../reddit.app.mjs";
 import { axios } from "@pipedream/platform";
+import reddit from "../../reddit.app.mjs";
 
 export default {
   type: "action",
   key: "reddit-list-comments-in-a-post",
-  version: "0.0.1",
+  version: "0.1.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   name: "List Comments in a Post",
   description: "List comments for a specific post. [See the docs here](https://www.reddit.com/dev/api/#GET_comments_{article})",
   props: {

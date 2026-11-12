@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/godaddy",
+  "version": "0.2.0",
+  "description": "Pipedream GoDaddy Components",
+  "main": "godaddy.app.mjs",
+  "keywords": [
+    "pipedream",
+    "godaddy"
+  ],
+  "homepage": "https://pipedream.com/apps/godaddy",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

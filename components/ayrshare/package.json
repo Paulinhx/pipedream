@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/ayrshare",
+  "version": "0.2.0",
+  "description": "Pipedream Ayrshare Components",
+  "main": "ayrshare.app.mjs",
+  "keywords": [
+    "pipedream",
+    "ayrshare"
+  ],
+  "homepage": "https://pipedream.com/apps/ayrshare",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

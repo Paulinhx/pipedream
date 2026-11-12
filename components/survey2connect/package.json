@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/survey2connect",
+  "version": "0.0.2",
+  "description": "Pipedream Survey2Connect Components",
+  "main": "survey2connect.app.mjs",
+  "keywords": [
+    "pipedream",
+    "survey2connect"
+  ],
+  "homepage": "https://pipedream.com/apps/survey2connect",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

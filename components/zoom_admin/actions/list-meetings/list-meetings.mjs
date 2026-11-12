@@ -1,12 +1,17 @@
-import zoomAdmin from "../../zoom_admin.app.mjs";
+import { paginate } from "../../common/pagination.mjs";
 import consts from "../../consts.mjs";
-import { axios } from "@pipedream/platform";
+import zoomAdmin from "../../zoom_admin.app.mjs";
 
 export default {
   name: "List meetings",
-  description: "List all meetings. [See the docs here](https://marketplace.zoom.us/docs/api-reference/zoom-api/meetings/meetings)",
-  key: "zoom_admin-action-list-meetings",
-  version: "0.0.1",
+  description: "List all meetings. [See the documentation](https://marketplace.zoom.us/docs/api-reference/zoom-api/meetings/meetings)",
+  key: "zoom_admin-list-meetings",
+  version: "0.2.5",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     zoomAdmin,
@@ -17,41 +22,20 @@ export default {
       optional: true,
       options: consts.LIST_MEETINGS_TYPE_OPTIONS,
     },
-    pageSize: {
-      propDefinition: [
-        zoomAdmin,
-        "pageSize",
-      ],
-    },
-    pageNumber: {
-      propDefinition: [
-        zoomAdmin,
-        "pageNumber",
-      ],
-    },
-    nextPageToken: {
-      propDefinition: [
-        zoomAdmin,
-        "nextPageToken",
-      ],
-    },
   },
   async run ({ $ }) {
-    const res = await axios($, this.zoomAdmin._getAxiosParams({
-      method: "GET",
-      path: "/users/me/meetings",
-      params: {
-        type: this.type,
-        page_size: this.pageSize,
-        page_number: this.pageNumber,
-        next_page_token: this.nextPageToken,
-      },
-    }));
+    const params = {
+      type: this.type,
+    };
 
-    $.export("$summary", `Successfully fetched ${res.meetings.length} ${res.meetings.length === 1
-      ? "meeting"
-      : "meetings"}`);
+    const data = await paginate(
+      this.zoomAdmin.listMeetings,
+      "meetings",
+      params,
+    );
 
-    return res;
+    $.export("$summary", `Successfully fetched ${data.length} meeting(s)`);
+
+    return data;
   },
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/fivetran",
+  "version": "0.0.3",
+  "description": "Pipedream Fivetran Components",
+  "main": "fivetran.app.mjs",
+  "keywords": [
+    "pipedream",
+    "fivetran"
+  ],
+  "homepage": "https://pipedream.com/apps/fivetran",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

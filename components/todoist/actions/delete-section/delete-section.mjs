@@ -3,8 +3,13 @@ import todoist from "../../todoist.app.mjs";
 export default {
   key: "todoist-delete-section",
   name: "Delete Section",
-  description: "Deletes a section. [See the docs here](https://developer.todoist.com/rest/v1/#delete-a-section)",
-  version: "0.0.1",
+  description: "Deletes a section. [See the documentation](https://developer.todoist.com/api/v1#tag/Sections/operation/delete_section_api_v1_sections__section_id__delete)",
+  version: "0.0.10",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     todoist,

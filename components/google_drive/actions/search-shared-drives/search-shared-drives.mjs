@@ -3,9 +3,15 @@ import googleDrive from "../../google_drive.app.mjs";
 export default {
   key: "google_drive-search-shared-drives",
   name: "Search for Shared Drives",
-  description: "Search for shared drives with query options. [See the docs](https://developers.google.com/drive/api/v3/search-shareddrives) for more information",
-  version: "0.0.3",
+  description: "Search for shared drives with query options. [See the documentation](https://developers.google.com/drive/api/v3/search-shareddrives) for more information",
+  version: "0.1.31",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     googleDrive,
     q: {

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/dataset",
+  "version": "0.0.3",
+  "description": "Pipedream DataSet Components",
+  "main": "dataset.app.mjs",
+  "keywords": [
+    "pipedream",
+    "dataset"
+  ],
+  "homepage": "https://pipedream.com/apps/dataset",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

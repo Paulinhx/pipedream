@@ -1,11 +1,12 @@
+import { DEFAULT_POLLING_SOURCE_TIMER_INTERVAL } from "@pipedream/platform";
 import asana from "../../asana.app.mjs";
 
 export default {
   key: "asana-new-team",
   type: "source",
   name: "New Team",
-  description: "Emit new event for each task added to an organization.",
-  version: "0.1.0",
+  description: "Emit new event for each team added to an organization.",
+  version: "0.1.16",
   dedupe: "unique",
   props: {
     asana,
@@ -21,7 +22,7 @@ export default {
     timer: {
       type: "$.interface.timer",
       default: {
-        intervalSeconds: 60 * 15,
+        intervalSeconds: DEFAULT_POLLING_SOURCE_TIMER_INTERVAL,
       },
     },
   },
@@ -29,8 +30,10 @@ export default {
   async run() {
     const teams = await this.asana.getTeams(this.organization);
 
-    for (let team of teams) {
-      team = await this.asana.getTeam(team.gid);
+    for (const item of teams) {
+      const { data: team } = await this.asana.getTeam({
+        teamId: item.gid,
+      });
 
       this.$emit(team, {
         id: team.gid,

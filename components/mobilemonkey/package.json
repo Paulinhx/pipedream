@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/mobilemonkey",
+  "version": "0.0.3",
+  "description": "Pipedream MobileMonkey Components",
+  "main": "mobilemonkey.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mobilemonkey"
+  ],
+  "homepage": "https://pipedream.com/apps/mobilemonkey",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

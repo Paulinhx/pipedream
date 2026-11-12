@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/dify",
+  "version": "0.0.2",
+  "description": "Pipedream Dify Components",
+  "main": "dify.app.mjs",
+  "keywords": [
+    "pipedream",
+    "dify"
+  ],
+  "homepage": "https://pipedream.com/apps/dify",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

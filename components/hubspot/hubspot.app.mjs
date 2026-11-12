@@ -1,12 +1,42 @@
+// x-pd-ai: optimized
 import { axios } from "@pipedream/platform";
+import Bottleneck from "bottleneck";
+import timezonesList from "timezones-list";
 import {
-  ASSOCIATION_CATEGORY,
+  API_PATH,
+  BASE_URL,
+  DEFAULT_COMPANY_PROPERTIES,
+  DEFAULT_CONTACT_PROPERTIES,
+  DEFAULT_DEAL_PROPERTIES,
+  DEFAULT_LIMIT,
+  DEFAULT_LINE_ITEM_PROPERTIES,
+  DEFAULT_PRODUCT_PROPERTIES,
+  DEFAULT_TICKET_PROPERTIES,
   HUBSPOT_OWNER,
   OBJECT_TYPE,
   OBJECT_TYPES,
-  BASE_URL,
-  API_PATH,
 } from "./common/constants.mjs";
+const limiter = new Bottleneck({
+  minTime: 500, // 2 requests per second
+  maxConcurrent: 1,
+});
+const axiosRateLimiter = limiter.wrap(axios);
+
+const TIMEZONES = Array.isArray(timezonesList)
+  ? timezonesList
+  : (timezonesList?.default ?? []);
+const TIMEZONE_OPTIONS = [
+  {
+    label: "UTC (GMT+00:00)",
+    value: "UTC",
+  },
+  ...TIMEZONES.map(({
+    label, tzCode,
+  }) => ({
+    label,
+    value: tzCode,
+  })),
+];
 
 export default {
   type: "app",
@@ -18,33 +48,30 @@ export default {
       description: "Select the lists to watch for new contacts.",
       withLabel: true,
       async options({
-        prevContext, listType,
+        page, listType,
       }) {
-        const { offset = 0 } = prevContext;
-        const params = {
-          count: 250,
-          offset,
-        };
-        const { lists } = await this.getLists({
-          listType,
-          ...params,
-        });
-        const options = lists.map((result) => {
-          const {
-            name: label,
-            listId,
-          } = result;
-          return {
-            label,
-            value: listId,
-          };
-        });
-        return {
-          options,
-          context: {
-            offset: params.offset + params.count,
+        const { lists } = await this.searchLists({
+          data: {
+            count: DEFAULT_LIMIT,
+            offset: page * DEFAULT_LIMIT,
+            processingTypes: listType === "static"
+              ? [
+                "MANUAL",
+                "SNAPSHOT",
+              ]
+              : listType === "dynamic"
+                ? [
+                  "DYNAMIC",
+                ]
+                : undefined,
           },
-        };
+        });
+        return lists?.map(({
+          listId: value, name: label,
+        }) => ({
+          value,
+          label,
+        })) || [];
       },
     },
     dealPipeline: {
@@ -52,17 +79,15 @@ export default {
       label: "Pipeline",
       description: "Select the pipeline to watch for new deals in",
       async options() {
-        const { results } = await this.getPipelines("deal");
-        return results.map((result) => {
-          const {
-            label,
-            id: value,
-          } = result;
-          return {
-            label,
-            value,
-          };
+        const { results } = await this.getPipelines({
+          objectType: "deal",
         });
+        return results?.map(({
+          id: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
       },
     },
     stages: {
@@ -70,33 +95,74 @@ export default {
       label: "Stages",
       description: "Select the stages to watch for new deals in.",
       async options({ pipeline }) {
-        const { results } = await this.getDealStages(pipeline);
-        return results.map((result) => {
-          const {
-            label,
-            id,
-          } = result;
-          return {
-            label,
-            value: id,
-          };
+        const { results } = await this.getDealStages({
+          pipelineId: pipeline,
         });
+        return results?.map(({
+          id: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
       },
     },
     objectType: {
       type: "string",
       label: "Object Type",
-      description: "Watch for new events concerning the object type specified.",
-      options: OBJECT_TYPES,
+      description: "Watch for new events concerning the object type specified. For custom objects, this is the object's `fullyQualifiedName`, `objectTypeId`, or the short-hand custom object type name (aka `p_{object_name}`)",
+      async options({ includeCustom = false }) {
+        const objectTypes = OBJECT_TYPES;
+        if (includeCustom) {
+          const { results } = await this.listSchemas();
+          const customObjects = results?.map(({
+            fullyQualifiedName: value, labels,
+          }) => ({
+            value,
+            label: labels.plural,
+          })) || [];
+          objectTypes.push(...customObjects);
+        }
+        return objectTypes;
+      },
+    },
+    objectSchema: {
+      type: "string",
+      label: "Object Schema",
+      description: "Watch for new events of objects with the specified custom schema. This is the `objectTypeId` of an object.",
+      async options() {
+        const { results } = await this.listSchemas();
+        return results?.map(({
+          objectTypeId: value, name: label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    objectId: {
+      type: "string",
+      label: "Object ID",
+      description: "The HubSpot CRM record ID for the selected object type (the `id` field, e.g. `12345678901`). Find it with **Search CRM Objects** using the same object type and copy the `id` from the matching result.",
+      useQuery: true,
+      async options({
+        objectType, ...opts
+      }) {
+        return objectType
+          ? await this.createOptions(objectType, opts)
+          : [];
+      },
     },
     objectIds: {
       type: "string[]",
       label: "Object",
       description: "Watch for new events concerning the objects selected.",
+      useQuery: true,
       async options({
         objectType, ...opts
       }) {
-        return this.createOptions(objectType, opts);
+        return objectType
+          ? await this.createOptions(objectType, opts)
+          : [];
       },
     },
     forms: {
@@ -104,29 +170,19 @@ export default {
       label: "Form",
       description: "Watch for new submissions of the specified forms.",
       withLabel: true,
-      async options(prevContext) {
-        const { offset } = prevContext;
-        const params = {
-          count: 50,
-          offset: offset || 0,
-        };
-        const results = await this.getForms();
-        const options = results.map((result) => {
-          const {
-            name: label,
-            guid,
-          } = result;
-          return {
-            label,
-            value: guid,
-          };
-        });
-        return {
-          options,
-          context: {
-            offset: params.offset + params.count,
+      async options({ page }) {
+        const results = await this.getForms({
+          params: {
+            count: DEFAULT_LIMIT,
+            offset: page * DEFAULT_LIMIT,
           },
-        };
+        });
+        return results?.map(({
+          guid: value, name: label,
+        }) => ({
+          value,
+          label,
+        })) || [];
       },
     },
     channel: {
@@ -155,7 +211,9 @@ export default {
       label: "Property Groups",
       reloadProps: true,
       async options({ objectType }) {
-        const { results: groups } = await this.getPropertyGroups(objectType);
+        const { results: groups } = await this.getPropertyGroups({
+          objectType,
+        });
         return groups.map((group) => ({
           label: group.label,
           value: group.name,
@@ -166,12 +224,21 @@ export default {
       type: "string",
       label: "Contact Email",
       description: "Note - this needs to be a contact that already exists within HubSpot. You may need to add a Create or Update Contact step before this one. Then, use the email created in that step in this field.",
-      async options({ prevContext }) {
+      useQuery: true,
+      async options({
+        prevContext, query,
+      }) {
         const { nextAfter } = prevContext;
         const {
           results: contacts,
           paging,
-        } = await this.listObjectsInPage("contacts", nextAfter);
+        } = await this.searchCRM({
+          object: "contacts",
+          data: {
+            after: nextAfter,
+            query,
+          },
+        });
         return {
           options: contacts
             .filter(({ properties }) => properties.email)
@@ -182,6 +249,147 @@ export default {
           context: {
             nextAfter: paging?.next?.after,
           },
+        };
+      },
+    },
+    contactProperties: {
+      type: "string[]",
+      label: "Contact Properties",
+      description: "Select the properties to include in the contact object",
+      optional: true,
+      default: [],
+      async options({ excludeDefaultProperties }) {
+        const properties = await this.getContactProperties();
+        const relevantProperties = excludeDefaultProperties
+          ? properties.filter(({ name }) => !DEFAULT_CONTACT_PROPERTIES.includes(name))
+          : properties;
+        return relevantProperties?.map(({
+          name: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    companyProperties: {
+      type: "string[]",
+      label: "Company Properties",
+      description: "Select the properties to include in the company object",
+      optional: true,
+      default: [],
+      async options({ excludeDefaultProperties }) {
+        const { results: properties } = await this.getProperties({
+          objectType: "companies",
+        });
+        const relevantProperties = excludeDefaultProperties
+          ? properties.filter(({ name }) => !DEFAULT_COMPANY_PROPERTIES.includes(name))
+          : properties;
+        return relevantProperties?.map(({
+          name: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    dealProperties: {
+      type: "string[]",
+      label: "Deal Properties",
+      description: "Select the properties to include in the deal object",
+      optional: true,
+      default: [],
+      async options({ excludeDefaultProperties }) {
+        const { results: properties } = await this.getProperties({
+          objectType: "deals",
+        });
+        const relevantProperties = excludeDefaultProperties
+          ? properties.filter(({ name }) => !DEFAULT_DEAL_PROPERTIES.includes(name))
+          : properties;
+        return relevantProperties?.map(({
+          name: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    ticketProperties: {
+      type: "string[]",
+      label: "Ticket Properties",
+      description: "Select the properties to include in the ticket object",
+      optional: true,
+      default: [],
+      async options({ excludeDefaultProperties }) {
+        const { results: properties } = await this.getProperties({
+          objectType: "tickets",
+        });
+        const relevantProperties = excludeDefaultProperties
+          ? properties.filter(({ name }) => !DEFAULT_TICKET_PROPERTIES.includes(name))
+          : properties;
+        return relevantProperties?.map(({
+          name: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    productProperties: {
+      type: "string[]",
+      label: "Product Properties",
+      description: "Select the properties to include in the product object",
+      optional: true,
+      default: [],
+      async options({ excludeDefaultProperties }) {
+        const { results: properties } = await this.getProperties({
+          objectType: "products",
+        });
+        const relevantProperties = excludeDefaultProperties
+          ? properties.filter(({ name }) => !DEFAULT_PRODUCT_PROPERTIES.includes(name))
+          : properties;
+        return relevantProperties?.map(({
+          name: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    lineItemProperties: {
+      type: "string[]",
+      label: "Line Item Properties",
+      description: "Select the properties to include in the line item object",
+      optional: true,
+      default: [],
+      async options({ excludeDefaultProperties }) {
+        const { results: properties } = await this.getProperties({
+          objectType: "line_items",
+        });
+        const relevantProperties = excludeDefaultProperties
+          ? properties.filter(({ name }) => !DEFAULT_LINE_ITEM_PROPERTIES.includes(name))
+          : properties;
+        return relevantProperties?.map(({
+          name: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    workflow: {
+      type: "string",
+      label: "Workflow",
+      description: "The ID of the workflow you wish to see metadata for.",
+      async options() {
+        const { workflows } = await this.listWorkflows();
+
+        return {
+          options: workflows.map(({
+            name: label, id: value,
+          }) => ({
+            label,
+            value,
+          })),
         };
       },
     },
@@ -197,22 +405,641 @@ export default {
         }));
       },
     },
-    associationType: {
+    fileId: {
       type: "string",
+      label: "File ID",
+      description: "The ID of a file uploaded to HubSpot",
+      async options() {
+        const { results: files } = await this.searchFiles();
+        return files.map((file) => ({
+          label: file.name,
+          value: file.id,
+        }));
+      },
+    },
+    associationType: {
+      type: "integer",
       label: "Association Type",
       description: "Type of the association",
       async options({
         fromObjectType, toObjectType,
       }) {
-        const { results: associationTypes } = await this.getAssociationTypes(
+        if (!fromObjectType || !toObjectType) {
+          return [];
+        }
+        const { results: associationTypes } = await this.getAssociationTypes({
           fromObjectType,
           toObjectType,
-        );
+        });
         return associationTypes.map((associationType) => ({
           label: associationType.label ?? `${fromObjectType}_to_${toObjectType}`,
           value: associationType.typeId,
         }));
       },
+    },
+    ticketPipeline: {
+      type: "string",
+      label: "Pipeline",
+      description: "The pipeline of the ticket",
+      async options() {
+        const { results } = await this.getPipelines({
+          objectType: "ticket",
+        });
+        return results?.map(({
+          id: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    ticketStage: {
+      type: "string",
+      label: "Ticket Stage",
+      description: "The stage of the ticket",
+      async options({ pipelineId }) {
+        const stages = await this.getTicketStages({
+          pipelineId,
+        });
+        return stages.map(({
+          id: value, label,
+        }) => ({
+          value,
+          label,
+        }));
+      },
+    },
+    leadId: {
+      type: "string",
+      label: "Lead ID",
+      description: "The identifier of the lead",
+      useQuery: true,
+      async options({ query }) {
+        const { results } = await this.searchCRM({
+          object: "lead",
+          data: {
+            properties: [
+              "hs_lead_name",
+            ],
+            query,
+          },
+        });
+        return results?.map(({
+          id: value, properties,
+        }) => ({
+          value,
+          label: properties?.hs_lead_name || value,
+        })) || [];
+      },
+    },
+    customObjectType: {
+      type: "string",
+      label: "Custom Object Type",
+      description: "The type of custom object to create. This is the object's `fullyQualifiedName`, `objectTypeId`, or the short-hand custom object type name (aka `p_{object_name}`)",
+      async options() {
+        const { results } = await this.listSchemas();
+        return results?.map(({
+          name, fullyQualifiedName,
+        }) => ({
+          label: name,
+          value: fullyQualifiedName,
+        }) ) || [];
+      },
+    },
+    timeframe: {
+      type: "string",
+      label: "Time Frame",
+      description: "Filter meetings within a specific time frame",
+      optional: true,
+      reloadProps: true,
+      options: [
+        {
+          label: "Today",
+          value: "today",
+        },
+        {
+          label: "This Week",
+          value: "this_week",
+        },
+        {
+          label: "This Month",
+          value: "this_month",
+        },
+        {
+          label: "Last Month",
+          value: "last_month",
+        },
+        {
+          label: "Custom Range",
+          value: "custom",
+        },
+      ],
+    },
+    mostRecent: {
+      type: "boolean",
+      label: "Most Recent Only",
+      description: "Only return the most recent meeting",
+      optional: true,
+      default: false,
+    },
+    meetingId: {
+      type: "string",
+      label: "Meeting ID",
+      description: "The ID of the meeting to retrieve",
+      useQuery: true,
+      async options({ query }) {
+        const { results } = await this.searchMeetings({
+          data: {
+            query,
+          },
+        });
+        return results.map(({ id }) => id);
+      },
+    },
+    formId: {
+      type: "string",
+      label: "Form ID",
+      description: "The ID of the form to update.",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listForms({
+          data: {
+            after: nextAfter,
+          },
+        });
+
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    pageId: {
+      type: "string",
+      label: "Page ID",
+      description: "The ID of the page to clone.",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listSitePages({
+          data: {
+            after: nextAfter,
+          },
+        });
+
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    landingPageId: {
+      type: "string",
+      label: "Landing Page ID",
+      description: "The ID of the landing page to clone.",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listLandingPages({
+          data: {
+            after: nextAfter,
+          },
+        });
+
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    templatePath: {
+      type: "string",
+      label: "Template Path",
+      description: "The template path of the page.",
+      async options({ page }) {
+        const { objects } = await this.listTemplates({
+          params: {
+            limit: DEFAULT_LIMIT,
+            offset: page * DEFAULT_LIMIT,
+          },
+        });
+        return objects?.map(({
+          path: value, label,
+        }) => ({
+          value,
+          label,
+        })) || [];
+      },
+    },
+    pageName: {
+      type: "string",
+      label: "Page Name",
+      description: "The name of the page.",
+    },
+    landingFolderId: {
+      type: "string",
+      label: "Folder ID",
+      description: "The ID of the folder to create the landing page in.",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listLandingFolders({
+          data: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    campaignId: {
+      type: "string",
+      label: "Campaign ID",
+      description: "The ID of the campaign to create the email in.",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listCampaigns({
+          data: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({ id }) => id) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    emailId: {
+      type: "string",
+      label: "Marketing Email ID",
+      description: "The ID of the marketing email to clone.",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listMarketingEmails({
+          data: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    blogPostId: {
+      type: "string",
+      label: "Blog Post ID",
+      description: "The ID of the blog post",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.getBlogPosts({
+          params: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next?.after,
+          },
+        };
+      },
+    },
+    inboxId: {
+      type: "string",
+      label: "Inbox ID",
+      description: "The ID of an inbox",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listInboxes({
+          data: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    channelId: {
+      type: "string",
+      label: "Channel ID",
+      description: "The ID of a channel",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listChannels({
+          data: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    threadId: {
+      type: "string",
+      label: "Thread ID",
+      description: "The ID of a thread",
+      async options({
+        prevContext, inboxId, channelId, archived,
+      }) {
+        const { nextAfter } = prevContext;
+        let {
+          results, paging,
+        } = await this.listThreads({
+          params: {
+            after: nextAfter,
+            ...(archived && {
+              archived,
+            }),
+          },
+        });
+        if (inboxId) {
+          results = results.filter((thread) => thread.inboxId === inboxId);
+        }
+        if (channelId) {
+          results = results.filter((thread) => thread.originalChannelId === channelId);
+        }
+        return {
+          options: results?.map(({ id }) => ({
+            value: id,
+            label: `Thread ${id}`,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    channelAccountId: {
+      type: "string",
+      label: "Channel Account ID",
+      description: "The ID of a channel account",
+      async options({
+        prevContext, channelId, inboxId,
+      }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.listChannelAccounts({
+          params: {
+            after: nextAfter,
+            channelId: channelId,
+            inboxId: inboxId,
+          },
+        });
+        return {
+          options: results?.map(({
+            id, name,
+          }) => ({
+            value: id,
+            label: name,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    senderActorId: {
+      type: "string",
+      label: "Sender Actor ID",
+      description: "The ID of the sender actor",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.getOwners({
+          params: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            userId: value, email: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    ownerId: {
+      type: "string",
+      label: "Owner ID",
+      description: "HubSpot CRM owner ID (use the dropdown or enter an ID manually)",
+      useQuery: true,
+      async options({
+        prevContext, query,
+      }) {
+        const { nextAfter } = prevContext;
+        const params = {
+          after: nextAfter,
+          limit: 100,
+        };
+        if (query) {
+          params.email = query;
+        }
+        const {
+          results, paging,
+        } = await this.getOwners({
+          params,
+        });
+        return {
+          options: results?.map((owner) => {
+            const name = [
+              owner.firstName,
+              owner.lastName,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            const label = name
+              ? `${name} (${owner.email})`
+              : (owner.email ?? String(owner.id));
+            return {
+              value: String(owner.id),
+              label,
+            };
+          }) || [],
+          context: {
+            nextAfter: paging?.next?.after,
+          },
+        };
+      },
+    },
+    blogId: {
+      type: "string",
+      label: "Content Group ID (Blog ID)",
+      description: "The ID of the blog (content group) this post belongs to",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.getBlogs({
+          params: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    blogAuthorId: {
+      type: "string",
+      label: "Blog Author ID",
+      description: "The ID of the blog post author",
+      async options({ prevContext }) {
+        const { nextAfter } = prevContext;
+        const {
+          results, paging,
+        } = await this.getBlogPostAuthors({
+          params: {
+            after: nextAfter,
+          },
+        });
+        return {
+          options: results?.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })) || [],
+          context: {
+            nextAfter: paging?.next.after,
+          },
+        };
+      },
+    },
+    type: {
+      type: "string",
+      label: "Type",
+      description: "The type of workflow to create",
+      options: [
+        {
+          label: "Drip Delay",
+          value: "DRIP_DELAY",
+        },
+        {
+          label: "Static Anchor",
+          value: "STATIC_ANCHOR",
+        },
+        {
+          label: "Property Anchor",
+          value: "PROPERTY_ANCHOR",
+        },
+      ],
+    },
+    actions: {
+      type: "string[]",
+      label: "Actions",
+      description: "A list of objects representing the workflow actions. [See the documentation](https://developers.hubspot.com/docs/api-reference/automation-automation-v4-v4/guide#action-types) for more information.",
+      optional: true,
+    },
+    organizerUserId: {
+      type: "string",
+      label: "Organizer User ID",
+      description: "HubSpot User ID of the meeting organizer. This is the user-level `userId` returned by the Owners API (not the Owner `id`). Run **List Owners** to discover it.",
+    },
+    meetingLinkSlug: {
+      type: "string",
+      label: "Meeting Link Slug",
+      description: "The meeting scheduling page slug (e.g. `jane-doe/15min`). Run **List Meeting Links** to discover available slugs.",
+    },
+    meetingTimezone: {
+      type: "string",
+      label: "Timezone",
+      description: "IANA timezone identifier used to evaluate availability and bookings.",
+      default: "UTC",
+      options: TIMEZONE_OPTIONS,
     },
   },
   methods: {
@@ -222,21 +1049,41 @@ export default {
         "Content-Type": "application/json",
       };
     },
-    async makeRequest(api, endpoint, opts = {}) {
-      const {
-        method = "GET",
-        params,
-        data,
-        $,
-      } = opts;
-      const config = {
-        method,
+    // Recursively trim string values in accordance with Hubspot's validation rules
+    // https://developers.hubspot.com/changelog/breaking-change-enhanced-validations-for-non-string-properties-in-hubspots-crmobject-apis
+    trimStringValues(obj) {
+      if (typeof obj === "string") {
+        return obj.trim();
+      } else if (Array.isArray(obj)) {
+        return obj.map(this.trimStringValues);
+      } else if (obj !== null && typeof obj === "object") {
+        return Object.fromEntries(
+          Object.entries(obj).map(([
+            key,
+            value,
+          ]) => [
+            key,
+            this.trimStringValues(value),
+          ]),
+        );
+      }
+      return obj;
+    },
+    makeRequest({
+      $ = this,
+      api,
+      endpoint,
+      data,
+      params,
+      ...otherOpts
+    }) {
+      return axiosRateLimiter($, {
         url: `${BASE_URL}${api}${endpoint}`,
         headers: this._getHeaders(),
-        params,
-        data,
-      };
-      return axios($ ?? this, config);
+        data: data && this.trimStringValues(data),
+        params: params && this.trimStringValues(params),
+        ...otherOpts,
+      });
     },
     getObjectTypeName(objectType) {
       if (!objectType.endsWith("s")) {
@@ -290,249 +1137,6 @@ export default {
         return id;
       }
     },
-    async searchCRM({
-      object, ...data
-    }, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/objects/${object}/search`, {
-        method: "POST",
-        data,
-        $,
-      });
-    },
-    async getBlogPosts(params, $) {
-      return this.makeRequest(API_PATH.CMS, "/blogs/posts", {
-        params,
-        $,
-      });
-    },
-    async getCalendarTasks(endDate, $) {
-      const params = {
-        startDate: Date.now(),
-        endDate,
-      };
-      return this.makeRequest(API_PATH.CALENDAR, "/events/task", {
-        params,
-        $,
-      });
-    },
-    async getContactProperties($) {
-      return this.makeRequest(API_PATH.PROPERTIES, "/contacts/properties", {
-        $,
-      });
-    },
-    async createPropertiesArray($) {
-      const allProperties = await this.getContactProperties($);
-      return allProperties.map((property) => property.name);
-    },
-    async getDealProperties($) {
-      return this.makeRequest(API_PATH.PROPERTIES, "/deals/properties", {
-        $,
-      });
-    },
-    async getDealStages(pipelineId, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/pipelines/deal/${pipelineId}/stages`, {
-        $,
-      });
-    },
-    async getEmailEvents(params, $) {
-      return this.makeRequest(API_PATH.EMAIL, "/events", {
-        params,
-        $,
-      });
-    },
-    async getEngagements(params, $) {
-      return this.makeRequest(
-        API_PATH.ENGAGEMENTS,
-        "/engagements/paged",
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getEvents(params, $) {
-      return this.makeRequest(API_PATH.EVENTS, "/events", {
-        params,
-        $,
-      });
-    },
-    async getForms(params, $) {
-      return this.makeRequest(API_PATH.FORMS, "/forms", {
-        params,
-        $,
-      });
-    },
-    async getFormSubmissions({
-      formId, ...params
-    }, $) {
-      return this.makeRequest(
-        API_PATH.FORM_INTEGRATIONS,
-        `/submissions/forms/${formId}`,
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getLists(params, $) {
-      const {
-        listType,
-        ...otherParams
-      } = params;
-      const basePath = "/lists";
-      const path = listType
-        ? `${basePath}/${listType}`
-        : basePath;
-      return this.makeRequest(API_PATH.CONTACTS, path, {
-        params: otherParams,
-        $,
-      });
-    },
-    async getListContacts(params, listId, $) {
-      return this.makeRequest(
-        API_PATH.CONTACTS,
-        `/lists/${listId}/contacts/all`,
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getOwners(params, $) {
-      return this.makeRequest(API_PATH.CRMV3, "/owners", {
-        params,
-        $,
-      });
-    },
-    async listObjectsInPage(objectType, after, params, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/objects/${objectType}`, {
-        params: {
-          after,
-          ...params,
-        },
-        $,
-      });
-    },
-    async getObjects(objectType, $) {
-      const params = {
-        limit: 100,
-      };
-      let results = null;
-      const objects = [];
-      while (!results || params.next) {
-        results = await this.makeRequest(
-          API_PATH.CRMV3,
-          `/objects/${objectType}`,
-          {
-            params,
-            $,
-          },
-        );
-        params.next = results.paging?.next?.after;
-        for (const result of results.results) {
-          objects.push(result);
-        }
-      }
-      return objects;
-    },
-    async getContact(contactId, properties, $) {
-      const params = {
-        properties,
-      };
-      return this.makeRequest(
-        API_PATH.CRMV3,
-        `/objects/contacts/${contactId}`,
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getObject(objectType, objectId, properties, $) {
-      const params = {
-        properties: properties?.join(","),
-      };
-
-      return this.makeRequest(
-        API_PATH.CRMV3,
-        `/objects/${objectType}/${objectId}`,
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getLineItem(lineItemId, $) {
-      return this.makeRequest(
-        API_PATH.CRMV3,
-        `/objects/line_items/${lineItemId}`,
-        {
-          $,
-        },
-      );
-    },
-    async getPublishingChannels($) {
-      return this.makeRequest(
-        API_PATH.BROADCAST,
-        "/channels/setting/publish/current",
-        {
-          $,
-        },
-      );
-    },
-    async getBroadcastMessages(params, $) {
-      return this.makeRequest(
-        API_PATH.BROADCAST,
-        "/broadcasts",
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getEmailSubscriptionsTimeline(params, $) {
-      return this.makeRequest(
-        API_PATH.EMAIL,
-        "/subscriptions/timeline",
-        {
-          params,
-          $,
-        },
-      );
-    },
-    async getPipelines(objectType, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/pipelines/${objectType}`, {
-        $,
-      });
-    },
-    async createObject(objectType, properties, $) {
-      return this.makeRequest(
-        API_PATH.CRMV3,
-        `/objects/${objectType}`,
-        {
-          method: "POST",
-          data: {
-            properties,
-          },
-          $,
-        },
-      );
-    },
-    async getPropertyGroups(objectType, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/properties/${objectType}/groups`, {
-        $,
-      });
-    },
-    async getProperties(objectType, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/properties/${objectType}`, {
-        $,
-      });
-    },
-    async getSchema(objectType, $) {
-      return this.makeRequest(API_PATH.CRMV3, `/schemas/${objectType}`, {
-        $,
-      });
-    },
     /**
      * Returns a list of prop options for a CRM object type
      *
@@ -546,6 +1150,7 @@ export default {
       const {
         prevContext,
         page,
+        query,
       } = opts;
       const { nextAfter } = prevContext;
       if (page !== 0 && !nextAfter) {
@@ -554,7 +1159,13 @@ export default {
       const {
         paging,
         results,
-      } = await this.listObjectsInPage(referencedObjectType, nextAfter);
+      } = await this.searchCRM({
+        object: referencedObjectType,
+        data: {
+          query,
+          after: nextAfter,
+        },
+      });
       return {
         options: results.map((object) => ({
           label: this.getObjectLabel(object, referencedObjectType) ?? object.id,
@@ -565,107 +1176,1199 @@ export default {
         },
       };
     },
-    async getCompaniesOptions(opts) {
+    getCompaniesOptions(opts) {
       return this.createOptions(OBJECT_TYPE.COMPANY, opts);
     },
-    async getContactsOptions(opts) {
+    getContactsOptions(opts) {
       return this.createOptions(OBJECT_TYPE.CONTACT, opts);
     },
-    async getLineItemsOptions(opts) {
+    getLineItemsOptions(opts) {
       return this.createOptions(OBJECT_TYPE.LINE_ITEM, opts);
     },
-    async getTicketsOptions(opts) {
+    getTicketsOptions(opts) {
       return this.createOptions(OBJECT_TYPE.TICKET, opts);
     },
-    async getQuotesOptions(opts) {
+    getQuotesOptions(opts) {
       return this.createOptions(OBJECT_TYPE.QUOTE, opts);
     },
-    async getCallsOptions(opts) {
+    getCallsOptions(opts) {
       return this.createOptions(OBJECT_TYPE.CALL, opts);
     },
-    async getTasksOptions(opts) {
+    getTasksOptions(opts) {
       return this.createOptions(OBJECT_TYPE.TASK, opts);
     },
-    async getNotesOptions(opts) {
+    getNotesOptions(opts) {
       return this.createOptions(OBJECT_TYPE.NOTE, opts);
     },
-    async getMeetingsOptions(opts) {
+    getMeetingsOptions(opts) {
       return this.createOptions(OBJECT_TYPE.MEETING, opts);
     },
-    async getEmailsOptions(opts) {
+    getEmailsOptions(opts) {
       return this.createOptions(OBJECT_TYPE.EMAIL, opts);
     },
     async getOwnersOptions(params) {
-      const { results } = await this.getOwners(params);
+      const { results } = await this.getOwners({
+        params,
+      });
       return results.map((object) => ({
         label: object.email,
         value: object.id,
       }));
     },
-    async searchFiles(params, $) {
-      return this.makeRequest(API_PATH.FILES, "/files/search", {
+    async getPipelinesOptions(objectType) {
+      const { results } = await this.getPipelines({
+        objectType,
+      });
+      return results?.map((pipeline) => ({
+        label: pipeline.label,
+        value: pipeline.id,
+      })) || [];
+    },
+    async getPipelineStagesOptions(objectType, pipelineId) {
+      if (!pipelineId) {
+        return [];
+      }
+      const { stages } = await this.getPipeline({
+        objectType,
+        pipelineId,
+      });
+      return stages?.map((stage) => ({
+        label: stage.label,
+        value: stage.id,
+      })) || [];
+    },
+    async getBusinessUnitOptions() {
+      const { results } = await this.getBusinessUnits();
+      return results?.map((unit) => ({
+        label: unit.name,
+        value: unit.id,
+      })) || [];
+    },
+    async searchCRM({
+      object, version, ...opts
+    }) {
+      // When `version` is set, target the date-versioned CRM objects API
+      // (e.g. /crm/2026-03/objects/{type}/search); otherwise keep the default
+      // /crm/v3 path so existing callers are unaffected.
+      const api = version
+        ? `/crm/${version}`
+        : API_PATH.CRMV3;
+      // Adding retry logic here since the search endpoint specifically has a per-second rate limit
+      const MAX_RETRIES = 5;
+      const BASE_RETRY_DELAY = 500;
+      let success = false;
+      let retries = 0;
+      while (!success) {
+        try {
+          const response = await this.makeRequest({
+            api,
+            method: "POST",
+            endpoint: `/objects/${object}/search`,
+            ...opts,
+          });
+          return response;
+        } catch (error) {
+          if (error.status === 429 && ++retries < MAX_RETRIES) {
+            // Retry delays basically amount to:
+            // 1000-1500 ms, 2000-2500 ms, 4000-4500 ms, 8000-8500 ms
+            const randomDelay = Math.floor(Math.random() * BASE_RETRY_DELAY);
+            const delay = BASE_RETRY_DELAY * (2 ** retries) + randomDelay;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            throw error;
+          }
+        }
+      }
+    },
+    enrollContactInSequence({
+      userId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.AUTOMATIONV4,
+        method: "POST",
+        endpoint: "/sequences/enrollments",
+        ...opts,
+        params: {
+          userId,
+          ...opts.params,
+        },
+      });
+    },
+    getSequenceEnrollment({
+      contactId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.AUTOMATIONV4,
+        endpoint: `/sequences/enrollments/contact/${contactId}`,
+        ...opts,
+      });
+    },
+    getBlogPosts(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/blogs/posts",
+        ...opts,
+      });
+    },
+    getBlogPost({
+      objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: `/blogs/posts/${objectId}`,
+        ...opts,
+      });
+    },
+    getBlogs(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/blog-settings/settings",
+        ...opts,
+      });
+    },
+    getBlogPostAuthors(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/blogs/authors",
+        ...opts,
+      });
+    },
+    createBlogPost(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        method: "POST",
+        endpoint: "/blogs/posts",
+        ...opts,
+      });
+    },
+    updateBlogPost({
+      objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        method: "PATCH",
+        endpoint: `/blogs/posts/${objectId}`,
+        ...opts,
+      });
+    },
+    getBlogPostDraft({
+      objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: `/blogs/posts/${objectId}/draft`,
+        ...opts,
+      });
+    },
+    updateBlogPostDraft({
+      objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        method: "PATCH",
+        endpoint: `/blogs/posts/${objectId}/draft`,
+        ...opts,
+      });
+    },
+    pushBlogPostDraftLive({
+      objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        method: "POST",
+        endpoint: `/blogs/posts/${objectId}/draft/push-live`,
+        ...opts,
+      });
+    },
+    scheduleBlogPost(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        method: "POST",
+        endpoint: "/blogs/posts/schedule",
+        ...opts,
+      });
+    },
+    getContactProperties(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.PROPERTIES,
+        endpoint: "/contacts/properties",
+        ...opts,
+      });
+    },
+    getDealProperties(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.PROPERTIES,
+        endpoint: "/deals/properties",
+        ...opts,
+      });
+    },
+    getDealStages({
+      pipelineId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/pipelines/deal/${pipelineId}/stages`,
+        ...opts,
+      });
+    },
+    async getTicketStages({ pipelineId }) {
+      const { results: pipelines } = await this.getPipelines({
+        objectType: "ticket",
+      });
+      const { stages } = pipelines.find(({ id }) => id == pipelineId);
+      return stages;
+    },
+    getEmailEvents(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.EMAIL,
+        endpoint: "/events",
+        ...opts,
+      });
+    },
+    getEngagements(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.ENGAGEMENTS,
+        endpoint: "/engagements/paged",
+        ...opts,
+      });
+    },
+    getEvents(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.EVENTS,
+        endpoint: "/events",
+        ...opts,
+      });
+    },
+    getFormDefinition({
+      formId, ...opts
+    } = {}) {
+      return this.makeRequest({
+        api: API_PATH.MARKETINGV3,
+        endpoint: `/forms/${formId}`,
+        ...opts,
+      });
+    },
+    getForms(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.FORMS,
+        endpoint: "/forms",
+        ...opts,
+      });
+    },
+    getFormSubmissions({
+      formId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.FORM_INTEGRATIONS,
+        endpoint: `/submissions/forms/${formId}`,
+        ...opts,
+      });
+    },
+    searchLists(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/lists/search",
+        method: "POST",
+        ...opts,
+      });
+    },
+    getListContacts({
+      listId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/lists/${listId}/memberships`,
+        ...opts,
+      });
+    },
+    getOwners(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/owners",
+        ...opts,
+      });
+    },
+    /**
+     * Get a single CRM owner by ID.
+     * @param {string} ownerId - HubSpot owner ID
+     * @param {object} opts - Additional request options (include `$` for Pipedream)
+     * @returns {Promise<object>} Owner record
+     */
+    getOwner({
+      ownerId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/owners/${ownerId}`,
+        ...opts,
+      });
+    },
+    listObjectsInPage(objectType, after, params, $) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/${objectType}`,
+        params: {
+          after,
+          ...params,
+        },
+        $,
+      });
+    },
+    getContact({
+      contactId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/contacts/${contactId}`,
+        ...opts,
+      });
+    },
+    getObject(objectType, objectId, properties, $) {
+      const params = {
+        properties: properties?.join(","),
+      };
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/${objectType}/${objectId}`,
         params,
         $,
       });
     },
-    async getSignedUrl(fileId, params, $) {
-      return this.makeRequest(API_PATH.FILES, `/files/${fileId}/signed-url`, {
+    getLineItem({
+      lineItemId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/line_items/${lineItemId}`,
+        ...opts,
+      });
+    },
+    getPublishingChannels(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.BROADCAST,
+        endpoint: "/channels/setting/publish/current",
+        ...opts,
+      });
+    },
+    getBroadcastMessages(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.BROADCAST,
+        endpoint: "/broadcasts",
+        ...opts,
+      });
+    },
+    getEmailSubscriptionsTimeline(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.EMAIL,
+        endpoint: "/subscriptions/timeline",
+        ...opts,
+      });
+    },
+    getBusinessUnits(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.BUSINESS_UNITS,
+        endpoint: `/business-units/user/${this.$auth.oauth_uid}`,
+        ...opts,
+      });
+    },
+    getPipeline({
+      objectType, pipelineId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/pipelines/${objectType}/${pipelineId}`,
+        ...opts,
+      });
+    },
+    getPipelines({
+      objectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/pipelines/${objectType}`,
+        ...opts,
+      });
+    },
+    createObject({
+      objectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/${objectType}`,
+        method: "POST",
+        ...opts,
+      });
+    },
+    updateObject({
+      objectType, objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/${objectType}/${objectId}`,
+        method: "PATCH",
+        ...opts,
+      });
+    },
+    getPropertyGroups({
+      objectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/properties/${objectType}/groups`,
+        ...opts,
+      });
+    },
+    getProperties({
+      objectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/properties/${objectType}`,
+        ...opts,
+      });
+    },
+    listSchemas(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/schemas",
+        ...opts,
+      });
+    },
+    getSchema({
+      objectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/schemas/${objectType}`,
+        ...opts,
+      });
+    },
+    searchFiles(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.FILES,
+        endpoint: "/files/search",
+        ...opts,
+      });
+    },
+    getSignedUrl({
+      fileId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.FILES,
+        endpoint: `/files/${fileId}/signed-url`,
+        ...opts,
+      });
+    },
+    addContactsToList({
+      listId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/lists/${listId}/memberships/add`,
+        method: "PUT",
+        ...opts,
+      });
+    },
+    getAssociationTypes({
+      fromObjectType, toObjectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV4,
+        endpoint: `/associations/${fromObjectType}/${toObjectType}/labels`,
+        ...opts,
+      });
+    },
+    createAssociation({
+      fromObjectType, toObjectType, fromId, toId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV4,
+        endpoint: `/objects/${fromObjectType}/${fromId}/associations/${toObjectType}/${toId}`,
+        ...opts,
+      });
+    },
+    createAssociations({
+      fromObjectType, toObjectType, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV4,
+        endpoint: `/associations/${fromObjectType}/${toObjectType}/batch/create`,
+        method: "POST",
+        ...opts,
+      });
+    },
+    listWorkflows(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH["AUTOMATIONV3"],
+        endpoint: "/workflows",
+        ...opts,
+      });
+    },
+    addContactsIntoWorkflow({
+      workflowId, contactEmail, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.AUTOMATION,
+        endpoint: `/workflows/${workflowId}/enrollments/contacts/${contactEmail}`,
+        method: "POST",
+        ...opts,
+      });
+    },
+    getWorkflowEmails(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.AUTOMATIONV4,
+        endpoint: "/flows/email-campaigns",
+        ...opts,
+      });
+    },
+    getWorkflowDetails({
+      workflowId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.AUTOMATIONV3,
+        endpoint: `/workflows/${workflowId}`,
+        ...opts,
+      });
+    },
+    createWorkflow(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.AUTOMATIONV3,
+        endpoint: "/workflows",
+        ...opts,
+      });
+    },
+    deleteWorkflow({
+      workflowId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "DELETE",
+        api: API_PATH.AUTOMATIONV3,
+        endpoint: `/workflows/${workflowId}`,
+        ...opts,
+      });
+    },
+    getMigratedWorkflowMappings(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.AUTOMATIONV4,
+        endpoint: "/workflow-id-mappings/batch/read",
+        method: "POST",
+        ...opts,
+      });
+    },
+    batchCreateContacts(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/contacts/batch/create",
+        method: "POST",
+        ...opts,
+      });
+    },
+    batchUpdateContacts(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/contacts/batch/update",
+        method: "POST",
+        ...opts,
+      });
+    },
+    getDeal({
+      dealId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.DEAL,
+        endpoint: `/deal/${dealId}`,
+        ...opts,
+      });
+    },
+    getMemberships({
+      objectType, objectId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/lists/records/${objectType}/${objectId}/memberships`,
+        ...opts,
+      });
+    },
+    translateLegacyListId(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/lists/idmapping",
+        ...opts,
+      });
+    },
+    async getListMembershipsByJoinOrder({
+      listId, ...opts
+    }) {
+      const MAX_RETRIES = 5;
+      const BASE_RETRY_DELAY = 500;
+      let success = false;
+      let retries = 0;
+      while (!success) {
+        try {
+          const response = await this.makeRequest({
+            api: API_PATH.CRMV3,
+            endpoint: `/lists/${listId}/memberships/join-order`,
+            ...opts,
+          });
+          return response;
+        } catch (error) {
+          if (error.status === 429 && ++retries < MAX_RETRIES) {
+            const randomDelay = Math.floor(Math.random() * BASE_RETRY_DELAY);
+            const delay = BASE_RETRY_DELAY * (2 ** retries) + randomDelay;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            throw error;
+          }
+        }
+      }
+    },
+    async batchGetObjects({
+      objectType, ...opts
+    }) {
+      const MAX_RETRIES = 5;
+      const BASE_RETRY_DELAY = 500;
+      let success = false;
+      let retries = 0;
+      while (!success) {
+        try {
+          const response = await this.makeRequest({
+            api: API_PATH.CRMV3,
+            endpoint: `/objects/${objectType}/batch/read`,
+            method: "POST",
+            ...opts,
+          });
+          return response;
+        } catch (error) {
+          if (error.status === 429 && ++retries < MAX_RETRIES) {
+            const randomDelay = Math.floor(Math.random() * BASE_RETRY_DELAY);
+            const delay = BASE_RETRY_DELAY * (2 ** retries) + randomDelay;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            throw error;
+          }
+        }
+      }
+    },
+    listNotes(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/notes",
+        ...opts,
+      });
+    },
+    listTasks(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/tasks",
+        ...opts,
+      });
+    },
+    getAssociations({
+      objectType, objectId, toObjectType, ...opts
+    } = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV4,
+        endpoint: `/objects/${objectType}/${objectId}/associations/${toObjectType}`,
+        ...opts,
+      });
+    },
+    /**
+     * List quotes or fetch one quote (CRM v3 quotes object API).
+     * @param {object} opts
+     * @param {string} [opts.quoteId] - When set, returns a single quote by ID
+     * @param {string} [opts.after] - Pagination cursor for list requests
+     * @param {number} [opts.limit] - Max records per page when listing
+     * @param {string[]} [opts.properties] - Property names to return
+     * @returns {Promise<object>} Single quote or paged list response
+     */
+    listQuotes({
+      quoteId, after, limit, properties, ...opts
+    } = {}) {
+      const params = {};
+      if (properties?.length) {
+        params.properties = properties.join(",");
+      }
+      if (quoteId) {
+        return this.makeRequest({
+          api: API_PATH.CRMV3,
+          endpoint: `/objects/quotes/${quoteId}`,
+          params,
+          ...opts,
+        });
+      }
+      if (after) {
+        params.after = after;
+      }
+      if (limit != null) {
+        params.limit = limit;
+      }
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/quotes",
         params,
-        $,
+        ...opts,
       });
     },
-    async addContactsToList(listId, emails, $) {
-      return this.makeRequest(
-        API_PATH.CONTACTS,
-        `/lists/${listId}/add`,
-        {
-          method: "POST",
-          data: {
-            emails,
-          },
-          $,
+    /**
+     * Legacy Engagements API: paged engagements associated with a CRM record.
+     * Supported CRM object types: company, deal, quote (HubSpot v1 path segment).
+     * @param {string} objectType - `company`, `deal`, or `quote`
+     * @param {string} objectId - CRM object ID
+     * @param {number|string} [offset] - Pagination offset (default 0)
+     * @returns {Promise<object>} Paged engagement results
+     */
+    getAssociatedEngagementsPaged({
+      objectType, objectId, offset, ...opts
+    } = {}) {
+      return this.makeRequest({
+        api: API_PATH.ENGAGEMENTS,
+        endpoint: `/engagements/associated/${objectType}/${objectId}/paged`,
+        params: {
+          offset: offset ?? 0,
         },
-      );
-    },
-    async getAssociationTypes(fromObjectType, toObjectType, $) {
-      return this.makeRequest(API_PATH.CRMV4, `/associations/${fromObjectType}/${toObjectType}/labels`, {
-        $,
+        ...opts,
       });
     },
-    async createAssociation(fromObjectType, toObjectType, fromId, toId, $) {
-      return this.makeRequest(
-        API_PATH.CRMV4,
-        `/objects/${fromObjectType}/${fromId}/associations/${toObjectType}/${toId}`,
-        {
-          $,
-        },
-      );
+    /**
+     * Get meeting by ID
+     * @param {string} meetingId - The ID of the meeting to retrieve
+     * @param {object} opts - Additional options to pass to the request
+     * @returns {Promise<object>} The meeting object
+     */
+    getMeeting({
+      meetingId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/meetings/${meetingId}`,
+        ...opts,
+      });
     },
-    async createAssociations(fromObjectType, toObjectType, fromId, toIds, associationTypeId, $) {
-      return this.makeRequest(
-        API_PATH.CRMV4,
-        `/associations/${fromObjectType}/${toObjectType}/batch/create`,
-        {
-          method: "POST",
-          data: {
-            inputs: toIds.map((toId) => ({
-              from: {
-                id: fromId,
-              },
-              to: {
-                id: toId,
-              },
-              types: [
-                {
-                  associationCategory: ASSOCIATION_CATEGORY.HUBSPOT_DEFINED,
-                  associationTypeId: associationTypeId,
-                },
-              ],
-            })),
-          },
-          $,
+    /**
+     * Create a new meeting
+     * @param {object} opts - The meeting data and request options
+     * @returns {Promise<object>} The created meeting object
+     */
+    createMeeting(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/meetings",
+        method: "POST",
+        ...opts,
+      });
+    },
+    /**
+     * Search meetings using a filter
+     * @param {object} opts - Search parameters and request options
+     * @returns {Promise<object>} Search results
+     */
+    searchMeetings(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: "/objects/meetings/search",
+        method: "POST",
+        ...opts,
+      });
+    },
+    /**
+     * List meeting scheduling pages (meeting links) for an organizer.
+     * @param {object} opts - Request options. Pass filters via `params`
+     * (e.g. `organizerUserId`, `name`, `type`, `limit`).
+     * @returns {Promise<object>} `{ total, results }`
+     */
+    listMeetingLinks(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.SCHEDULER,
+        endpoint: "/meetings/meeting-links",
+        ...opts,
+      });
+    },
+    /**
+     * Get the booking configuration and availability for a meeting link.
+     * @param {string} slug - The meeting scheduling page slug.
+     * @param {object} opts - Additional request options. Pass `timezone`
+     * (required) and optional `monthOffset` via `params`.
+     * @returns {Promise<object>} Booking configuration and availability.
+     */
+    getMeetingLinkBookingInfo({
+      slug, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.SCHEDULER,
+        endpoint: `/meetings/meeting-links/book/${slug}`,
+        ...opts,
+      });
+    },
+    /**
+     * Get just the availability page (slots + busy times) for a meeting link.
+     * @param {string} slug - The meeting scheduling page slug.
+     * @param {object} opts - Additional request options. Pass `timezone`
+     * (required) via `params`.
+     * @returns {Promise<object>} Availability page response.
+     */
+    getMeetingLinkAvailability({
+      slug, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.SCHEDULER,
+        endpoint: `/meetings/meeting-links/book/availability-page/${slug}`,
+        ...opts,
+      });
+    },
+    /**
+     * Book a meeting on a scheduling page.
+     * @param {object} opts - Request options. Pass `timezone` via `params` and
+     * the booking payload via `data`.
+     * @returns {Promise<object>} Booking response (`calendarEventId`, `start`,
+     * `duration`, `contactId`, etc.).
+     */
+    bookMeetingLink(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.SCHEDULER,
+        endpoint: "/meetings/meeting-links/book",
+        method: "POST",
+        ...opts,
+      });
+    },
+    listPages(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/pages/site-pages",
+        ...opts,
+      });
+    },
+    listTemplates(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CONTENT,
+        endpoint: "/templates",
+        ...opts,
+      });
+    },
+    listCampaigns(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/campaigns",
+        ...opts,
+      });
+    },
+    listMarketingEmails(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/emails",
+        ...opts,
+      });
+    },
+    listMarketingEvents(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/marketing-events/",
+        ...opts,
+      });
+    },
+    listMarketingForms(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/forms",
+        ...opts,
+      });
+    },
+    getSubscriptionPreferences({
+      email, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.COMMUNICATION_PREFERENCES,
+        endpoint: `/statuses/${email}`,
+        ...opts,
+      });
+    },
+    createForm(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/forms",
+        ...opts,
+      });
+    },
+    updateForm({
+      formId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "PATCH",
+        api: API_PATH.MARKETINGV3,
+        endpoint: `/forms/${formId}`,
+        ...opts,
+      });
+    },
+    listForms(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/forms",
+        ...opts,
+      });
+    },
+    listSitePages(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/pages/site-pages",
+        ...opts,
+      });
+    },
+    listLandingPages(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/pages/landing-pages",
+        ...opts,
+      });
+    },
+    cloneSitePage(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.CMS,
+        endpoint: "/pages/site-pages/clone",
+        ...opts,
+      });
+    },
+    createPage(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.CMS,
+        endpoint: "/pages/site-pages",
+        ...opts,
+      });
+    },
+    updatePage({
+      pageId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "PATCH",
+        api: API_PATH.CMS,
+        endpoint: `/pages/site-pages/${pageId}`,
+        ...opts,
+      });
+    },
+    createLandingPage(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.CMS,
+        endpoint: "/pages/landing-pages",
+        ...opts,
+      });
+    },
+    updateLandingPage({
+      pageId, ...opts
+    }) {
+      return this.makeRequest({
+        method: "PATCH",
+        api: API_PATH.CMS,
+        endpoint: `/pages/landing-pages/${pageId}`,
+        ...opts,
+      });
+    },
+    listLandingFolders(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CMS,
+        endpoint: "/pages/landing-pages/folders",
+        ...opts,
+      });
+    },
+    createEmail(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/emails",
+        ...opts,
+      });
+    },
+    cloneEmail(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.MARKETINGV3,
+        endpoint: "/emails/clone",
+        ...opts,
+      });
+    },
+    createContactWorkflow(opts = {}) {
+      return this.makeRequest({
+        method: "POST",
+        api: API_PATH.AUTOMATIONV4,
+        endpoint: "/flows",
+        ...opts,
+      });
+    },
+    async getContactWithAllProperties({
+      contactId, ...opts
+    }) {
+      const properties = await this.getContactProperties();
+      const allPropertyNames = properties.map((prop) => prop.name);
+
+      return this.makeRequest({
+        api: API_PATH.CRMV3,
+        endpoint: `/objects/contacts/${contactId}`,
+        params: {
+          properties: allPropertyNames.join(","),
         },
-      );
+        ...opts,
+      });
+    },
+    async batchGetContactsWithAllProperties({
+      contactIds, ...opts
+    }) {
+      const properties = await this.getContactProperties();
+      const allPropertyNames = properties.map((prop) => prop.name);
+
+      return this.batchGetObjects({
+        objectType: "contacts",
+        data: {
+          inputs: contactIds.map((id) => ({
+            id,
+          })),
+          properties: allPropertyNames,
+        },
+        ...opts,
+      });
+    },
+    getInbox({
+      inboxId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/inboxes/${inboxId}`,
+        ...opts,
+      });
+    },
+    getChannel({
+      channelId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/channels/${channelId}`,
+        ...opts,
+      });
+    },
+    listInboxes(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: "/conversations/inboxes",
+        ...opts,
+      });
+    },
+    listChannels(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: "/conversations/channels",
+        ...opts,
+      });
+    },
+    listThreads(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: "/conversations/threads",
+        ...opts,
+      });
+    },
+    listMessages({
+      threadId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/threads/${threadId}/messages`,
+        ...opts,
+      });
+    },
+    listChannelAccounts(opts = {}) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: "/conversations/channel-accounts",
+        ...opts,
+      });
+    },
+    createMessage({
+      threadId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/threads/${threadId}/messages`,
+        method: "POST",
+        ...opts,
+      });
+    },
+    /**
+     * Get a Conversations thread by ID.
+     * @param {string} threadId - The thread ID
+     * @param {object} opts - Additional request options (include `$` for Pipedream)
+     * @returns {Promise<object>} Thread record
+     */
+    getThread({
+      threadId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/threads/${threadId}`,
+        ...opts,
+      });
+    },
+    /**
+     * Update a Conversations thread via PATCH. Used for status updates and
+     * for restoring archived threads (with `params.archived=true` and
+     * `data.archived=false`).
+     * @param {string} threadId - The thread ID
+     * @param {object} opts - Additional request options (include `$`, `data`,
+     * and optional `params`)
+     * @returns {Promise<object>} Updated thread record
+     */
+    updateThread({
+      threadId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/threads/${threadId}`,
+        method: "PATCH",
+        ...opts,
+      });
+    },
+    /**
+     * Get a Conversations actor by fully-qualified actor ID.
+     * @param {string} actorId - Fully-qualified actor ID (e.g. `A-12345`)
+     * @param {object} opts - Additional request options (include `$` for Pipedream)
+     * @returns {Promise<object>} Actor record with name, email, and type
+     */
+    getActor({
+      actorId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/actors/${actorId}`,
+        ...opts,
+      });
+    },
+    /**
+     * Archive (soft-delete) a Conversations thread. Reversible via
+     * {@link updateThread} with `params.archived=true` and `data.archived=false`.
+     * @param {string} threadId - The thread ID
+     * @param {object} opts - Additional request options (include `$` for Pipedream)
+     * @returns {Promise<void>} Empty response on success
+     */
+    archiveThread({
+      threadId, ...opts
+    }) {
+      return this.makeRequest({
+        api: API_PATH.CONVERSATIONS,
+        endpoint: `/conversations/threads/${threadId}`,
+        method: "DELETE",
+        ...opts,
+      });
+    },
+    /**
+     * Normalize a Conversations actor ID by prepending `A-` when no type prefix
+     * is present, so a bare HubSpot owner ID becomes a fully-qualified actor ID.
+     * @param {string} actorId - Raw or prefixed actor ID
+     * @returns {string} Fully-qualified actor ID
+     */
+    normalizeActorId(actorId) {
+      return /^[A-Z]-/.test(actorId)
+        ? actorId
+        : `A-${actorId}`;
     },
   },
 };

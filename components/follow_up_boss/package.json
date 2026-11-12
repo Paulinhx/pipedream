@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/follow_up_boss",
+  "version": "0.0.3",
+  "description": "Pipedream Follow Up Boss Components",
+  "main": "follow_up_boss.app.mjs",
+  "keywords": [
+    "pipedream",
+    "follow_up_boss"
+  ],
+  "homepage": "https://pipedream.com/apps/follow_up_boss",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

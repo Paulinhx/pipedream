@@ -1,28 +1,23 @@
-import clickup from "../../clickup.app.mjs";
-import common from "../common/common.mjs";
+import common from "../common/task-props.mjs";
 
 export default {
+  ...common,
   key: "clickup-delete-task",
   name: "Delete Task",
-  description: "Delete a task. See the docs [here](https://clickup.com/api) in **Tasks  / Delete Task** section.",
-  version: "0.0.1",
+  description: "Delete a task. [See the documentation](https://clickup.com/api) in **Tasks / Delete Task** section.",
+  version: "0.0.12",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     ...common.props,
-    spaceId: {
-      propDefinition: [
-        clickup,
-        "spaces",
-        (c) => ({
-          workspaceId: c.workspaceId,
-        }),
-      ],
-      optional: true,
-    },
     folderId: {
       propDefinition: [
-        clickup,
-        "folders",
+        common.props.clickup,
+        "folderId",
         (c) => ({
           spaceId: c.spaceId,
         }),
@@ -31,31 +26,39 @@ export default {
     },
     listId: {
       propDefinition: [
-        clickup,
-        "lists",
+        common.props.clickup,
+        "listId",
         (c) => ({
-          spaceId: c.spaceId,
           folderId: c.folderId,
+          spaceId: c.spaceId,
         }),
       ],
-      optional: true,
     },
     taskId: {
       propDefinition: [
-        clickup,
-        "tasks",
+        common.props.clickup,
+        "taskId",
         (c) => ({
           listId: c.listId,
+          useCustomTaskIds: c.useCustomTaskIds,
+          authorizedTeamId: c.authorizedTeamId,
         }),
       ],
+      description: "To show options please select a **List** first",
     },
   },
   async run({ $ }) {
     const { taskId } = this;
 
+    const params = this.clickup.getParamsForCustomTaskIdCall(
+      this.useCustomTaskIds,
+      this.authorizedTeamId,
+    );
+
     const response = await this.clickup.deleteTask({
       $,
       taskId,
+      params,
     });
 
     $.export("$summary", "Successfully deleted task");

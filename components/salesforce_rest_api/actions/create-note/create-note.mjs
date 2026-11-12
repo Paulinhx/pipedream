@@ -1,54 +1,56 @@
-import salesforce from "../../salesforce_rest_api.app.mjs";
+import common, { getProps } from "../common/base-create-update.mjs";
 import note from "../../common/sobjects/note.mjs";
-import {
-  pickBy, pick,
-} from "lodash-es";
-import { toSingleLineString } from "../../common/utils.mjs";
+import { NOTE_INFO_PROP } from "../../common/props-info.mjs";
+
+const docsLink = "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_note.htm";
+
+const props = getProps({
+  objType: note,
+  docsLink,
+});
 
 export default {
+  ...common,
   key: "salesforce_rest_api-create-note",
   name: "Create Note",
-  description: toSingleLineString(`
-    Creates a note, which is text associated with a custom object or a standard object, such as a Contact, Contract, or Opportunity.
-    See [Note SObject](https://developer.salesforce.com/docs/atlas.en-us.228.0.object_reference.meta/object_reference/sforce_api_objects_note.htm)
-    and [Create Record](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_sobject_create.htm)
-  `),
-  version: "0.2.2",
-  type: "action",
-  props: {
-    salesforce,
-    ParentId: {
-      type: "string",
-      label: "Parent ID",
-      description: "ID of the object associated with the note.",
-    },
-    Title: {
-      type: "string",
-      label: "Title",
-      description: "Title of the note.",
-    },
-    selector: {
-      propDefinition: [
-        salesforce,
-        "fieldSelector",
-      ],
-      description: `${salesforce.propDefinitions.fieldSelector.description} Note`,
-      options: () => Object.keys(note),
-      reloadProps: true,
-    },
+  description: "Create a classic Salesforce note (up to 32 KB of plain text) attached to a parent record."
+    + " Prefer **Create Content Note** on modern orgs - classic notes are legacy and do not support rich text."
+    + " Use **Find Records** to get the parent record ID first."
+    + " "
+    + `[See the documentation](${docsLink})`,
+  version: "0.3.10",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
   },
-  async additionalProps() {
-    return this.salesforce.additionalProps(this.selector, note);
+  type: "action",
+  ai: "optimized",
+  methods: {
+    ...common.methods,
+  },
+  props: {
+    noteInfo: NOTE_INFO_PROP,
+    ...props,
   },
   async run({ $ }) {
-    const data = pickBy(pick(this, [
-      "ParentId",
-      "Title",
-      ...this.selector,
-    ]));
-    const response = await this.salesforce.createNote({
+    /* eslint-disable no-unused-vars */
+    const {
+      salesforce,
+      getAdditionalFields,
+      formatDateTimeProps,
+      docsInfo,
+      noteInfo,
+      additionalFields,
+      ...data
+    } = this;
+    /* eslint-enable no-unused-vars */
+    const response = await salesforce.createRecord("Note", {
       $,
-      data,
+      data: {
+        ...data,
+        ...getAdditionalFields(),
+      },
     });
     $.export("$summary", `Successfully created note "${this.Title}"`);
     return response;

@@ -1,13 +1,299 @@
-import app from "../gorgias/gorgias.app.mjs";
+import { axios } from "@pipedream/platform";
+import constants from "./common/constants.mjs";
+import languages from "./common/languages.mjs";
+import timezones from "./common/timezones.mjs";
 
 export default {
-  ...app,
   type: "app",
   app: "gorgias_oauth",
+  propDefinitions: {
+    customerId: {
+      type: "integer",
+      label: "Customer ID",
+      description: "The ID of a customer",
+      async options({ prevContext }) {
+        const {
+          data: customers,
+          meta,
+        } = await this.listCustomers({
+          params: {
+            cursor: prevContext.nextCursor,
+          },
+        });
+        return {
+          options: customers.map((customer) => ({
+            label: customer.name ?? customer.email,
+            value: customer.id,
+          })),
+          context: {
+            nextCursor: meta.next_cursor,
+          },
+        };
+      },
+    },
+    userId: {
+      type: "integer",
+      label: "User ID",
+      description: "The ID of the user assigned to the ticket",
+      optional: true,
+      async options({ prevContext }) {
+        const {
+          data: users,
+          meta,
+        } = await this.listUsers({
+          params: {
+            cursor: prevContext.nextCursor,
+          },
+        });
+        return {
+          options: users.map((user) => ({
+            label: user.name,
+            value: user.id,
+          })),
+          context: {
+            nextCursor: meta.next_cursor,
+          },
+        };
+      },
+    },
+    ticketId: {
+      type: "integer",
+      label: "Ticket ID",
+      description: "The ID of a ticket",
+      async options({ prevContext }) {
+        const {
+          data: tickets,
+          meta,
+        } = await this.listTickets({
+          params: {
+            cursor: prevContext.nextCursor,
+          },
+        });
+        return {
+          options: tickets.map((ticket) => ({
+            label: ticket.subject,
+            value: ticket.id,
+          })),
+          context: {
+            nextCursor: meta.next_cursor,
+          },
+        };
+      },
+    },
+    macroId: {
+      type: "integer",
+      label: "Macro ID",
+      description: "The ID of a macro",
+      async options({ prevContext }) {
+        const {
+          data: macros,
+          meta,
+        } = await this.listMacros({
+          params: {
+            cursor: prevContext.nextCursor,
+          },
+        });
+        return {
+          options: macros.map((macro) => ({
+            label: macro.name,
+            value: macro.id,
+          })),
+          context: {
+            nextCursor: meta.next_cursor,
+          },
+        };
+      },
+    },
+    address: {
+      type: "string",
+      label: "Address",
+      description: "Actual address of the entry. Can be an email, facebook id, phone number, etc",
+    },
+    channel: {
+      type: "string",
+      label: "Channel",
+      description: "The channel used to send the message. Defaults to `email`",
+      optional: true,
+      default: "email",
+      options: constants.channels,
+    },
+    via: {
+      type: "string",
+      label: "Via",
+      description: "How the message has been received, or sent from Gorgias. Defaults to `help-center`",
+      optional: true,
+      default: "help-center",
+      options: constants.vias,
+    },
+    sourceType: {
+      type: "string",
+      label: "Source Type",
+      description: "How the message was sent or received. E.g. `whatsapp-message`, `email`",
+      options: constants.sourceTypes,
+      optional: true,
+    },
+    integrationId: {
+      type: "integer",
+      label: "Integration ID",
+      description: "The integration to send the message through, e.g. `123456`. Run the **List Integrations** action to get the ID. If omitted, Gorgias uses the ticket's integration",
+      optional: true,
+      min: 1,
+    },
+    bodyText: {
+      type: "string",
+      label: "Body Text",
+      description: "Plain-text version of the message, e.g. `Thanks, your order has shipped.`",
+      optional: true,
+    },
+    externalId: {
+      type: "string",
+      label: "External ID",
+      description: "ID of the customer in a foreign system. This field is not used by Gorgias",
+      optional: true,
+    },
+    language: {
+      type: "string",
+      label: "Language",
+      description: "The customer's preferred language (format: ISO_639-1)",
+      optional: true,
+      options: languages,
+    },
+    timezone: {
+      type: "string",
+      label: "Timezone",
+      description: "The customer's preferred timezone (format: IANA timezone name)",
+      optional: true,
+      options: timezones,
+    },
+    data: {
+      type: "object",
+      label: "Customer Data",
+      description: "Object containing custom data associated with the customer that will be shown in the helpdesk along with integration data",
+      optional: true,
+    },
+    limit: {
+      type: "integer",
+      label: "Limit",
+      description: "Maximum number to return",
+      optional: true,
+    },
+    assigneeTeamId: {
+      type: "integer",
+      label: "Assignee Team ID",
+      description: "The ID of the team assigned to the ticket",
+      async options({ prevContext }) {
+        const {
+          data: teams,
+          meta,
+        } = await this.listTeams({
+          params: {
+            cursor: prevContext.nextCursor,
+          },
+        });
+        return {
+          options: teams.map(({
+            id: value, name: label,
+          }) => ({
+            label,
+            value,
+          })),
+          context: {
+            nextCursor: meta.next_cursor,
+          },
+        };
+      },
+    },
+    assigneeUserId: {
+      type: "integer",
+      label: "Assignee User ID",
+      description: "The ID of the user assigned to the ticket",
+    },
+    subject: {
+      type: "string",
+      label: "Subject",
+      description: "The subject of the ticket",
+    },
+    tagId: {
+      type: "string",
+      label: "Tag ID",
+      description: "The ID of a tag",
+      optional: true,
+      async options({ prevContext: { cursor } }) {
+        if (cursor === null) {
+          return [];
+        }
+        const {
+          meta: { next_cursor: nextCursor },
+          data: tags,
+        } = await this.listTags({
+          params: {
+            cursor,
+          },
+        });
+        const options = tags.map(({
+          id: value, name: label,
+        }) => ({
+          label,
+          value,
+        }));
+        return {
+          options,
+          context: {
+            cursor: nextCursor,
+          },
+        };
+      },
+    },
+  },
   methods: {
-    ...app.methods,
+    /**
+     * List all messages for a specific ticket
+     * @param {Object} params - Parameters for the request
+     * @param {number} params.ticketId - The ID of the ticket
+     * @param {Object} params.params - Optional query parameters (cursor, limit, etc.)
+     * @returns {Promise<Object>} - Returns the list of messages and pagination info
+     */
+    listTicketMessages({
+      $, ticketId, params = {},
+    }) {
+      return this._makeRequest({
+        $,
+        path: `/tickets/${ticketId}/messages`,
+        params,
+      });
+    },
+    /**
+     * Get a specific message by ID
+     * @param {Object} params - Parameters for the request
+     * @param {number} params.ticketId - The ID of the ticket
+     * @param {number} params.messageId - The ID of the message to retrieve
+     * @returns {Promise<Object>} - Returns the message details
+     */
+    getTicketMessage({
+      $, ticketId, messageId,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `/tickets/${ticketId}/messages/${messageId}`,
+      });
+    },
+    /**
+     * List all messages
+     * @param {Object} params - Parameters for the request
+     * @param {Object} params.params - Optional query parameters (cursor, limit, etc.)
+     * @returns {Promise<Object>} - Returns the list of messages and pagination info
+     */
+    listMessages({
+      $, params = {},
+    }) {
+      return this._makeRequest({
+        $,
+        path: "/messages",
+        params,
+      });
+    },
     _defaultConfig({
-      path, method = "get", params = {}, data = undefined,
+      path, method = "get", params = {}, data,
     }) {
       const config = {
         url: `https://${this.$auth.domain}.gorgias.com/api/${path}`,
@@ -20,6 +306,378 @@ export default {
         data,
       };
       return config;
+    },
+    async _makeRequest({
+      $, path, method, params, data,
+    }) {
+      try {
+        const config = this._defaultConfig({
+          path,
+          method,
+          params,
+          data,
+        });
+        const response = await axios($ ?? this, config);
+        return response;
+      } catch (e) {
+        const errorMsg = JSON.stringify(e.response.data);
+        throw new Error(errorMsg);
+      }
+    },
+    async *paginate({
+      $, fn, params = {}, cursor,
+    }) {
+      const { limit } = params;
+      let count = 0;
+
+      do {
+        const {
+          data,
+          meta,
+        } = await fn({
+          $,
+          params: {
+            ...params,
+            cursor,
+          },
+        });
+
+        for (const d of data) {
+          yield d;
+
+          if (limit && ++count === limit) {
+            return count;
+          }
+        }
+
+        cursor = meta.next_cursor;
+      } while (cursor);
+    },
+    async createWebhook({
+      url,
+      eventType,
+    }) {
+      return this._makeRequest({
+        path: "integrations",
+        method: "post",
+        data: {
+          name: `pipedream-${url}`,
+          type: "http",
+          http: {
+            url,
+            method: "POST",
+            request_content_type: "application/json",
+            response_content_type: "application/json",
+            form: "{{context}}",
+            triggers: {
+              [eventType]: true,
+            },
+          },
+        },
+      });
+    },
+    async deleteWebhook({ id }) {
+      return this._makeRequest({
+        path: `integrations/${id}`,
+        method: "delete",
+      });
+    },
+    async getEvents({
+      $, params,
+    }) {
+      return this._makeRequest({
+        $,
+        path: "events",
+        params,
+      });
+    },
+    async createCustomer({
+      $, data,
+    }) {
+      return this._makeRequest({
+        $,
+        path: "customers",
+        method: "post",
+        data,
+      });
+    },
+    async updateCustomer({
+      $, id, data,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `customers/${id}`,
+        method: "put",
+        data,
+      });
+    },
+    async retrieveCustomer({
+      $, id,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `customers/${id}`,
+      });
+    },
+    async retrieveUser({
+      $, id,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `users/${id}`,
+      });
+    },
+    async listCustomers({
+      $, params,
+    }) {
+      return this._makeRequest({
+        $,
+        path: "customers",
+        params,
+      });
+    },
+    async createTicket({
+      $, data,
+    }) {
+      return this._makeRequest({
+        $,
+        path: "tickets",
+        method: "post",
+        data,
+      });
+    },
+    async listTickets({
+      $, params,
+    }) {
+      return this._makeRequest({
+        $,
+        path: "tickets",
+        params,
+      });
+    },
+    async retrieveTicket({
+      $, id,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `tickets/${id}`,
+      });
+    },
+    async updateTicket({
+      ticketId,
+      ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/tickets/${ticketId}`,
+        ...opts,
+      });
+    },
+    listUsers(opts = {}) {
+      return this._makeRequest({
+        path: "/users",
+        ...opts,
+      });
+    },
+    listIntegrations(opts = {}) {
+      return this._makeRequest({
+        path: "/integrations",
+        ...opts,
+      });
+    },
+    async getCustomerChannelAddress({
+      $, ticketId, channel, customerId,
+    }) {
+      const messages = this.paginate({
+        $,
+        fn: this.listMessages,
+        params: {
+          ticket_id: ticketId,
+          order_by: constants.MESSAGES_ORDER_NEWEST_FIRST,
+          limit: constants.MESSAGES_LIMIT_MAX,
+        },
+      });
+      for await (const message of messages) {
+        if (
+          !message.from_agent
+          && message.channel === channel
+          && message.sender?.id === customerId
+          && message.source?.from?.address
+        ) {
+          return message.source.from.address;
+        }
+      }
+    },
+    listTeams(opts = {}) {
+      return this._makeRequest({
+        path: "/teams",
+        ...opts,
+      });
+    },
+    listTags(opts = {}) {
+      return this._makeRequest({
+        path: "/tags",
+        ...opts,
+      });
+    },
+    async getAttachmentInfo($, url) {
+      const { headers } = await axios($, {
+        method: "HEAD",
+        url,
+        timeout: 10000,
+        returnFullResponse: true,
+      });
+      return {
+        contentType: headers["content-type"],
+        size: headers["content-length"],
+      };
+    },
+    createMessage({
+      ticketId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "POST",
+        path: `/tickets/${ticketId}/messages`,
+        ...opts,
+      });
+    },
+    getMacro({
+      $, id,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `/macros/${id}`,
+      });
+    },
+    listMacros(opts = {}) {
+      return this._makeRequest({
+        path: "/macros",
+        ...opts,
+      });
+    },
+    createMacro({
+      $, data,
+    }) {
+      return this._makeRequest({
+        $,
+        path: "/macros",
+        method: "POST",
+        data,
+      });
+    },
+    updateMacro({
+      $, id, data,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `/macros/${id}`,
+        method: "PUT",
+        data,
+      });
+    },
+    deleteMacro({
+      $, id,
+    }) {
+      return this._makeRequest({
+        $,
+        path: `/macros/${id}`,
+        method: "DELETE",
+      });
+    },
+    listTicketTags({
+      ticketId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `/tickets/${ticketId}/tags`,
+        ...opts,
+      });
+    },
+    addTicketTags({
+      ticketId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "POST",
+        path: `/tickets/${ticketId}/tags`,
+        ...opts,
+      });
+    },
+    setTicketTags({
+      ticketId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/tickets/${ticketId}/tags`,
+        ...opts,
+      });
+    },
+    listTicketFieldValues({
+      ticketId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `/tickets/${ticketId}/custom-fields`,
+        ...opts,
+      });
+    },
+    listCustomFields(opts = {}) {
+      return this._makeRequest({
+        path: "/custom-fields",
+        ...opts,
+      });
+    },
+    /**
+     * List every custom field defined for an object type, following the cursor
+     * to the end. `paginate` caps the total at `params.limit`, which would
+     * silently hide fields, so the cursor is walked directly here.
+     * @param {Object} opts - Options for the request
+     * @param {Object} opts.$ - The Pipedream step context, when available
+     * @param {string} opts.objectType - The object type the fields belong to, e.g. `Ticket`
+     * @returns {Promise<Object[]>} - Every custom field for the object type
+     */
+    async listAllCustomFields({
+      $, objectType,
+    }) {
+      const fields = [];
+      let cursor;
+      let previousCursor;
+      do {
+        const {
+          data, meta,
+        } = await this.listCustomFields({
+          $,
+          params: {
+            object_type: objectType,
+            archived: false,
+            limit: constants.CUSTOM_FIELDS_LIMIT_MAX,
+            cursor,
+          },
+        });
+        fields.push(...(data ?? []));
+        previousCursor = cursor;
+        cursor = meta?.next_cursor;
+        // A cursor that repeats instead of advancing would loop forever
+      } while (cursor && cursor !== previousCursor);
+      return fields;
+    },
+    /**
+     * Set a single custom field value on a ticket. The endpoint takes the bare
+     * value as the request body, so it is serialized here: axios forwards a
+     * plain string body verbatim, which would not be valid JSON.
+     * @param {Object} opts - Options for the request
+     * @param {Object} opts.$ - The Pipedream step context
+     * @param {number} opts.ticketId - The ID of the ticket
+     * @param {number} opts.fieldId - The ID of the custom field
+     * @param {string|number|boolean} opts.value - The value to set
+     * @returns {Promise<Object>} - The updated ticket custom field value
+     */
+    updateTicketFieldValue({
+      ticketId, fieldId, value, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/tickets/${ticketId}/custom-fields/${fieldId}`,
+        data: JSON.stringify(value),
+        ...opts,
+      });
     },
   },
 };

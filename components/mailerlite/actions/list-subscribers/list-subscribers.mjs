@@ -1,11 +1,16 @@
-import mailerlite from "../../mailerlite.app.mjs";
 import constants from "../../common/constants.mjs";
+import mailerlite from "../../mailerlite.app.mjs";
 
 export default {
   key: "mailerlite-list-subscribers",
   name: "List Subscribers",
-  description: "Lists all subscribers in a group. [See the docs here](https://developers.mailerlite.com/reference/subscribers)",
-  version: "0.0.1",
+  description: "Lists all subscribers in a group. [See the documentation](https://developers.mailerlite.com/docs/subscribers.html#list-all-subscribers)",
+  version: "0.0.5",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     mailerlite,
@@ -42,7 +47,11 @@ export default {
     let resp;
 
     do {
-      resp = await this.mailerlite.listSubscribers(this.group, params);
+      resp = await this.mailerlite.listSubscribers({
+        $,
+        group: this.group,
+        params,
+      });
       subscribers.push(...resp);
       params.offset += params.limit;
     } while (resp?.length === params.limit);

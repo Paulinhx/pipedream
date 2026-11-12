@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/utradea",
+  "version": "0.0.3",
+  "description": "Pipedream Utradea Components",
+  "main": "utradea.app.mjs",
+  "keywords": [
+    "pipedream",
+    "utradea"
+  ],
+  "homepage": "https://pipedream.com/apps/utradea",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

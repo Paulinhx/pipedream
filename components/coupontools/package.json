@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/coupontools",
+  "version": "0.3.0",
+  "description": "Pipedream Coupontools Components",
+  "main": "coupontools.app.mjs",
+  "keywords": [
+    "pipedream",
+    "coupontools"
+  ],
+  "homepage": "https://pipedream.com/apps/coupontools",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.1"
+  }
+}

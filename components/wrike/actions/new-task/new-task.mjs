@@ -1,121 +1,82 @@
-// legacy_hash_id: a_0Mioz8
-import { axios } from "@pipedream/platform";
+import wrike from "../../wrike.app.mjs";
+import {
+  TASK_STATUS_OPTIONS, TASK_IMPORTANCE_OPTIONS,
+} from "../../common/constants.mjs";
+import _ from "lodash";
 
 export default {
   key: "wrike-new-task",
-  name: "Wrike: Create Task",
-  description: "Create a Wrike task under a specified folder ID.",
-  version: "0.2.1",
+  name: "New Task",
+  description: "Create a Wrike task under a specified folder ID. [See the documentation](https://developers.wrike.com/api/v4/tasks/#create-task)",
+  version: "0.3.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
-    wrike: {
-      type: "app",
-      app: "wrike",
-    },
-    folder: {
-      type: "string",
-      label: "Folder ID",
+    wrike,
+    folderId: {
+      propDefinition: [
+        wrike,
+        "folderId",
+      ],
+      description: "The ID of the folder to create the task in, e.g. `IEAASDF3`. Run **List Folder ID Options** to look up folder IDs.",
     },
     title: {
       type: "string",
+      label: "Title",
+      description: "The title of task",
     },
-    desc: {
+    description: {
       type: "string",
       label: "Description",
-    },
-    priority: {
-      type: "string",
+      description: "The description of task",
       optional: true,
     },
     status: {
       type: "string",
+      label: "Status",
+      description: "The status of task. Defaults to `Active`",
       optional: true,
+      options: TASK_STATUS_OPTIONS,
     },
-    assignee: {
+    importance: {
       type: "string",
-      label: "Contact ID",
+      label: "Importance",
+      description: "The importance of task. Defaults to `Normal`",
       optional: true,
+      options: TASK_IMPORTANCE_OPTIONS,
     },
-    custID1: {
-      type: "string",
-      label: "Custom Field ID",
-      optional: true,
-    },
-    custVal1: {
-      type: "string",
-      label: "Custom Field Value",
-      optional: true,
-    },
-    custID2: {
-      type: "string",
-      label: "Custom Field ID",
-      optional: true,
-    },
-    custVal2: {
-      type: "string",
-      label: "Custom Field Value",
-      optional: true,
-    },
-    custID3: {
-      type: "string",
-      label: "Custom Field ID",
-      optional: true,
-    },
-    custVal3: {
-      type: "string",
-      label: "Custom Field Value",
+    responsibles: {
+      propDefinition: [
+        wrike,
+        "contactId",
+      ],
+      type: "string[]",
+      label: "Responsibles",
+      description: "Contact IDs to make responsible for the task, e.g. `KUABCDEF`. Run **List Contact ID Options** to look up IDs.",
       optional: true,
     },
   },
   async run({ $ }) {
-    var info = {
-      title: this.title,
-      description: this.desc,
-    };
-    if (this.priority) {
-      info.importance = this.priority;
-    }
-    if (this.status) {
-      info.status = this.status;
-    }
-    if (this.assignee) {
-      info.responsibles = [
-        this.assignee,
-      ];
-    }
+    const data = _.pickBy(_.pick(this, [
+      "title",
+      "description",
+      "status",
+      "importance",
+      "responsibles",
+    ]));
 
-    var customFields = [];
-    if (this.custID1 && this.custVal1) {
-      customFields.push({
-        id: this.custID1,
-        value: this.custVal1,
-      });
-    }
-    if (this.custID2 && this.custVal2) {
-      customFields.push({
-        id: this.custID2,
-        value: this.custVal2,
-      });
-    }
-    if (this.custID3 && this.custVal3) {
-      customFields.push({
-        id: this.custID3,
-        value: this.custVal3,
-      });
-    }
-    if (customFields.length > 0) {
-      info.customFields = customFields;
-    }
-
-    const task = await axios($, {
-      method: "POST",
-      url: `https://www.wrike.com/api/v4/folders/${this.folder}/tasks`,
-      headers: {
-        Authorization: `Bearer ${this.wrike.$auth.oauth_access_token}`,
-      },
-      data: info,
+    const task = await this.wrike.createTask({
+      $,
+      folderId: this.folderId,
+      data,
     });
-    console.log(`Created new task ID "${task.data[0].id}".`);
+
+    $.export("$summary", `Successfully created new task ${task.title}`);
 
     return task;
   },

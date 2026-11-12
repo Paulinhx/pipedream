@@ -4,7 +4,12 @@ export default {
   key: "google_tasks-list-tasks",
   name: "List Tasks",
   description: "Returns all tasks in the specified task list. [See the docs here](https://developers.google.com/tasks/reference/rest/v1/tasks/list)",
-  version: "0.0.1",
+  version: "0.0.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     app,
@@ -40,6 +45,7 @@ export default {
       showDeleted: this.showDeleted,
     };
     const res = await this.app.paginate(
+      $,
       this.app.getTasks.bind(this),
       params,
       this.taskListId,

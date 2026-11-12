@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/onepage",
+  "version": "0.0.2",
+  "description": "Pipedream Onepage Components",
+  "main": "onepage.app.mjs",
+  "keywords": [
+    "pipedream",
+    "onepage"
+  ],
+  "homepage": "https://pipedream.com/apps/onepage",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

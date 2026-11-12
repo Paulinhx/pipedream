@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/newslit",
+  "version": "0.0.3",
+  "description": "Pipedream Newslit Components",
+  "main": "newslit.app.mjs",
+  "keywords": [
+    "pipedream",
+    "newslit"
+  ],
+  "homepage": "https://pipedream.com/apps/newslit",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

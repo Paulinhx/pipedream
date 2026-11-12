@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/meetup",
+  "version": "0.0.4",
+  "description": "Pipedream Meetup Components",
+  "main": "meetup.app.mjs",
+  "keywords": [
+    "pipedream",
+    "meetup"
+  ],
+  "homepage": "https://pipedream.com/apps/meetup",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

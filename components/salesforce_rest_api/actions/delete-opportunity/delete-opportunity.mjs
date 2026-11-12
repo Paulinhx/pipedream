@@ -1,30 +1,44 @@
 import salesforce from "../../salesforce_rest_api.app.mjs";
-import { toSingleLineString } from "../../common/utils.mjs";
 
 export default {
   key: "salesforce_rest_api-delete-opportunity",
   name: "Delete Opportunity",
-  description: toSingleLineString(`
-    Deletes an opportunity.
-    See [Opportunity SObject](https://developer.salesforce.com/docs/atlas.en-us.228.0.object_reference.meta/object_reference/sforce_api_objects_opportunity.htm)
-    and [Delete Record](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_delete_record.htm)
-  `),
-  version: "0.2.2",
+  description: "Delete a Salesforce opportunity."
+    + " This moves the record to the Recycle Bin, where it stays recoverable for up to 15 days - storage limits can purge it sooner."
+    + " Use **Find Records** on `Opportunity` to get the ID first, and prefer **Update Opportunity** to set a Closed Lost stage when you want to keep the history."
+    + " "
+    + "[See the documentation](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_delete_record.htm)",
+  version: "0.3.7",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     salesforce,
-    OpportunityId: {
-      type: "string",
+    recordId: {
+      propDefinition: [
+        salesforce,
+        "recordId",
+        () => ({
+          objType: "Opportunity",
+          nameField: "Name",
+        }),
+      ],
       label: "Opportunity ID",
-      description: "ID of the Opportunity to delete",
+      description: "ID of the opportunity to delete.",
     },
   },
   async run({ $ }) {
-    const response = await this.salesforce.deleteOpportunity({
+    const { recordId } = this;
+    const response = await this.salesforce.deleteRecord({
+      sobjectType: "Opportunity",
       $,
-      id: this.OpportunityId,
+      recordId,
     });
-    $.export("$summary", "Successfully deleted opportunity");
+    $.export("$summary", `Successfully deleted opportunity (ID: ${recordId})`);
     return response;
   },
 };

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/dialmycalls",
+  "version": "0.0.3",
+  "description": "Pipedream DialMyCalls Components",
+  "main": "dialmycalls.app.mjs",
+  "keywords": [
+    "pipedream",
+    "dialmycalls"
+  ],
+  "homepage": "https://pipedream.com/apps/dialmycalls",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/the_official_board",
+  "version": "0.1.0",
+  "description": "Pipedream The Official Board Components",
+  "main": "the_official_board.app.mjs",
+  "keywords": [
+    "pipedream",
+    "the_official_board"
+  ],
+  "homepage": "https://pipedream.com/apps/the_official_board",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

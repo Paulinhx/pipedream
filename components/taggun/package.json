@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/taggun",
+  "version": "0.1.0",
+  "description": "Pipedream Taggun Components",
+  "main": "taggun.app.mjs",
+  "keywords": [
+    "pipedream",
+    "taggun"
+  ],
+  "homepage": "https://pipedream.com/apps/taggun",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

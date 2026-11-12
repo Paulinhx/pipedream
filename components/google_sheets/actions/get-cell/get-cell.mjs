@@ -1,10 +1,18 @@
-import googleSheets from "../../google_sheets.app.mjs";
+import common from "../common/worksheet.mjs";
+
+const { googleSheets } = common.props;
 
 export default {
+  ...common,
   key: "google_sheets-get-cell",
   name: "Get Cell",
-  description: "Fetch the contents of a specific cell in a spreadsheet",
-  version: "0.0.4",
+  description: "Fetch the contents of a specific cell in a spreadsheet. [See the documentation](https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/get)",
+  version: "0.1.21",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     googleSheets,
@@ -23,10 +31,10 @@ export default {
         }),
       ],
     },
-    sheetName: {
+    worksheetId: {
       propDefinition: [
         googleSheets,
-        "sheetName",
+        "worksheetIDs",
         (c) => ({
           sheetId: c.sheetId,
         }),
@@ -39,12 +47,18 @@ export default {
       ],
     },
   },
-  async run() {
+  async run({ $ }) {
+    const worksheet = await this.getWorksheetById(this.sheetId, this.worksheetId);
     const sheets = this.googleSheets.sheets();
 
-    return (await sheets.spreadsheets.values.get({
+    const values = (await sheets.spreadsheets.values.get({
       spreadsheetId: this.sheetId,
-      range: `${this.sheetName}!${this.cell}:${this.cell}`,
+      range: `${worksheet?.properties?.title}!${this.cell}:${this.cell}`,
     })).data.values;
+    const ret = values?.[0]?.[0] ?? null;
+    $.export("$summary", ret === null
+      ? `No value found in cell ${this.cell}.`
+      : `Retrieved value from cell ${this.cell}.`);
+    return ret;
   },
 };

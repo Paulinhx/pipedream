@@ -1,12 +1,15 @@
-import { axios } from "@pipedream/platform";
-import get from "lodash/get.js";
 import spotify from "../../spotify.app.mjs";
 
 export default {
   name: "Get a Playlist's Items",
   description: "Get full details of the items of a playlist owned by a Spotify user. [See the docs here](https://developer.spotify.com/documentation/web-api/reference/#/operations/get-playlists-tracks).",
   key: "spotify-get-playlist-items",
-  version: "0.0.3",
+  version: "0.1.8",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     spotify,
@@ -48,27 +51,25 @@ export default {
   async run({ $ }) {
     const {
       playlistId,
-      market,
       fields,
       limit,
       offset,
       additionalTypes,
     } = this;
 
-    const res = await axios($, this.spotify._getAxiosParams({
-      method: "GET",
-      path: `/playlists/${get(playlistId, "value", playlistId)}/tracks`,
+    const { data } = await this.spotify._makeRequest({
+      $,
+      url: `/playlists/${playlistId.value ?? playlistId}/items`,
       params: {
         fields,
-        market,
         limit,
         offset,
         additional_types: additionalTypes && additionalTypes.join(",").toLowerCase(),
       },
-    }));
+    });
 
-    $.export("$summary", `Successfully fetched details for "${get(playlistId, "label", playlistId)}"`);
+    $.export("$summary", `Successfully fetched details for "${playlistId.label ?? playlistId}"`);
 
-    return get(res, "items", []);
+    return data?.items ?? [];
   },
 };

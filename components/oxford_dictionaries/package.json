@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/oxford_dictionaries",
+  "version": "0.0.3",
+  "description": "Pipedream Oxford Dictionaries Components",
+  "main": "oxford_dictionaries.app.mjs",
+  "keywords": [
+    "pipedream",
+    "oxford_dictionaries"
+  ],
+  "homepage": "https://pipedream.com/apps/oxford_dictionaries",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/idealpostcodes",
+  "version": "0.0.3",
+  "description": "Pipedream IdealPostcodes Components",
+  "main": "idealpostcodes.app.mjs",
+  "keywords": [
+    "pipedream",
+    "idealpostcodes"
+  ],
+  "homepage": "https://pipedream.com/apps/idealpostcodes",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,3 +1,5 @@
+import { DEFAULT_POLLING_SOURCE_TIMER_INTERVAL } from "@pipedream/platform";
+
 export default {
   dedupe: "unique",
   props: {
@@ -7,7 +9,7 @@ export default {
       description: "Pipedream will poll the Docusign API on this schedule",
       type: "$.interface.timer",
       default: {
-        intervalSeconds: 60 * 15,
+        intervalSeconds: DEFAULT_POLLING_SOURCE_TIMER_INTERVAL,
       },
     },
     include: {
@@ -36,10 +38,10 @@ export default {
               const {
                 folders: subfolders,
                 nextUri,
-                resultSetSize,
+                endPosition,
               } = await this.docusign.listFolderItems(baseUri, params, subfolder.folderId);
               await this.processFolders(baseUri, params, subfolders, ts);
-              if (nextUri) params.start_postion += resultSetSize + 1;
+              if (nextUri) params.start_position = Number(endPosition) + 1;
               else done = true;
             } while (!done);
           }
@@ -60,7 +62,7 @@ export default {
   },
   async run(event) {
     const { timestamp: ts } = event;
-    const baseUri =  await this.docusign.getBaseUri({
+    const baseUri = await this.docusign.getBaseUri({
       accountId: this.account,
     });
     let done = false;
@@ -73,9 +75,9 @@ export default {
       const {
         folders = [],
         nextUri,
-        resultSetSize,
+        endPosition,
       } = await this.docusign.listFolders(baseUri, params);
-      if (nextUri) params.start_position += resultSetSize + 1;
+      if (nextUri) params.start_position = Number(endPosition) + 1;
       else done = true;
 
       await this.processFolders(baseUri, params, folders, ts);

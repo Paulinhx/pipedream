@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/zoho_survey",
+  "version": "0.2.0",
+  "description": "Pipedream Zoho Survey Components",
+  "main": "zoho_survey.app.mjs",
+  "keywords": [
+    "pipedream",
+    "zoho_survey"
+  ],
+  "homepage": "https://pipedream.com/apps/zoho_survey",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1",
+    "html-entities-decoder": "^1.0.5"
+  }
+}

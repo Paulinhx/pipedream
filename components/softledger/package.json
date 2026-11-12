@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/softledger",
+  "version": "0.0.4",
+  "description": "Pipedream SoftLedger Components",
+  "main": "softledger.app.mjs",
+  "keywords": [
+    "pipedream",
+    "softledger"
+  ],
+  "homepage": "https://pipedream.com/apps/softledger",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

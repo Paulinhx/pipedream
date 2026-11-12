@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/docraptor",
+  "version": "0.0.3",
+  "description": "Pipedream DocRaptor Components",
+  "main": "docraptor.app.mjs",
+  "keywords": [
+    "pipedream",
+    "docraptor"
+  ],
+  "homepage": "https://pipedream.com/apps/docraptor",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,12 +1,17 @@
 import validate from "validate.js";
-import common from "../common.mjs";
+import common from "../common/common.mjs";
 
 export default {
   ...common,
   key: "sendgrid-get-all-bounces",
   name: "Get All Bounces",
   description: "Allows you to get all of your bounces. [See the docs here](https://docs.sendgrid.com/api-reference/bounces-api/retrieve-all-bounces)",
-  version: "0.0.1",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     ...common.props,

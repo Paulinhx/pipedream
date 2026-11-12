@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/chatsonic",
+  "version": "0.0.3",
+  "description": "Pipedream Chatsonic Components",
+  "main": "chatsonic.app.mjs",
+  "keywords": [
+    "pipedream",
+    "chatsonic"
+  ],
+  "homepage": "https://pipedream.com/apps/chatsonic",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

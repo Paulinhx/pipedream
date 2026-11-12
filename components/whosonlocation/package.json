@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/whosonlocation",
+  "version": "0.0.3",
+  "description": "Pipedream WhosOnLocation Components",
+  "main": "whosonlocation.app.mjs",
+  "keywords": [
+    "pipedream",
+    "whosonlocation"
+  ],
+  "homepage": "https://pipedream.com/apps/whosonlocation",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

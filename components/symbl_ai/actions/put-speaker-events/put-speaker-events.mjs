@@ -5,7 +5,12 @@ export default {
   key: "symbl_ai-put-speaker-events",
   name: "Update Speaker Events",
   description: "Update the Speaker Events of the Conversation. See the doc [here](https://docs.symbl.ai/docs/conversation-api/speaker-events/).",
-  version: "0.0.3",
+  version: "0.0.5",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     symblAIApp,
@@ -34,3 +39,4 @@ export default {
     return response;
   },
 };
+// hello, world test

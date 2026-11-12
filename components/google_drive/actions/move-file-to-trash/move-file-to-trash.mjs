@@ -1,14 +1,25 @@
+import { GOOGLE_DRIVE_FOLDER_MIME_TYPE } from "../../common/constants.mjs";
 import googleDrive from "../../google_drive.app.mjs";
-import { GOOGLE_DRIVE_FOLDER_MIME_TYPE } from "../../constants.mjs";
 
 export default {
   key: "google_drive-move-file-to-trash",
   name: "Move File to Trash",
-  description: "Move a file or folder to trash. [See the docs](https://developers.google.com/drive/api/v3/reference/files/update) for more information",
-  version: "0.0.4",
+  description: "Move a file or folder to trash. [See the documentation](https://developers.google.com/drive/api/v3/reference/files/update) for more information",
+  version: "0.1.30",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     googleDrive,
+    infoAlert: {
+      type: "alert",
+      alertType: "info",
+      content: "If you want to **permanently** delete a file instead, use the **[Move File to Trash](https://pipedream.com/apps/google-drive/actions/delete-file)** action.",
+    },
     drive: {
       propDefinition: [
         googleDrive,

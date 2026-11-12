@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import base from "./http-based/base.mjs";
 
 /**
@@ -15,14 +16,78 @@ export default {
           sheetId: c.sheetID,
         }),
       ],
+      type: "integer[]",
+      label: "Worksheet ID(s)",
+      description: "Select one or more worksheet(s), or provide an array of worksheet IDs.",
+    },
+    hasHeaders: {
+      type: "boolean",
+      label: "Has Headers",
+      description: "Set to `true` if your spreadsheet contains column headers. When enabled, an additional `rowAsObject` field will be included in webhook responses with column headers as keys. The original `newRow` array format is always preserved for backward compatibility.",
+      default: false,
+      optional: true,
+    },
+    headerRow: {
+      type: "integer",
+      label: "Header Row Number",
+      description: "The row number containing the column headers (e.g., `1` for the first row). Only used when **Has Headers** is enabled.",
+      default: 1,
+      optional: true,
     },
   },
   methods: {
-    getMeta(spreadsheet, worksheet, rowNumber) {
-      const { sheetId: worksheetId } = worksheet;
-      const { spreadsheetId: sheetId } = spreadsheet;
+    _getRowHashes() {
+      return this.db.get("rowHashes") || {};
+    },
+    _setRowHashes(rowHashes) {
+      this.db.set("rowHashes", rowHashes);
+    },
+    _getHeaders(worksheetId) {
+      return this.db.get(`headers_${worksheetId}`) || {};
+    },
+    _setHeaders(worksheetId, headers) {
+      this.db.set(`headers_${worksheetId}`, headers);
+    },
+    async _fetchHeaders(sheetId, worksheetTitle) {
+      if (!this.hasHeaders) {
+        return [];
+      }
+
+      const range = `${worksheetTitle}!${this.headerRow}:${this.headerRow}`;
+      const response = await this.googleSheets.getSpreadsheetValues(sheetId, range);
+      return response.values?.[0] || [];
+    },
+    async _getOrFetchHeaders(sheetId, worksheetId, worksheetTitle) {
+      if (!this.hasHeaders) {
+        return [];
+      }
+
+      let headers = this._getHeaders(worksheetId);
+      if (!headers.length) {
+        headers = await this._fetchHeaders(sheetId, worksheetTitle);
+        this._setHeaders(worksheetId, headers);
+      }
+
+      return headers;
+    },
+    _transformRowToObject(rowArray, headers) {
+      if (!this.hasHeaders || !headers.length) {
+        return rowArray;
+      }
+
+      return headers.reduce((obj, header, index) => {
+        const value = rowArray[index];
+        if (header && header.trim()) {
+          obj[header.trim()] = value !== undefined
+            ? value
+            : "";
+        }
+        return obj;
+      }, {});
+    },
+    getMeta(worksheet, rowNumber, rowHashString) {
       const ts = Date.now();
-      const id = `${sheetId}${worksheetId}${rowNumber}${ts}`;
+      const id = rowHashString;
       const summary = `New row #${rowNumber} in ${worksheet.properties.title}`;
       return {
         id,
@@ -124,6 +189,11 @@ export default {
 
         const oldRowCount = this._getRowCount(`${sheetId}${worksheetId}`);
         const worksheetLength = worksheetLengthsById[worksheetId];
+        if (oldRowCount === worksheetLength) {
+          // No new rows. Skip getting spreadsheet values, which would include the last row when the
+          // (A1 notation) range's upper bound is the worksheet length.
+          continue;
+        }
         const lowerBound = oldRowCount + 1;
         const upperBound = worksheetLength;
         const range = `${worksheetTitle}!${lowerBound}:${upperBound}`;
@@ -135,23 +205,55 @@ export default {
         const newRowCount = oldRowCount + newRowValues.values.length;
         if (newRowCount <= oldRowCount) continue;
 
-        this._setRowCount(`${sheetId}${worksheetId}`, newRowCount);
+        this._setRowCount(
+          `${sheetId}${worksheetId}`,
+          // https://github.com/PipedreamHQ/pipedream/issues/2818
+          newRowCount >= upperBound
+            ? upperBound
+            : newRowCount,
+        );
 
+        // Fetch headers for this worksheet if enabled
+        const headers = await this._getOrFetchHeaders(sheetId, worksheetId, worksheetTitle);
+
+        const rowHashes = this._getRowHashes();
         for (const [
           index,
           newRow,
         ] of newRowValues.values.entries()) {
           const rowNumber = lowerBound + index;
+          const rowHash = crypto
+            .createHash("md5")
+            .update(JSON.stringify(newRow))
+            .digest("base64");
+          const rowHashString = `${worksheet.properties.sheetId}${rowNumber}${rowHash}`;
+          if (rowHashes[rowHashString]) {
+            continue;
+          }
+          rowHashes[rowHashString] = true;
+
+          // Transform row to object using headers if enabled
+          const rowAsObject = this._transformRowToObject(newRow, headers);
+
+          // Emit event with backward-compatible structure
+          const eventData = {
+            newRow, // Always keep the original array format for backward compatibility
+            range,
+            worksheet,
+            rowNumber,
+          };
+
+          // Only add rowAsObject if headers are enabled and transformation resulted in an object
+          if (this.hasHeaders && typeof rowAsObject === "object" && !Array.isArray(rowAsObject)) {
+            eventData.rowAsObject = rowAsObject;
+          }
+
           this.$emit(
-            {
-              newRow,
-              range,
-              worksheet,
-              rowNumber,
-            },
-            this.getMeta(spreadsheet, worksheet, rowNumber),
+            eventData,
+            this.getMeta(worksheet, rowNumber, rowHashString),
           );
         }
+        this._setRowHashes(rowHashes);
       }
     },
   },

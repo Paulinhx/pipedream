@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/bitdefender_gravityzone",
+  "version": "0.3.0",
+  "description": "Pipedream Bitdefender GravityZone Components",
+  "main": "bitdefender_gravityzone.app.mjs",
+  "keywords": [
+    "pipedream",
+    "bitdefender_gravityzone"
+  ],
+  "homepage": "https://pipedream.com/apps/bitdefender_gravityzone",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

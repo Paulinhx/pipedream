@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/adp",
+  "version": "0.0.3",
+  "description": "Pipedream ADP Components",
+  "main": "adp.app.mjs",
+  "keywords": [
+    "pipedream",
+    "adp"
+  ],
+  "homepage": "https://pipedream.com/apps/adp",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

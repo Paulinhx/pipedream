@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/confluent",
+  "version": "0.0.3",
+  "description": "Pipedream Confluent Components",
+  "main": "confluent.app.mjs",
+  "keywords": [
+    "pipedream",
+    "confluent"
+  ],
+  "homepage": "https://pipedream.com/apps/confluent",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

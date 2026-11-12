@@ -1,33 +1,32 @@
-import shopify from "../../shopify.app.mjs";
+import common from "../common/polling.mjs";
+import { MAX_LIMIT } from "../../common/constants.mjs";
 
 export default {
+  ...common,
   key: "shopify-new-abandoned-cart",
   name: "New Abandoned Cart",
-  type: "source",
   description: "Emit new event each time a user abandons their cart.",
-  version: "0.0.5",
+  version: "0.0.29",
+  type: "source",
   dedupe: "unique",
-  props: {
-    db: "$.service.db",
-    timer: {
-      type: "$.interface.timer",
-      default: {
-        intervalSeconds: 60 * 15,
-      },
-    },
-    shopify,
-  },
-  async run() {
-    const sinceId = this.db.get("since_id") || null;
-    const results = await this.shopify.getAbandonedCheckouts(sinceId);
-    for (const cart of results) {
-      this.$emit(cart, {
-        id: cart.id,
-        summary: cart.email,
-        ts: Date.now(),
+  methods: {
+    ...common.methods,
+    async getResults() {
+      const { abandonedCheckouts: { nodes } } = await this.app.listAbandonedCheckouts({
+        first: MAX_LIMIT,
+        reverse: true,
       });
-    }
-    if (results[results.length - 1])
-      this.db.set("since_id", results[results.length - 1].id);
+      return nodes;
+    },
+    getTsField() {
+      return "createdAt";
+    },
+    generateMeta(checkout) {
+      return {
+        id: checkout.id,
+        summary: `New Abandoned Cart: ${checkout.id}`,
+        ts: Date.parse(checkout[this.getTsField()]),
+      };
+    },
   },
 };

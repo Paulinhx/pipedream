@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/smartreach",
+  "version": "0.0.3",
+  "description": "Pipedream SmartReach Components",
+  "main": "smartreach.app.mjs",
+  "keywords": [
+    "pipedream",
+    "smartreach"
+  ],
+  "homepage": "https://pipedream.com/apps/smartreach",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

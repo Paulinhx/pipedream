@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/kakao",
+  "version": "0.0.4",
+  "description": "Pipedream Kakao Components",
+  "main": "kakao.app.mjs",
+  "keywords": [
+    "pipedream",
+    "kakao"
+  ],
+  "homepage": "https://pipedream.com/apps/kakao",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

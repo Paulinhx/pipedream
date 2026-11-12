@@ -1,4 +1,7 @@
-import { axios } from "@pipedream/platform";
+import {
+  axios, ConfigurationError, getFileStreamAndMetadata,
+} from "@pipedream/platform";
+import path from "path";
 import constants from "./common/constants.mjs";
 
 export default {
@@ -7,8 +10,9 @@ export default {
   propDefinitions: {
     categoryId: {
       type: "string",
-      label: "Trigger category ID",
+      label: "Trigger Category ID",
       description: "The ID of the trigger category. [See the docs here](https://developer.zendesk.com/api-reference/ticketing/business-rules/trigger_categories/#list-trigger-categories)",
+      optional: true,
       async options({ prevContext }) {
         const { afterCursor } = prevContext;
 
@@ -18,7 +22,7 @@ export default {
         } =
           await this.listTriggerCategories({
             params: {
-              [constants.PAGE_SIZE_PARAM]: 20,
+              [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
               sort: constants.SORT_BY_POSITION_ASC,
               [constants.PAGE_AFTER_PARAM]: afterCursor,
             },
@@ -37,102 +41,1145 @@ export default {
         };
       },
     },
+    ticketId: {
+      type: "string",
+      label: "Ticket ID",
+      description: "The ID of the ticket.",
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+
+        const {
+          tickets,
+          meta,
+        } =
+          await this.listTickets({
+            params: {
+              [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+              sort: constants.SORT_BY_UPDATED_AT_DESC,
+              [constants.PAGE_AFTER_PARAM]: afterCursor,
+            },
+          });
+
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: tickets.map(({
+            id, subject,
+          }) => ({
+            label: subject || `Ticket #${id}`,
+            value: id,
+          })),
+        };
+      },
+    },
+    viewId: {
+      type: "string",
+      label: "View ID",
+      description: "The ID of the view",
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+
+        const {
+          views,
+          meta,
+        } =
+          await this.listViews({
+            params: {
+              [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+              [constants.PAGE_AFTER_PARAM]: afterCursor,
+              active: true,
+            },
+          });
+
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: views.map(({
+            id, title,
+          }) => ({
+            label: title || `View #${id}`,
+            value: id,
+          })),
+        };
+      },
+    },
+    userId: {
+      type: "string",
+      label: "User ID",
+      description: "The ID of the user",
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+
+        const {
+          users,
+          meta,
+        } = await this.listUsers({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: users.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })),
+        };
+      },
+    },
+    groupId: {
+      type: "string",
+      label: "Group ID",
+      description: "The ID of the group",
+      optional: true,
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+
+        const {
+          groups,
+          meta,
+        } = await this.listGroups({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: groups.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })),
+        };
+      },
+    },
+    macroCategory: {
+      type: "string",
+      label: "Macro Category",
+      description: "The category of the macro",
+      optional: true,
+      async options() {
+        const { categories } = await this.listMacroCategories();
+        return categories.map((category) => category);
+      },
+    },
+    fields: {
+      type: "string[]",
+      label: "Fields",
+      description: "Ticket fields to be included in the incoming webhook payload",
+      withLabel: true,
+      optional: true,
+      async options() {
+        // placehoders reference - https://support.zendesk.com/hc/en-us/articles/4408886858138
+        const { ticket_fields: customFields } = await this.listTicketFields();
+        const fields = customFields.reverse().map(({
+          id, title,
+        }) => ({
+          label: title,
+          value: `{{ticket.ticket_field_${id}}}`,
+        }));
+        fields.push(...constants.TICKET_FIELD_OPTIONS);
+        return fields;
+      },
+    },
+    locale: {
+      type: "string",
+      label: "Locale",
+      description: "The locale of the article",
+      async options() {
+        const { locales } = await this.listLocales();
+        return locales.map((locale) => locale.locale);
+      },
+    },
+    articleCategoryId: {
+      type: "string",
+      label: "Article Category ID",
+      description: "The ID of the article category",
+      async options({
+        locale, prevContext,
+      }) {
+        const { afterCursor } = prevContext;
+        const {
+          categories, meta,
+        } = await this.listArticleCategories({
+          locale,
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: categories.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    sectionId: {
+      type: "string",
+      label: "Section ID",
+      description: "The ID of the section",
+      async options({
+        locale, categoryId, prevContext,
+      }) {
+        const { afterCursor } = prevContext;
+        const {
+          sections, meta,
+        } = await this.listSections({
+          locale,
+          categoryId,
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: sections.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    articleId: {
+      type: "string",
+      label: "Article ID",
+      description: "The ID of the article. You can use the List Articles action to get the ID of the article.",
+      async options({
+        locale, prevContext,
+      }) {
+        const { afterCursor } = prevContext;
+        const {
+          articles, meta,
+        } = await this.listArticles({
+          locale,
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: articles.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    sideConversationId: {
+      type: "string",
+      label: "Side Conversation ID",
+      description: "Identifier of the side conversation (UUID, e.g. `8566255a-ece5-11e8-857d-493066fa7b17`). Select **List Side Conversations** to see available IDs for a ticket.",
+      async options({
+        ticketId, customSubdomain, page,
+      }) {
+        if (!ticketId) {
+          return {
+            options: [],
+          };
+        }
+        const response = await this.listSideConversations({
+          ticketId,
+          customSubdomain,
+          params: {
+            page: page + 1,
+            per_page: constants.DEFAULT_LIMIT,
+          },
+        });
+        return (response?.side_conversations ?? []).map(({
+          id, subject, preview_text: previewText,
+        }) => ({
+          label: subject || previewText || `Side Conversation ${id}`,
+          value: id,
+        }));
+      },
+    },
+    sideConversationSubject: {
+      type: "string",
+      label: "Subject",
+      description: "The subject of the side conversation message.",
+    },
+    sideConversationBody: {
+      type: "string",
+      label: "Message Body",
+      description: "The plain-text body of the side conversation message.",
+    },
+    sideConversationRecipients: {
+      type: "string",
+      label: "Recipients",
+      description: "JSON array of participant objects. Use `[{\"email\":\"person@example.com\",\"name\":\"Person\"}]` for an external email recipient, `[{\"user_id\":123}]` for an existing Zendesk agent (the agent's numeric user ID, found in Zendesk under Admin Center > People > Team members), `[{\"slack_workspace_id\":\"T123\",\"slack_channel_id\":\"C456\"}]` for Slack (both IDs come from your Zendesk Slack integration settings), `[{\"support_group_id\":123,\"support_agent_id\":456}]` for a child ticket (`support_agent_id` is optional), or `[{\"msteams_channel_id\":\"19:channel-id\"}]` for Microsoft Teams (the channel ID from your Zendesk Microsoft Teams integration settings). Do not mix participant types in the same array.",
+    },
+    macroId: {
+      type: "string",
+      label: "Macro ID",
+      description: "The ID of the macro",
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+        const {
+          macros, meta,
+        } = await this.listMacros({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: macros.map(({
+            id: value, title: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    ticketCommentBody: {
+      type: "string",
+      label: "Comment body",
+      description: "The body of the comment.",
+      optional: true,
+    },
+    ticketCommentBodyIsHTML: {
+      type: "boolean",
+      label: "Comment body is HTML",
+      description: "Whether the comment body is HTML. Default is `false`, which expects Markdown",
+      default: false,
+      optional: true,
+    },
+    ticketPriority: {
+      type: "string",
+      label: "Ticket Priority",
+      description: "The priority of the ticket.",
+      optional: true,
+      options: Object.values(constants.TICKET_PRIORITY_OPTIONS),
+    },
+    ticketSubject: {
+      type: "string",
+      label: "Ticket Subject",
+      description: "The subject of the ticket.",
+      optional: true,
+    },
+    ticketStatus: {
+      type: "string",
+      label: "Ticket Status",
+      description: "The status of the ticket.",
+      optional: true,
+      options: Object.values(constants.TICKET_STATUS_OPTIONS),
+    },
+    ticketCommentPublic: {
+      type: "boolean",
+      label: "Comment Public",
+      description: "Whether the comment is public. Default is `true`",
+      default: true,
+      optional: true,
+    },
+    sortBy: {
+      type: "string",
+      label: "Sort By",
+      description: "Field to sort tickets by",
+      optional: true,
+      options: constants.SORT_BY_OPTIONS,
+    },
+    sortOrder: {
+      type: "string",
+      label: "Sort Order",
+      description: "Sort order (ascending or descending)",
+      optional: true,
+      options: [
+        "asc",
+        "desc",
+      ],
+    },
+    limit: {
+      type: "integer",
+      label: "Limit",
+      description: "Maximum number of tickets to return",
+      optional: true,
+      default: 100,
+    },
+    customSubdomain: {
+      type: "string",
+      label: "Custom Subdomain",
+      description: "For Enterprise Zendesk accounts: optionally specify the subdomain to use. This will override the subdomain that was provided when connecting your Zendesk account to Pipedream. For example, if you Zendesk URL is https://examplehelp.zendesk.com, your subdomain is `examplehelp`",
+      optional: true,
+    },
+    attachments: {
+      type: "string[]",
+      label: "Attachments",
+      description: "File paths or URLs to attach to the ticket. Multiple files can be attached.",
+      format: "file-ref",
+      optional: true,
+    },
+    ticketTags: {
+      type: "string[]",
+      label: "Tags",
+      description: "Array of tags to apply to the ticket. These will replace any existing tags on the ticket.",
+      optional: true,
+    },
+    assigneeId: {
+      type: "string",
+      label: "Assignee ID",
+      description: "The ID of the agent to assign the ticket to",
+      optional: true,
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+
+        const {
+          users,
+          meta,
+        } = await this.listUsers({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+            role: "agent",
+          },
+        });
+
+        return {
+          context: {
+            afterCursor: meta.after_cursor,
+          },
+          options: users.map(({
+            id, name,
+          }) => ({
+            label: name,
+            value: id,
+          })),
+        };
+      },
+    },
+    assigneeEmail: {
+      type: "string",
+      label: "Assignee Email",
+      description: "The email address of the agent to assign the ticket to",
+      optional: true,
+    },
+    brandId: {
+      type: "string",
+      label: "Brand ID",
+      description: "The ID of the brand",
+      optional: true,
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+        const {
+          brands,
+          meta,
+        } = await this.listBrands({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta?.after_cursor,
+          },
+          options: brands.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    topicId: {
+      type: "string",
+      label: "Topic ID",
+      description: "The ID of the community topic",
+      optional: true,
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+        const {
+          topics,
+          meta,
+        } = await this.listTopics({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta?.after_cursor,
+          },
+          options: topics.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    externalSourceId: {
+      type: "string",
+      label: "External Source ID",
+      description: "The ID of the external content source",
+      optional: true,
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+        const {
+          sources,
+          meta,
+        } = await this.listExternalContentSources({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta?.after_cursor,
+          },
+          options: sources.map(({
+            id: value, name: label,
+          }) => ({
+            value,
+            label,
+          })),
+        };
+      },
+    },
+    labelName: {
+      type: "string",
+      label: "Label Name",
+      description: "The name of an article label",
+      optional: true,
+      async options({ prevContext }) {
+        const { afterCursor } = prevContext;
+        const {
+          labels,
+          meta,
+        } = await this.listArticleLabels({
+          params: {
+            [constants.PAGE_SIZE_PARAM]: constants.DEFAULT_LIMIT,
+            [constants.PAGE_AFTER_PARAM]: afterCursor,
+          },
+        });
+        return {
+          context: {
+            afterCursor: meta?.after_cursor,
+          },
+          options: labels.map(({ name }) => name),
+        };
+      },
+    },
   },
   methods: {
-    getApiUrl({
-      path, subdomain,
-    }) {
+    getUrl(path, customSubdomain) {
       const {
         SUBDOMAIN_PLACEHOLDER,
         BASE_URL,
         VERSION_PATH,
       } = constants;
-      return `${BASE_URL.replace(SUBDOMAIN_PLACEHOLDER, subdomain)}${VERSION_PATH}${path}`;
+      const baseUrl = BASE_URL.replace(
+        SUBDOMAIN_PLACEHOLDER,
+        customSubdomain?.trim() || this.$auth.subdomain,
+      );
+      return `${baseUrl}${VERSION_PATH}${path}`;
     },
-    async makeRequest(customConfig) {
-      const {
-        $,
-        url,
-        path,
-        ...configProps
-      } = customConfig;
-
-      const {
-        oauth_access_token: oauthAccessToken,
-        subdomain,
-      } = this.$auth;
-
-      const headers = {
-        ...configProps?.headers,
-        authorization: `Bearer ${oauthAccessToken}`,
+    getHeaders(headers) {
+      return {
+        authorization: `Bearer ${this.$auth.oauth_access_token}`,
+        ...headers,
       };
-
-      const config = {
-        ...configProps,
-        headers,
-        url: url ?? this.getApiUrl({
-          subdomain,
-          path,
-        }),
-        timeout: 10000,
-      };
-
-      return axios($ ?? this, config);
     },
-    async createTrigger({
-      $, data,
+    makeRequest({
+      step = this, url, path, headers, customSubdomain, ...args
+    }) {
+      return axios(step, {
+        headers: this.getHeaders(headers),
+        url: url ?? this.getUrl(path, customSubdomain),
+        timeout: constants.DEFAULT_TIMEOUT,
+        ...args,
+      });
+    },
+    getTicketInfo({
+      ticketId, ...args
+    } = {}) {
+      return this.makeRequest({
+        path: `/tickets/${ticketId}`,
+        ...args,
+      });
+    },
+    getUserInfo({
+      userId, ...args
     }) {
       return this.makeRequest({
-        $,
+        path: `/users/${userId}`,
+        ...args,
+      });
+    },
+    searchTickets(args = {}) {
+      return this.makeRequest({
+        path: "/search",
+        ...args,
+      });
+    },
+    create(args = {}) {
+      return this.makeRequest({
         method: "post",
-        path: "/triggers",
-        data,
+        ...args,
       });
     },
-    async deleteTrigger({
-      $, triggerId,
-    }) {
+    update(args = {}) {
       return this.makeRequest({
-        $,
+        method: "put",
+        ...args,
+      });
+    },
+    delete(args = {}) {
+      return this.makeRequest({
         method: "delete",
-        path: `/triggers/${triggerId}`,
+        ...args,
       });
     },
-    async listTriggerCategories({
-      $, url, params,
-    }) {
+    listTriggerCategories(args = {}) {
       return this.makeRequest({
-        $,
-        url,
         path: "/trigger_categories",
-        params,
+        ...args,
       });
     },
-    async createWebhook({
-      $, data,
-    }) {
+    listTickets(args = {}) {
       return this.makeRequest({
-        $,
+        path: "/tickets",
+        ...args,
+      });
+    },
+    listViews(args = {}) {
+      return this.makeRequest({
+        path: "/views",
+        ...args,
+      });
+    },
+    listTicketsInView({
+      viewId, ...args
+    } = {}) {
+      return this.makeRequest({
+        path: `/views/${viewId}/tickets`,
+        ...args,
+      });
+    },
+    listTicketFields(args = {}) {
+      return this.makeRequest({
+        path: "/ticket_fields",
+        ...args,
+      });
+    },
+    streamToBuffer(stream) {
+      return new Promise((resolve, reject) => {
+        const chunks = [];
+        stream.on("data", (chunk) => chunks.push(chunk));
+        stream.on("end", () => resolve(Buffer.concat(chunks)));
+        stream.on("error", reject);
+      });
+    },
+    /**
+     * Upload a single file (local path or http(s) URL) to Zendesk Uploads API.
+     * @param {Object} params
+     * @param {string} params.filePath - Local filesystem path or http(s) URL.
+     * @param {string} [params.filename] - Optional filename override for the upload.
+     * @param {string} [params.customSubdomain]
+     * @param {*} [params.step]
+     */
+    async uploadFile({
+      filePath, filename, customSubdomain, step,
+    }) {
+      if (!filePath || typeof filePath !== "string") {
+        throw new Error("uploadFile: 'filePath' (string) is required");
+      }
+
+      const {
+        stream, metadata,
+      } = await getFileStreamAndMetadata(filePath);
+      const fileBinary = await this.streamToBuffer(stream);
+
+      if (!filename) {
+        filename = metadata.name || path.basename(filePath);
+      }
+
+      return this.makeRequest({
+        step,
         method: "post",
-        path: "/webhooks",
-        data,
+        path: `/uploads?filename=${encodeURIComponent(filename)}`,
+        customSubdomain,
+        headers: {
+          "Content-Type": metadata.contentType,
+          "Content-Length": metadata.size,
+          "Accept": "application/json",
+        },
+        data: Buffer.from(fileBinary, "binary"),
       });
     },
-    async deleteWebhook({
-      $, webhookId,
-    }) {
+    async uploadFiles({
+      attachments, customSubdomain, step,
+    } = {}) {
+      if (!attachments || !attachments.length) {
+        return [];
+      }
+      const files = attachments
+        .map((a) => (typeof a === "string"
+          ? a.trim()
+          : a))
+        .filter(Boolean);
+
+      const settled = await Promise.allSettled(
+        files.map((attachment) =>
+          this.uploadFile({
+            filePath: attachment,
+            customSubdomain,
+            step,
+          })),
+      );
+
+      const tokens = [];
+      const errors = [];
+      settled.forEach((res, i) => {
+        const attachment = files[i];
+        if (res.status === "fulfilled") {
+          const token = res.value?.upload?.token;
+          if (!token) {
+            errors.push(`Upload API returned no token for ${attachment}`);
+          } else {
+            tokens.push(token);
+          }
+        } else {
+          const reason = res.reason?.message || String(res.reason || "Unknown error");
+          errors.push(`${attachment}: ${reason}`);
+        }
+      });
+
+      if (errors.length) {
+        throw new Error(`Failed to upload ${errors.length}/${files.length} attachment(s): ${errors.join("; ")}`);
+      }
+      return tokens;
+    },
+    listTicketComments({
+      ticketId, ...args
+    } = {}) {
       return this.makeRequest({
-        $,
-        method: "delete",
-        path: `/webhooks/${webhookId}`,
+        path: `/tickets/${ticketId}/comments`,
+        ...args,
       });
     },
-    async showWebhookSigningSecret({
-      $, webhookId,
+    listSideConversations({
+      ticketId, customSubdomain, ...args
     }) {
       return this.makeRequest({
-        $,
-        path: `/webhooks/${webhookId}/signing_secret`,
+        path: `/tickets/${ticketId}/side_conversations`,
+        customSubdomain,
+        ...args,
+      });
+    },
+    getSideConversation({
+      ticketId, sideConversationId, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        path: `/tickets/${ticketId}/side_conversations/${sideConversationId}`,
+        customSubdomain,
+        ...args,
+      });
+    },
+    /**
+     * Create a side conversation on a ticket.
+     *
+     * @param {object} args - Request arguments
+     * @param {string} args.ticketId - Parent ticket ID
+     * @param {string} [args.customSubdomain] - Optional Zendesk subdomain override
+     * @returns {Promise<object>} Created side conversation and event
+     */
+    createSideConversation({
+      ticketId, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        method: "POST",
+        path: `/tickets/${ticketId}/side_conversations`,
+        customSubdomain,
+        ...args,
+      });
+    },
+    /**
+     * Update a side conversation's state or subject.
+     *
+     * @param {object} args - Request arguments
+     * @param {string} args.ticketId - Parent ticket ID
+     * @param {string} args.sideConversationId - Side conversation ID
+     * @param {string} [args.customSubdomain] - Optional Zendesk subdomain override
+     * @returns {Promise<object>} Updated side conversation
+     */
+    updateSideConversation({
+      ticketId, sideConversationId, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        method: "PUT",
+        path: `/tickets/${ticketId}/side_conversations/${sideConversationId}`,
+        customSubdomain,
+        ...args,
+      });
+    },
+    /**
+     * Reply to a side conversation.
+     *
+     * @param {object} args - Request arguments
+     * @param {string} args.ticketId - Parent ticket ID
+     * @param {string} args.sideConversationId - Side conversation ID
+     * @param {string} [args.customSubdomain] - Optional Zendesk subdomain override
+     * @returns {Promise<object>} Updated side conversation
+     */
+    replyToSideConversation({
+      ticketId, sideConversationId, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        method: "POST",
+        path: `/tickets/${ticketId}/side_conversations/${sideConversationId}/reply`,
+        customSubdomain,
+        ...args,
+      });
+    },
+    /**
+     * Parse and validate side conversation recipients.
+     *
+     * @param {string|object[]} value - JSON string or participant array
+     * @returns {object[]} Parsed participant array
+     */
+    parseSideConversationRecipients(value) {
+      let recipients = value;
+      if (typeof value === "string") {
+        try {
+          recipients = JSON.parse(value);
+        } catch {
+          throw new ConfigurationError("Recipients must be a valid JSON array of participant objects.");
+        }
+      }
+      if (!Array.isArray(recipients)
+        || recipients.length === 0
+        || recipients.some((recipient) => !recipient
+          || typeof recipient !== "object"
+          || Array.isArray(recipient))) {
+        throw new ConfigurationError("Recipients must be a non-empty JSON array of participant objects.");
+      }
+      return recipients;
+    },
+    listSideConversationEvents({
+      startTime, nextPageUrl, ...args
+    } = {}) {
+      if (nextPageUrl) {
+        return this.makeRequest({
+          url: nextPageUrl,
+          ...args,
+        });
+      }
+      return this.makeRequest({
+        path: "/tickets/side_conversations/events.json",
+        ...args,
+        params: {
+          ...args.params,
+          start_time: startTime,
+        },
+      });
+    },
+    listUsers(args = {}) {
+      return this.makeRequest({
+        path: "/users",
+        ...args,
+      });
+    },
+    listLocales(args = {}) {
+      return this.makeRequest({
+        path: "/locales",
+        ...args,
+      });
+    },
+    listMacros(args = {}) {
+      return this.makeRequest({
+        path: "/macros",
+        ...args,
+      });
+    },
+    listActiveMacros(args = {}) {
+      return this.makeRequest({
+        path: "/macros/active",
+        ...args,
+      });
+    },
+    searchMacros(args = {}) {
+      return this.makeRequest({
+        path: "/macros/search",
+        ...args,
+      });
+    },
+    listMacroCategories(args = {}) {
+      return this.makeRequest({
+        path: "/macros/categories",
+        ...args,
+      });
+    },
+    listGroups(args = {}) {
+      return this.makeRequest({
+        path: "/groups",
+        ...args,
+      });
+    },
+    prepareLocalePath({
+      locale = null, path,
+    }) {
+      return `/help_center${locale
+        ? `/${locale}`
+        : ""}${path}`;
+    },
+    listArticleCategories({
+      locale, ...args
+    } = {}) {
+      return this.makeRequest({
+        path: this.prepareLocalePath({
+          locale,
+          path: "/categories",
+        }),
+        ...args,
+      });
+    },
+    listSections({
+      locale, categoryId, ...args
+    } = {}) {
+      return this.makeRequest({
+        path: this.prepareLocalePath({
+          locale,
+          path: `/${categoryId
+            ? `/categories/${categoryId}`
+            : ""}/sections`,
+        }),
+        ...args,
+      });
+    },
+    listArticles({
+      locale, categoryId, sectionId, userId, ...args
+    } = {}) {
+      let path = "";
+      if (categoryId) {
+        path = `/categories/${categoryId}`;
+      }
+      if (sectionId) {
+        path = `/sections/${sectionId}`;
+      }
+      if (userId) {
+        path = `/users/${userId}`;
+      }
+
+      return this.makeRequest({
+        path: this.prepareLocalePath({
+          locale,
+          path: `${path}/articles`,
+        }),
+        ...args,
+      });
+    },
+    getArticle({
+      articleId, locale, ...args
+    } = {}) {
+      return this.makeRequest({
+        path: this.prepareLocalePath({
+          locale,
+          path: `/articles/${articleId}`,
+        }),
+        ...args,
+      });
+    },
+    listArticleLabels(args = {}) {
+      return this.makeRequest({
+        path: "/help_center/articles/labels",
+        ...args,
+      });
+    },
+    listBrands(args = {}) {
+      return this.makeRequest({
+        path: "/brands",
+        ...args,
+      });
+    },
+    listTopics(args = {}) {
+      return this.makeRequest({
+        path: "/community/topics",
+        ...args,
+      });
+    },
+    listExternalContentSources(args = {}) {
+      return this.makeRequest({
+        path: "/guide/external_content/sources",
+        ...args,
+      });
+    },
+    searchHelpCenter(args = {}) {
+      return this.makeRequest({
+        path: "/guide/search",
+        ...args,
+      });
+    },
+    searchArticles(args = {}) {
+      return this.makeRequest({
+        path: "/help_center/articles/search",
+        ...args,
+      });
+    },
+    searchCommunityPosts(args = {}) {
+      return this.makeRequest({
+        path: "/help_center/community_posts/search",
+        ...args,
+      });
+    },
+    getMacro({
+      macroId, ...args
+    }) {
+      return this.makeRequest({
+        path: `/macros/${macroId}`,
+        ...args,
+      });
+    },
+    async *paginate({
+      fn, args, resourceKey, max,
+    }) {
+      args = {
+        ...args,
+        params: {
+          ...args?.params,
+          per_page: constants.DEFAULT_LIMIT,
+          page: 1,
+        },
+      };
+      let hasMore = true;
+      let count = 0;
+      while (hasMore) {
+        const response = await fn(args);
+        const items = resourceKey
+          ? response[resourceKey]
+          : response;
+        if (!items?.length) {
+          return;
+        }
+        for (const item of items) {
+          yield item;
+          if (max && ++count >= max) {
+            return;
+          }
+        }
+        hasMore = !!response.next_page;
+        args.params.page += 1;
+      }
+    },
+    /**
+     * Set tags on a ticket (replaces all existing tags)
+     * @param {object} args - Arguments object
+     * @param {string} args.ticketId - The ticket ID
+     * @param {string[]} args.tags - Array of tags to set
+     * @param {string} args.customSubdomain - Optional custom subdomain
+     * @returns {Promise<object>} API response
+     */
+    setTicketTags({
+      ticketId, tags, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        method: "POST",
+        path: `/tickets/${ticketId}/tags.json`,
+        customSubdomain,
+        data: {
+          tags,
+        },
+        ...args,
+      });
+    },
+    /**
+     * Add tags to a ticket (appends to existing tags)
+     * @param {object} args - Arguments object
+     * @param {string} args.ticketId - The ticket ID
+     * @param {string[]} args.tags - Array of tags to add
+     * @param {string} args.customSubdomain - Optional custom subdomain
+     * @returns {Promise<object>} API response
+     */
+    addTicketTags({
+      ticketId, tags, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        method: "PUT",
+        path: `/tickets/${ticketId}/tags.json`,
+        customSubdomain,
+        data: {
+          tags,
+        },
+        ...args,
+      });
+    },
+    /**
+     * Remove specific tags from a ticket
+     * @param {object} args - Arguments object
+     * @param {string} args.ticketId - The ticket ID
+     * @param {string[]} args.tags - Array of tags to remove
+     * @param {string} args.customSubdomain - Optional custom subdomain
+     * @returns {Promise<object>} API response
+     */
+    removeTicketTags({
+      ticketId, tags, customSubdomain, ...args
+    }) {
+      return this.makeRequest({
+        method: "DELETE",
+        path: `/tickets/${ticketId}/tags.json`,
+        customSubdomain,
+        data: {
+          tags,
+        },
+        ...args,
+      });
+    },
+    listDynamicContentItems(args = {}) {
+      return this.makeRequest({
+        path: "/dynamic_content/items",
+        ...args,
+      });
+    },
+    getDynamicContentItem({
+      itemId, ...args
+    }) {
+      return this.makeRequest({
+        path: `/dynamic_content/items/${itemId}`,
+        ...args,
+      });
+    },
+    showManyDynamicContentItems(args = {}) {
+      return this.makeRequest({
+        path: "/dynamic_content/items/show_many",
+        ...args,
       });
     },
   },

@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/launch_darkly_oauth",
+  "version": "0.7.0",
+  "description": "Pipedream launch_darkly_oauth Components",
+  "main": "launch_darkly_oauth.app.mjs",
+  "keywords": [
+    "pipedream",
+    "launch_darkly_oauth"
+  ],
+  "homepage": "https://pipedream.com/apps/launch_darkly_oauth",
+  "author": "Pipedream support@pipedream.com (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/launchdarkly": "^0.1.1",
+    "@pipedream/platform": "^3.1.1"
+  }
+}

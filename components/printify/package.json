@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/printify",
+  "version": "0.3.0",
+  "description": "Pipedream Printify Components",
+  "main": "printify.app.mjs",
+  "keywords": [
+    "pipedream",
+    "printify"
+  ],
+  "homepage": "https://pipedream.com/apps/printify",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "fs": "^0.0.1-security"
+  }
+}

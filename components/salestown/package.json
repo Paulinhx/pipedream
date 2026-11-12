@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/salestown",
+  "version": "0.0.5",
+  "description": "Pipedream Salestown Components",
+  "main": "salestown.app.mjs",
+  "keywords": [
+    "pipedream",
+    "salestown"
+  ],
+  "homepage": "https://pipedream.com/apps/salestown",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

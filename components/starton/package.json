@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/starton",
+  "version": "0.0.2",
+  "description": "Pipedream Starton Components",
+  "main": "starton.app.mjs",
+  "keywords": [
+    "pipedream",
+    "starton"
+  ],
+  "homepage": "https://pipedream.com/apps/starton",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

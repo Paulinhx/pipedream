@@ -4,8 +4,14 @@ export default {
   key: "people_data_labs-enrich-person",
   name: "Enrich a person",
   description: "The Person Enrichment API provides a one-to-one match, retrieving up-to-date information on a unique individual. [See the docs here](https://docs.peopledatalabs.com/docs/reference-person-enrichment-api)",
-  version: "0.0.2",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     app,
     name: {
@@ -160,11 +166,14 @@ export default {
       pretty: this.pretty || true,
     };
 
-    const res = await this.app.enrichPerson(params);
+    const res = await this.app.enrichPerson({
+      $,
+      params,
+    });
     if (!res) {
-      $.export("summary", "No results found");
+      $.export("$summary", "No results found");
     } else {
-      $.export("summary", "Successfully enriched a person");
+      $.export("$summary", "Successfully enriched a person");
     }
     return res;
   },

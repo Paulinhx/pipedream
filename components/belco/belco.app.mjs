@@ -1,0 +1,323 @@
+import { axios } from "@pipedream/platform";
+import {
+  CHANNEL_OPTIONS,
+  CONVERSATION_TYPE_OPTIONS,
+  FROM_TYPE_OPTIONS,
+  LIMIT,
+  TO_TYPE_OPTIONS,
+} from "./common/constants.mjs";
+
+export default {
+  type: "app",
+  app: "belco",
+  propDefinitions: {
+    shopId: {
+      type: "string",
+      label: "Shop ID",
+      description: "The ID of the Belco shop, e.g. `QCKysMML2DRfxW37G`. Use **List Shop ID Options** to find it (the `value` field).",
+      async options() {
+        const shops = await this.listShops();
+        return shops.map(({
+          _id: value, name: label,
+        }) => ({
+          label,
+          value,
+        }));
+      },
+    },
+    from: {
+      type: "string",
+      label: "From",
+      description: "The ID of the sender, e.g. `GKa97c5NNLzcWcHhP` for a user or `YX6HM6Sfbt4GvbvZb` for a contact. Must match `From Type`: use **List Users** for a `user` (the `_id` field) or **List Contacts** for a `contact` (the `_id` field).",
+      async options({
+        fromType, shopId,
+      }) {
+        let response, items;
+        switch (fromType) {
+        case "user":
+          items = await this.listUsers();
+          break;
+        case "team":
+          response = await this.listTeams();
+          items = response.teams;
+          break;
+        case "contact":
+          response = await this.listContacts({
+            shopId,
+          });
+          items = response.contacts;
+          break;
+        }
+        return items.map(({
+          _id, id, profile, pseudonym, name,
+        }) => ({
+          label: pseudonym || name || `${profile.firstName} ${profile.lastName}`,
+          value: id || _id,
+        }));
+      },
+    },
+    to: {
+      type: "string",
+      label: "To",
+      description: "The Belco contact ID of the recipient, e.g. `YX6HM6Sfbt4GvbvZb`. Use **List Contacts** to find it (the `_id` field).",
+      async options({ shopId }) {
+        const { contacts } = await this.listContacts({
+          shopId,
+        });
+        return contacts.map(({
+          _id: value, pseudonym: label,
+        }) => ({
+          label,
+          value,
+        }));
+      },
+    },
+    conversationId: {
+      type: "string",
+      label: "Conversation ID",
+      description: "The ID of the conversation to use for the action (e.g. `sSzxq7tMBFmCY28o8`). Use **List All Conversations** to find conversation IDs.",
+      async options({
+        page, includeStatus, excludeStatus,
+      }) {
+        const { conversations } = await this.listConversations({
+          params: {
+            limit: LIMIT,
+            skip: page * LIMIT,
+          },
+        });
+        return conversations
+          .filter((item) => item.channel && (includeStatus
+            ? includeStatus.includes(item.status)
+            : true) && (excludeStatus
+            ? !excludeStatus.includes(item.status)
+            : true))
+          .map(({
+            _id, subject,
+          }) => ({
+            label: `${_id} - ${subject || "No subject"}`,
+            value: _id,
+          }));
+      },
+    },
+    channel: {
+      type: "string",
+      label: "Channel",
+      description: "The channel the conversation runs on. One of `email`, `chat`, `phone`, e.g. `email`. `To Email` and `Subject` only apply to `email`.",
+      options: CHANNEL_OPTIONS,
+    },
+    type: {
+      type: "string",
+      label: "Type",
+      description: "The kind of conversation. One of `auto-message`, `outbound-message`, `inbound-message`, `follow-up`, `note`, e.g. `outbound-message`. A recipient (`To` or `To Email`) is required for every type except `inbound-message` and `note`.",
+      options: CONVERSATION_TYPE_OPTIONS,
+      optional: true,
+    },
+    fromType: {
+      type: "string",
+      label: "From Type",
+      description: "Whether the sender is a Belco user (an agent) or a contact (a customer). One of `user`, `contact`, e.g. `user`. Determines which ID `From` expects.",
+      options: FROM_TYPE_OPTIONS,
+    },
+    toType: {
+      type: "string",
+      label: "To Type",
+      description: "The recipient type. Use `customer` to address someone who may not be a Belco contact yet, or `contact` for an existing Belco contact. Defaults to `customer` when `To Email` is set, otherwise `contact`.",
+      options: TO_TYPE_OPTIONS,
+      optional: true,
+    },
+    toEmail: {
+      type: "string",
+      label: "To Email",
+      description: "The recipient's email address (e.g. `jane@example.com`). Use this instead of `To` when you don't have the Belco contact ID. Only supported on the `email` channel. When set, it takes precedence over `To`.",
+      optional: true,
+    },
+    subject: {
+      type: "string",
+      label: "Subject",
+      description: "The subject line, e.g. `Your order has shipped`. Only used on the `email` channel.",
+      optional: true,
+    },
+    body: {
+      type: "string",
+      label: "Body",
+      description: "The message text, e.g. `Hi Jane, your order #1234 is on its way.`",
+    },
+  },
+  methods: {
+    _baseUrl() {
+      return "https://api.belco.io/v1";
+    },
+    _headers() {
+      return {
+        Authorization: `Bearer ${this.$auth.api_token}`,
+        accept: "application/json",
+      };
+    },
+    _makeRequest({
+      $ = this, path, ...opts
+    }) {
+      return axios($, {
+        url: `${this._baseUrl()}${path}`,
+        headers: this._headers(),
+        ...opts,
+      });
+    },
+    createWebhook(opts = {}) {
+      return this._makeRequest({
+        method: "POST",
+        path: "/webhooks",
+        ...opts,
+      });
+    },
+    deleteWebhook({
+      webhookId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "DELETE",
+        path: `/webhooks/${webhookId}`,
+        ...opts,
+      });
+    },
+    getContact({
+      shopId, contactId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `/shops/${shopId}/contacts/${contactId}`,
+        ...opts,
+      });
+    },
+    listShops() {
+      return this._makeRequest({
+        path: "/shops",
+      });
+    },
+    listUsers(opts = {}) {
+      return this._makeRequest({
+        path: "/users",
+        ...opts,
+      });
+    },
+    listTeams(opts = {}) {
+      return this._makeRequest({
+        path: "/teams",
+        ...opts,
+      });
+    },
+    listContacts({
+      shopId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `/shops/${shopId}/contacts`,
+        ...opts,
+      });
+    },
+    listConversations(opts = {}) {
+      return this._makeRequest({
+        path: "/conversations",
+        ...opts,
+      });
+    },
+    getConversation({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `/conversations/${conversationId}`,
+        ...opts,
+      });
+    },
+    getConversationItems({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        path: `/conversations/${conversationId}/items`,
+        ...opts,
+      });
+    },
+    createConversation(opts = {}) {
+      return this._makeRequest({
+        method: "POST",
+        path: "/conversations",
+        ...opts,
+      });
+    },
+    sendMessage(opts = {}) {
+      return this._makeRequest({
+        method: "POST",
+        path: "/conversations/sendMessage",
+        ...opts,
+      });
+    },
+    closeConversation({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/conversations/${conversationId}/close`,
+        ...opts,
+      });
+    },
+    reopenConversation({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/conversations/${conversationId}/open`,
+        ...opts,
+      });
+    },
+    replyToConversation({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/conversations/${conversationId}/reply`,
+        ...opts,
+      });
+    },
+    addNoteToConversation({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/conversations/${conversationId}/addNote`,
+        ...opts,
+      });
+    },
+    addTagsToConversation({
+      conversationId, ...opts
+    }) {
+      return this._makeRequest({
+        method: "PUT",
+        path: `/conversations/${conversationId}/tags`,
+        ...opts,
+      });
+    },
+    async *paginate({
+      fn, params = {}, maxResults = null, ...opts
+    }) {
+      let hasMore = false;
+      let count = 0;
+      let page = 0;
+
+      do {
+        params.limit = LIMIT;
+        params.skip = page * LIMIT;
+        page++;
+        const { conversations } = await fn({
+          params,
+          ...opts,
+        });
+        for (const conversation of conversations) {
+          yield conversation;
+
+          if (maxResults && ++count === maxResults) {
+            return count;
+          }
+        }
+
+        hasMore = (conversations.length === LIMIT);
+
+      } while (hasMore);
+    },
+  },
+};

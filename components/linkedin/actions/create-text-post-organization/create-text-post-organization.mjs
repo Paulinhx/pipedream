@@ -1,11 +1,16 @@
 import linkedin from "../../linkedin.app.mjs";
+import utils from "../../common/utils.mjs";
 
 export default {
-  key: "linkedin-create-text-share-organization",
+  key: "linkedin-create-text-post-organization",
   name: "Create a Simple Post (Organization)",
-  description:
-    "Create post on LinkedIn using text, URL or article. [See the docs](https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/ugc-post-api?tabs=http#create-ugc-posts) for more information",
-  version: "0.0.1",
+  description: "Create post on LinkedIn using text, URL or article. [See the documentation](https://learn.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/posts-api?view=li-lms-2022-11&tabs=http#create-organic-posts) for more information",
+  version: "0.0.13",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     linkedin,
@@ -15,62 +20,44 @@ export default {
         "organizationId",
       ],
     },
-    type: {
-      propDefinition: [
-        linkedin,
-        "type",
-      ],
-      reloadProps: true,
-    },
     text: {
       propDefinition: [
         linkedin,
         "text",
       ],
     },
+    article: {
+      type: "string",
+      label: "Article URL",
+      description: "The URL of an article to share",
+      optional: true,
+    },
   },
-  async additionalProps() {
-    if (this.type === "ARTICLE") {
-      return {
-        originalUrl: {
-          type: "string",
-          label: "Article Url",
-          description:
-            "URL whose content is summarized. content may not have a corresponding url for some entities. Maximum length is 8192 characters.",
-        },
-        thumbnail: {
-          type: "string",
-          label: "Thumbnail Url",
-          description: "The thumbnail saved from the ingestion of this article",
-        },
-        title: {
-          type: "string",
-          label: "Title",
-          description: "The title of this article",
-        },
-      };
-    } else {
-      return {
-        text: {
-          type: "string",
-          label: "Text",
-          description: "Text to be posted on LinkedIn timeline",
+  async run({ $ }) {
+    const data = {
+      author: `urn:li:organization:${this.organizationId}`,
+      commentary: utils.escapeText(this.text),
+      visibility: "PUBLIC",
+      lifecycleState: "PUBLISHED",
+      distribution: {
+        feedDistribution: "MAIN_FEED",
+      },
+    };
+    if (this.article) {
+      data.content = {
+        article: {
+          source: this.article,
+          title: this.article,
         },
       };
     }
-  },
-  async run({ $ }) {
     const response = await this.linkedin.createPost({
       $,
-      orgId: this.organizationId,
-      type: this.type,
-      text: this.text,
-      originalUrl: this.originalUrl,
-      thumbnail: this.thumbnail,
-      title: this.title,
-      visibility: "PUBLIC",
+      data,
     });
     $.export("$summary", "Successfully created a new Post as Organization");
-    return response;
+    return response || {
+      success: true,
+    };
   },
 };

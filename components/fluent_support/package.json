@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/fluent_support",
+  "version": "0.0.3",
+  "description": "Pipedream Fluent Support Components",
+  "main": "fluent_support.app.mjs",
+  "keywords": [
+    "pipedream",
+    "fluent_support"
+  ],
+  "homepage": "https://pipedream.com/apps/fluent_support",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,35 +1,32 @@
-import shopify from "../../shopify.app.mjs";
+import common from "../common/polling.mjs";
+import { MAX_LIMIT } from "../../common/constants.mjs";
 
 export default {
+  ...common,
   key: "shopify-new-page",
   name: "New Page",
   type: "source",
   description: "Emit new event for each new page published.",
-  version: "0.0.5",
+  version: "0.0.28",
   dedupe: "unique",
-  props: {
-    db: "$.service.db",
-    timer: {
-      type: "$.interface.timer",
-      default: {
-        intervalSeconds: 60 * 15,
-      },
-    },
-    shopify,
-  },
-  async run() {
-    const sinceId = this.db.get("since_id") || null;
-    let results = await this.shopify.getPages(sinceId);
-
-    for (const page of results) {
-      this.$emit(page, {
-        id: page.id,
-        summary: page.title,
-        ts: Date.now(),
+  methods: {
+    ...common.methods,
+    async getResults() {
+      const { pages: { nodes } } = await this.app.listPages({
+        first: MAX_LIMIT,
+        reverse: true,
       });
-    }
-
-    if (results[results.length - 1])
-      this.db.set("since_id", results[results.length - 1].id);
+      return nodes;
+    },
+    getTsField() {
+      return "createdAt";
+    },
+    generateMeta(page) {
+      return {
+        id: page.id,
+        summary: `New Page: ${page.title}`,
+        ts: Date.parse(page[this.getTsField()]),
+      };
+    },
   },
 };

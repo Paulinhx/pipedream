@@ -1,44 +1,67 @@
 import snowflake from "../../snowflake.app.mjs";
-import { ConfigurationError } from "@pipedream/platform";
 
 export default {
   type: "action",
   key: "snowflake-insert-row",
-  name: "Insert Row",
+  name: "Insert Single Row",
   description: "Insert a row into a table",
-  version: "0.0.1",
+  version: "1.1.6",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   props: {
     snowflake,
+    database: {
+      propDefinition: [
+        snowflake,
+        "database",
+      ],
+    },
+    schema: {
+      propDefinition: [
+        snowflake,
+        "schema",
+        (c) =>  ({
+          database: c.database,
+        }),
+      ],
+    },
     tableName: {
       propDefinition: [
         snowflake,
         "tableName",
-      ],
-      description: "The name of the table to insert a new row",
-    },
-    columns: {
-      propDefinition: [
-        snowflake,
-        "columns",
         (c) => ({
-          tableName: c.tableName,
+          database: c.database,
+          schema: c.schema,
         }),
       ],
-    },
-    values: {
-      propDefinition: [
-        snowflake,
-        "values",
-      ],
+      description: "The table where you want to add a new row",
+      reloadProps: true,
     },
   },
-  async run({ $ }) {
-    if (this.columns.length !== this.values.length) {
-      throw new ConfigurationError("`Columns` length is different than `Values` length");
+  async additionalProps() {
+    const props = {};
+    // Once a user selects the table, display the columns as additional props
+    if (this.tableName) {
+      const fields = await this.snowflake.listFieldsForTable(this.tableName);
+      const defaultValue = {};
+      for (const field of fields) {
+        defaultValue[field.name] = "";
+      }
+      props["values"] = {
+        type: "object",
+        label: "Values",
+        description: "Enter the values for each column",
+        default: defaultValue,
+      };
     }
-
-    const response = await this.snowflake.insertRow(this.tableName, this.columns, this.values);
-    $.export("$summary", `Sucessfully inserted row to ${this.tableName} table`);
+    return props;
+  },
+  async run({ $ }) {
+    const response = await this.snowflake.insertRow(this.tableName, this.values);
+    $.export("$summary", `Successfully inserted row in ${this.tableName}`);
     return response;
   },
 };

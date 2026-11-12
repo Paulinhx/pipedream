@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/chmeetings",
+  "version": "0.1.0",
+  "description": "Pipedream ChMeetings Components",
+  "main": "chmeetings.app.mjs",
+  "keywords": [
+    "pipedream",
+    "chmeetings"
+  ],
+  "homepage": "https://pipedream.com/apps/chmeetings",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

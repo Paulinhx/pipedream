@@ -1,10 +1,11 @@
 /* eslint-disable camelcase */
-import axios from "axios";
+import { axios } from "@pipedream/platform";
+import flatten from "lodash/flatten.js";
 import get from "lodash/get.js";
 import sortBy from "lodash/sortBy.js";
-import flatten from "lodash/flatten.js";
-import zoomCountries from "./zoom_countries.mjs";
+import { doubleEncode } from "./common/utils.mjs";
 import consts from "./consts.mjs";
+import zoomCountries from "./zoom_countries.mjs";
 
 export default {
   type: "app",
@@ -53,6 +54,7 @@ export default {
     meeting: {
       type: "string",
       label: "Meeting",
+      description: "The meeting ID or meeting topic",
       withLabel: true,
       async options({
         prevContext,
@@ -61,7 +63,10 @@ export default {
         if (!prevContext.nextPageToken && page > 0) {
           return [];
         }
-        const data = await this.listMeetings(prevContext.nextPageToken);
+        const data = await this.listMeetings(
+          {},
+          prevContext.nextPageToken,
+        );
         return {
           options: data?.meetings.map((meeting) => ({
             label: meeting.topic,
@@ -138,7 +143,7 @@ export default {
         isWebinar,
       }) {
         const promises = consts.REGISTRANT_STATUSES_OPTIONS.map((status) => (
-          this.listMeetingRegistrants(
+          this.listMeetingOrWebinarRegistrants(
             get(meeting, "value", meeting),
             occurrenceId,
             page + 1,
@@ -196,6 +201,7 @@ export default {
     webinar: {
       type: "string",
       label: "Webinar",
+      description: "The webinar ID or webinar topic",
       optional: true,
       withLabel: true,
       async options({
@@ -209,10 +215,7 @@ export default {
         const {
           webinars,
           next_page_token: nextPageToken,
-        } = await this.listWebinars({
-          nextPageToken: prevContext.nextPageToken,
-          pageSize: 30,
-        });
+        } = await this.listWebinars(30, prevContext.nextPageToken);
         if (!webinars.length) {
           return [];
         }
@@ -252,22 +255,17 @@ export default {
         headers: this._getHeaders(),
       };
     },
-    async _makeRequest(opts) {
-      return axios(this._getAxiosParams(opts));
-    },
-    async listMeetings(nextPageToken) {
-      const { data } = await this._makeRequest({
-        path: "/users/me/meetings",
-        params: {
-          page_size: 100,
-          next_page_token: nextPageToken,
-        },
-      });
-
-      return data;
+    async _makeRequest({
+      $ = this, ...opts
+    }) {
+      return axios($, this._getAxiosParams({
+        ...opts,
+        returnFullResponse: true,
+      }));
     },
     async listMeetingsOccurrences(meetingId, isWebinar) {
       try {
+        meetingId = doubleEncode(meetingId);
         const path = isWebinar
           ? `/webinars/${meetingId}`
           : `/meetings/${meetingId}`;
@@ -279,10 +277,7 @@ export default {
         return [];
       }
     },
-    async listWebinars({
-      pageSize,
-      nextPageToken,
-    }) {
+    async listWebinars(pageSize, nextPageToken) {
       const { data } = await this._makeRequest({
         path: "/users/me/webinars",
         params: {
@@ -292,9 +287,17 @@ export default {
       });
       return data;
     },
+    listAccountCallLogs(nextPageToken) {
+      return this._makeRequest({
+        path: "/phone/call_history",
+        params: {
+          next_page_token: nextPageToken,
+        },
+      });
+    },
     async listWebinarPanelists(webinarID, nextPageToken) {
       const { data } = await this._makeRequest({
-        path: `/webinars/${webinarID}/panelists`,
+        path: `/webinars/${doubleEncode(webinarID)}/panelists`,
         params: {
           page_size: 100,
           next_page_token: nextPageToken,
@@ -302,7 +305,8 @@ export default {
       });
       return data;
     },
-    async listMeetingRegistrants(meetingId, occurrenceId, pageNumber, status, isWebinar) {
+    async listMeetingOrWebinarRegistrants(meetingId, occurrenceId, pageNumber, status, isWebinar) {
+      meetingId = doubleEncode(meetingId);
       const path = isWebinar
         ? `/webinars/${meetingId}/registrants`
         : `/meetings/${meetingId}/registrants`;
@@ -330,11 +334,107 @@ export default {
       const res = await this._makeRequest({
         path: "/users/me/recordings",
         params: {
-          page_size: 30,
+          page_size: 100,
           next_page_token: nextPageToken,
         },
       });
       return get(res, "data");
+    },
+    async listWebinarParticipants(webinarID, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: `/past_webinars/${doubleEncode(webinarID)}/participants`,
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+        },
+      });
+      return data;
+    },
+    async listCloudRecordings(params, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: "/users/me/recordings",
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+          ...params,
+        },
+      });
+      return data;
+    },
+    async listUserCloudRecordings(userId, params) {
+      const { data } = await this._makeRequest({
+        path: `/users/${userId}/recordings`,
+        params: {
+          page_size: 100,
+          ...params,
+        },
+      });
+      return data;
+    },
+    async listMeetingRegistrants(meetingId, params, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: `/meetings/${doubleEncode(meetingId)}/registrants`,
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+          ...params,
+        },
+      });
+      return data;
+    },
+    async listMeetings(params, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: "/users/me/meetings",
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+          ...params,
+        },
+      });
+      return data;
+    },
+    async listWebinarRegistrants(webinarId, params, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: `/webinars/${doubleEncode(webinarId)}/registrants`,
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+          ...params,
+        },
+      });
+      return data;
+    },
+    async listUsers(params, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: "/users",
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+          ...params,
+        },
+      });
+      return data;
+    },
+    async listPastMeetingParticipants(meetingId, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: `/past_meetings/${doubleEncode(meetingId)}/participants`,
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+        },
+      });
+      return data;
+    },
+    async listMeetingRecordings(meetingId, params, nextPageToken) {
+      const { data } = await this._makeRequest({
+        path: `/meetings/${doubleEncode(meetingId)}/recordings`,
+        params: {
+          page_size: 100,
+          next_page_token: nextPageToken,
+          ...params,
+        },
+      });
+      return data;
     },
   },
 };

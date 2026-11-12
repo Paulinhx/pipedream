@@ -1,0 +1,49 @@
+import figmaApp from "../../figma.app.mjs";
+
+export default {
+  name: "Delete a Comment",
+  description: "Delete a comment to a file. [See the docs here](https://www.figma.com/developers/api#delete-comments-endpoint)",
+  key: "figma-delete-comment",
+  version: "0.0.6",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
+  type: "action",
+  props: {
+    figmaApp,
+    projectId: {
+      propDefinition: [
+        figmaApp,
+        "projectId",
+      ],
+    },
+    fileId: {
+      propDefinition: [
+        figmaApp,
+        "fileId",
+      ],
+    },
+    commentId: {
+      propDefinition: [
+        figmaApp,
+        "commentId",
+        ({ fileId }) => ({
+          fileId,
+        }),
+      ],
+    },
+  },
+  async run({ $ }) {
+    const {
+      fileId,
+      commentId,
+    } = this;
+
+    const res = await this.figmaApp.deleteComment(fileId, commentId, $);
+
+    $.export("$summary", "Comment successfully deleted");
+    return res;
+  },
+};

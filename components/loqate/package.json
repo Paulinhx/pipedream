@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/loqate",
+  "version": "0.0.3",
+  "description": "Pipedream Loqate Components",
+  "main": "loqate.app.mjs",
+  "keywords": [
+    "pipedream",
+    "loqate"
+  ],
+  "homepage": "https://pipedream.com/apps/loqate",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

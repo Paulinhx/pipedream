@@ -3,31 +3,38 @@ import googleDocs from "../../google_docs.app.mjs";
 export default {
   key: "google_docs-replace-text",
   name: "Replace Text",
-  description: "Replace all instances of matched text in a existing document. [See the docs](https://developers.google.com/docs/api/reference/rest/v1/documents/request#ReplaceAllTextRequest)",
-  version: "0.0.1",
+  description: "Find and replace all occurrences of a string in a Google Doc. Set **Replacement Format** to `markdown` to convert Markdown in the replacement into native Google Docs formatting. Use **Find Document** to resolve a document's name to its ID. Returns the number of replacements made. In a multi-tab document the replacement runs across **every** tab by default; set **Tab ID** to confine it to one tab, using **List Tabs** to get the IDs. [See the documentation](https://developers.google.com/docs/api/reference/rest/v1/documents/request#ReplaceAllTextRequest)",
+  version: "1.2.2",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     googleDocs,
-    docId: {
+    documentId: {
       propDefinition: [
         googleDocs,
-        "docId",
+        "documentId",
       ],
     },
-    replaced: {
-      propDefinition: [
-        googleDocs,
-        "text",
-      ],
-      label: "Text to be replaced",
-      description: "The text that will be replaced",
+    find: {
+      type: "string",
+      label: "Find",
+      description: "The text to search for.",
     },
-    text: {
+    replace: {
+      type: "string",
+      label: "Replace",
+      description: "The text to replace each match with.",
+    },
+    format: {
       propDefinition: [
         googleDocs,
-        "text",
+        "replacementFormat",
       ],
-      label: "New Text",
     },
     matchCase: {
       propDefinition: [
@@ -35,19 +42,77 @@ export default {
         "matchCase",
       ],
     },
+    tabId: {
+      propDefinition: [
+        googleDocs,
+        "styleTabId",
+      ],
+      description: "For a multi-tab document, confine the replacement to this tab (e.g. `t.0`). Get tab IDs from **List Tabs**. Omit to replace in every tab.",
+    },
   },
   async run({ $ }) {
-    const text = {
-      replaceText: this.text,
+    const {
+      googleDocs,
+      documentId,
+      find,
+      replace,
+      format,
+      matchCase,
+      tabId,
+    } = this;
+
+    // `replaceAllText` with no `tabsCriteria` replaces in every tab (measured),
+    // which is the right default for a find-and-replace; a Tab ID narrows it.
+    const target = tabId
+      ? `tab ${tabId} of document ${documentId}`
+      : `document ${documentId}`;
+    const tabIds = tabId
+      ? [
+        tabId,
+      ]
+      : null;
+
+    if (format === "markdown") {
+      const {
+        occurrencesChanged, formattingRequestsApplied,
+      } = await googleDocs.replaceTextWithMarkdown({
+        documentId,
+        textToReplace: find,
+        markdownReplacement: replace,
+        matchCase,
+        tabIds,
+      });
+      $.export("$summary", `Replaced ${occurrencesChanged} occurrence${occurrencesChanged === 1
+        ? ""
+        : "s"} of "${find}" in ${target}, applying ${formattingRequestsApplied} formatting request${formattingRequestsApplied === 1
+        ? ""
+        : "s"}`);
+      return {
+        documentId,
+        occurrencesChanged,
+        formattingRequestsApplied,
+      };
+    }
+
+    const { data } = await googleDocs.replaceText(documentId, {
+      replaceText: replace,
       containsText: {
-        text: this.replaced,
-        matchCase: this.matchCase,
+        text: find,
+        matchCase,
       },
-    };
-    await this.googleDocs.replaceText(this.docId, text);
-    $.export("summary", "Successfully replaced text in doc");
+      ...(tabIds && {
+        tabsCriteria: {
+          tabIds,
+        },
+      }),
+    });
+    const occurrences = data?.replies?.[0]?.replaceAllText?.occurrencesChanged ?? 0;
+    $.export("$summary", `Replaced ${occurrences} occurrence${occurrences === 1
+      ? ""
+      : "s"} of "${find}" in ${target}`);
     return {
-      documentId: this.docId,
+      documentId,
+      occurrencesChanged: occurrences,
     };
   },
 };

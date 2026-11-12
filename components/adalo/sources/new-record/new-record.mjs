@@ -1,32 +1,62 @@
 import adalo from "../../adalo.app.mjs";
+import { DEFAULT_POLLING_SOURCE_TIMER_INTERVAL } from "@pipedream/platform";
 
 export default {
   key: "adalo-new-record",
   name: "New Record",
   description: "Emit new event when is created a record.",
-  version: "0.0.1",
+  version: "0.0.5",
   type: "source",
   dedupe: "unique",
   props: {
     adalo,
-    collectionId: {
-      label: "Collection ID",
-      description: "The ID the collection",
-      type: "string",
+    timer: {
+      type: "$.interface.timer",
+      default: {
+        intervalSeconds: DEFAULT_POLLING_SOURCE_TIMER_INTERVAL,
+      },
+    },
+  },
+  methods: {
+    emitEvent(event) {
+      this.$emit(event, {
+        id: event.id,
+        summary: `New record with id ${event.id} created`,
+        ts: Date.parse(event.created_at),
+      });
+    },
+  },
+  hooks: {
+    async deploy() {
+      const { records } = await this.adalo.getRecords({
+        params: {
+          limit: 10,
+        },
+      });
+
+      records.forEach(this.emitEvent);
     },
   },
   async run({ $ }) {
-    const records = await this.adalo.getRecords({
-      $,
-      collectionId: this.collectionId,
-    });
+    let offset = 0;
 
-    for (const record of records) {
-      this.$emit(record, {
-        id: record.id,
-        summary: `New record ${record.id} created`,
-        ts: Date.parse(record.created_at),
+    while (offset >= 0) {
+      const { records } = await this.adalo.getRecords({
+        $,
+        params: {
+          offset,
+        },
       });
+
+      records.forEach(this.emitEvent);
+
+      if (records.length < 100) {
+        offset = -1;
+        return;
+      }
+
+      offset += 100;
     }
+
   },
 };

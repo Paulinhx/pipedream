@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/logoraisr",
+  "version": "0.0.3",
+  "description": "Pipedream Logoraisr Components",
+  "main": "logoraisr.app.mjs",
+  "keywords": [
+    "pipedream",
+    "logoraisr"
+  ],
+  "homepage": "https://pipedream.com/apps/logoraisr",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

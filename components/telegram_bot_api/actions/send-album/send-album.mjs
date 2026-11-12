@@ -1,11 +1,17 @@
+import { ConfigurationError } from "@pipedream/platform";
 import telegramBotApi from "../../telegram_bot_api.app.mjs";
-import { toSingleLineString } from "../../utils.mjs";
+import { toSingleLineString } from "../../common/utils.mjs";
 
 export default {
   key: "telegram_bot_api-send-album",
   name: "Send an Album (Media Group)",
   description: "Sends a group of photos or videos as an album. [See the docs](https://core.telegram.org/bots/api#sendmediagroup) for more information",
-  version: "0.0.1",
+  version: "1.0.0",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     telegramBotApi,
@@ -16,7 +22,7 @@ export default {
       ],
     },
     media: {
-      type: "any",
+      type: "string",
       label: "Media",
       description: toSingleLineString(`
         A JSON-serialized array describing photos and videos to be sent, must include 2–10 items
@@ -40,7 +46,7 @@ export default {
       try {
         media = JSON.parse(media);
       } catch (err) {
-        throw new Error("media must be deserializable to JSON");
+        throw new ConfigurationError("**Media** must be a JSON-serialized array of input media objects");
       }
     }
     const resp = await this.telegramBotApi.sendMediaGroup(this.chatId, media, {

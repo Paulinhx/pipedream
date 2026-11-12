@@ -1,11 +1,12 @@
 import common from "../common/base.mjs";
+import { Timestamp } from "mongodb";
 
 export default {
   ...common,
   key: "mongodb-new-document",
   name: "New Document",
   description: "Emit new an event when a new document is added to a collection",
-  version: "0.0.3",
+  version: "0.0.12",
   type: "source",
   dedupe: "unique",
   props: {
@@ -25,31 +26,102 @@ export default {
         }),
       ],
     },
+    timestampField: {
+      type: "string",
+      label: "Timestamp Field",
+      description: "The key of a timestamp field, such as 'created_at' that is set to the current timestamp when a document is created.",
+    },
+    timestampFieldType: {
+      type: "string",
+      label: "Timestamp Field Type",
+      description: "The type of the timestamp field",
+      default: "Timestamp",
+      options: [
+        "Timestamp",
+        "Integer",
+        "ISO8601",
+      ],
+    },
+  },
+  hooks: {
+    async deploy() {
+      const client = await this.mongodb.getClient();
+      await this.processEvent(client, Date.now(), 25);
+      await client.close();
+    },
   },
   methods: {
     ...common.methods,
-    _getDocumentIds() {
-      return this.db.get("documentIds");
+    _getLastTs() {
+      return this.db.get("lastTs");
     },
-    _setDocumentIds(documentIds) {
-      this.db.set("documentIds", documentIds);
+    _setLastTs(lastTs) {
+      this.db.set("lastTs", lastTs);
     },
-    isRelevant(id, documentIds) {
-      return !documentIds.includes(id);
-    },
-    async processEvent(client, ts) {
-      const documentIds = this._getDocumentIds() || [];
-      const collection = this.mongodb.getCollection(client, this.database, this.collection);
-      const documents = await this.mongodb.listDocuments(collection);
-      for (const doc of documents) {
-        const id = JSON.stringify(doc._id);
-        if (!this.isRelevant(id, documentIds)) {
-          continue;
-        }
-        documentIds.push(id);
-        this.emitEvent(doc, ts);
+    makeTs(timestamp) {
+      if (this.timestampFieldType === "Integer") {
+        return timestamp;
       }
-      this._setDocumentIds(documentIds);
+      if (this.timestampFieldType === "Timestamp") {
+        return this.convertToTimestamp(timestamp);
+      }
+      if (this.timestampFieldType === "ISO8601") {
+        return new Date(timestamp);
+      }
+      return timestamp;
+    },
+    getTs(timestamp) {
+      if (this.timestampFieldType === "Integer") {
+        return timestamp;
+      }
+      if (this.timestampFieldType === "Timestamp") {
+        return timestamp.getHighBits() * 1_000;
+      }
+      if (this.timestampFieldType === "ISO8601") {
+        return new Date(timestamp).getTime();
+      }
+      return timestamp;
+    },
+    convertToTimestamp(timestamp) {
+      const bigIntValue = BigInt(timestamp.toString());
+      const seconds = Number(bigIntValue >> 32n);
+      const increment = Number(bigIntValue & 0xFFFFFFFFn);
+      return new Timestamp({
+        t: seconds,
+        i: increment,
+      });
+    },
+    async processEvent(client, eventTs, max) {
+      const lastTs = this._getLastTs() || 0;
+      let maxTs = lastTs;
+      let count = 0;
+      const collection = this.mongodb.getCollection(client, this.database, this.collection);
+      const sort = {
+        [this.timestampField]: -1,
+      };
+      const query = {
+        [this.timestampField]: {
+          $gt: this.makeTs(lastTs),
+        },
+      };
+      const documents = await collection
+        .find(query)
+        .sort(sort)
+        .toArray();
+      const docs = [];
+      for (const doc of documents) {
+        const ts = this.getTs(doc[this.timestampField]);
+        if (!(ts > lastTs) || (max && count >= max)) {
+          break;
+        }
+        if (ts > maxTs) {
+          maxTs = ts;
+        }
+        docs.push(doc);
+        count++;
+      }
+      docs.reverse().forEach((doc) => this.emitEvent(doc, eventTs));
+      this._setLastTs(maxTs);
     },
     generateMeta({ _id: id }, ts) {
       return {

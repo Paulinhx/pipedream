@@ -1,60 +1,62 @@
-import salesforce from "../../salesforce_rest_api.app.mjs";
+import common, { getProps } from "../common/base-create-update.mjs";
 import attachment from "../../common/sobjects/attachment.mjs";
-import {
-  pickBy, pick,
-} from "lodash-es";
-import { toSingleLineString } from "../../common/utils.mjs";
+import { getFileStream } from "@pipedream/platform";
+
+const docsLink = "https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_attachment.htm";
 
 export default {
+  ...common,
   key: "salesforce_rest_api-create-attachment",
   name: "Create Attachment",
-  description: toSingleLineString(`
-    Creates an attachment, which represents a file that a User has uploaded and attached to a parent object.
-    See [Attachment SObject](https://developer.salesforce.com/docs/atlas.en-us.228.0.object_reference.meta/object_reference/sforce_api_objects_attachment.htm)
-    and [Create Record](https://developer.salesforce.com/docs/atlas.en-us.228.0.api_rest.meta/api_rest/dome_sobject_create.htm)
-  `),
-  version: "0.3.2",
+  description: "Attach a file to an existing Salesforce record (classic `Attachment` object)."
+    + " Use **Find Records** to get the parent record ID first."
+    + " For newer orgs prefer Salesforce Files - use **Insert Blob Data** with `ContentVersion` instead."
+    + " "
+    + `[See the documentation](${docsLink})`,
+  version: "0.6.1",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
-  props: {
-    salesforce,
-    Body: {
-      type: "string",
-      label: "Body",
-      description: "Encoded file data.",
-    },
-    Name: {
-      type: "string",
-      label: "Name",
-      description: "Name of the attached file. Maximum size is 255 characters.",
-    },
-    ParentId: {
-      type: "string",
-      label: "Parent ID",
-      description: "ID of the parent object of the attachment. The following objects are supported as parents of attachments:\n* Account\n* Asset\n* Campaign\n* Case\n* Contact\n* Contract\n* Custom objects\n* EmailMessage\n* EmailTemplate\n* Event\n* Lead\n* Opportunity\n* Product2\n* Solution\n* Task",
-    },
-    selector: {
-      propDefinition: [
-        salesforce,
-        "fieldSelector",
-      ],
-      description: `${salesforce.propDefinitions.fieldSelector.description} Attachment`,
-      options: () => Object.keys(attachment),
-      reloadProps: true,
-    },
-  },
-  async additionalProps() {
-    return this.salesforce.additionalProps(this.selector, attachment);
-  },
+  ai: "optimized",
+  props: getProps({
+    objType: attachment,
+    docsLink,
+  }),
   async run({ $ }) {
-    const data = pickBy(pick(this, [
-      "Body",
-      "Name",
-      "ParentId",
-      ...this.selector,
-    ]));
-    const response = await this.salesforce.createAttachment({
+    /* eslint-disable no-unused-vars */
+    const {
+      salesforce,
+      getAdditionalFields,
+      formatDateTimeProps,
+      docsInfo,
+      filePathOrContent,
+      additionalFields,
+      ...data
+    } = this;
+    /* eslint-enable no-unused-vars */
+
+    let body;
+    if (filePathOrContent.startsWith("http") || filePathOrContent.includes("tmp/")) {
+      const stream = await getFileStream(filePathOrContent);
+      const chunks = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      body = Buffer.concat(chunks).toString("base64");
+    } else {
+      body = filePathOrContent;
+    }
+
+    const response = await salesforce.createRecord("Attachment", {
       $,
-      data,
+      data: {
+        ...data,
+        ...getAdditionalFields(),
+        Body: body,
+      },
     });
     $.export("$summary", `Successfully created attachment "${this.Name}"`);
     return response;

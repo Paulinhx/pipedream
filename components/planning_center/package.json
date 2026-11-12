@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/planning_center",
+  "version": "0.2.0",
+  "description": "Pipedream Planning Center Components",
+  "main": "planning_center.app.mjs",
+  "keywords": [
+    "pipedream",
+    "planning_center"
+  ],
+  "homepage": "https://pipedream.com/apps/planning_center",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

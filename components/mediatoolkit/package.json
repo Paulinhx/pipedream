@@ -1,0 +1,24 @@
+{
+  "name": "@pipedream/mediatoolkit",
+  "version": "0.0.4",
+  "description": "Pipedream Mediatoolkit Components",
+  "main": "dist/app/mediatoolkit.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mediatoolkit"
+  ],
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://pipedream.com/apps/mediatoolkit",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  },
+  "devDependencies": {
+    "@pipedream/types": "^0.3.2"
+  }
+}

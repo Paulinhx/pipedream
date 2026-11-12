@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/wisepops",
+  "version": "0.1.0",
+  "description": "Pipedream Wisepops Components",
+  "main": "wisepops.app.mjs",
+  "keywords": [
+    "pipedream",
+    "wisepops"
+  ],
+  "homepage": "https://pipedream.com/apps/wisepops",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "dependencies": {
+    "@pipedream/platform": "^0.10.1",
+    "node-forge": "^1.4.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/showpad",
+  "version": "0.0.5",
+  "description": "Pipedream Showpad Components",
+  "main": "showpad.app.mjs",
+  "keywords": [
+    "pipedream",
+    "showpad"
+  ],
+  "homepage": "https://pipedream.com/apps/showpad",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

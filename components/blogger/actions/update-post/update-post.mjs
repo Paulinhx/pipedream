@@ -4,7 +4,12 @@ export default {
   name: "Update a Post",
   description: "Updates a published post. [See the docs here](https://developers.google.com/blogger/docs/3.0/reference/posts/update).",
   key: "blogger-update-post",
-  version: "0.0.1",
+  version: "0.0.3",
+  annotations: {
+    destructiveHint: true,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
     bloggerApp,
@@ -37,6 +42,11 @@ export default {
       ],
       optional: true,
     },
+    labels: {
+      type: "string[]",
+      label: "Labels",
+      description: "The list of labels this post is tagged with.",
+    },
   },
   async run({ $ }) {
     const {
@@ -44,16 +54,18 @@ export default {
       post,
       title,
       content,
+      labels,
     } = this;
 
     let postData;
-    if (!content || !title) {
+    if (!content || !title || !labels?.length) {
       postData = await this.bloggerApp.getBlogPost($, blog, post);
     }
 
     const dataParams = {
       content: content || postData.content,
       title: title || postData.title,
+      labels: labels || postData.labels,
     };
 
     const res = await this.bloggerApp.updatePost(

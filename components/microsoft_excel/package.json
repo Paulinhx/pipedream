@@ -1,0 +1,22 @@
+{
+  "name": "@pipedream/microsoft_excel",
+  "version": "0.6.0",
+  "description": "Pipedream Microsoft Excel Components",
+  "main": "microsoft_excel.app.mjs",
+  "keywords": [
+    "pipedream",
+    "microsoft_excel"
+  ],
+  "homepage": "https://pipedream.com/apps/microsoft_excel",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@microsoft/microsoft-graph-client": "^3.0.7",
+    "@pipedream/platform": "^3.1.1",
+    "isomorphic-fetch": "^3.0.0",
+    "json-2-csv": "^5.5.11",
+    "moment": "^2.29.4"
+  }
+}

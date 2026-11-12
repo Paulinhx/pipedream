@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/nusii_proposals",
+  "version": "0.0.3",
+  "description": "Pipedream Nusii Proposals Components",
+  "main": "nusii_proposals.app.mjs",
+  "keywords": [
+    "pipedream",
+    "nusii_proposals"
+  ],
+  "homepage": "https://pipedream.com/apps/nusii_proposals",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

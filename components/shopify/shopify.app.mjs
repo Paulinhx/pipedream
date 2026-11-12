@@ -1,375 +1,368 @@
-import get from "lodash.get";
 import Shopify from "shopify-api-node";
-import toPath from "lodash.topath";
+import get from "lodash.get";
 import retry from "async-retry";
-import events from "./sources/common/events.mjs";
-import { toSingleLineString } from "./actions/commons.mjs";
+import mutations from "./common/mutations.mjs";
+import queries from "./common/queries.mjs";
+import {
+  DEFAULT_LIMIT, MAX_LIMIT, API_VERSION,
+} from "./common/constants.mjs";
+import utils from "./common/utils.mjs";
 
 export default {
   type: "app",
   app: "shopify",
   propDefinitions: {
-    eventTypes: {
-      type: "string[]",
-      label: "Event Types",
-      optional: true,
-      description: "Only emit events for the selected event types.",
-      options: events,
+    blogId: {
+      type: "string",
+      label: "Blog ID",
+      description: "The identifier of a blog",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listBlogs,
+          resourceKeys: [
+            "blogs",
+          ],
+          prevContext,
+        });
+      },
+    },
+    articleId: {
+      type: "string",
+      label: "Article ID",
+      description: "The identifier of an article",
+      async options({
+        prevContext, blogId,
+      }) {
+        return this.getPropOptions({
+          resourceFn: this.listBlogArticles,
+          resourceKeys: [
+            "blog",
+            "articles",
+          ],
+          variables: {
+            id: blogId,
+          },
+          prevContext,
+        });
+      },
     },
     productId: {
       type: "string",
       label: "Product ID",
-      description: "ID of the product. Option displayed here as the title of the product",
+      description: "The identifier of a product",
       async options({ prevContext }) {
-        const defaultParams = {
-          limit: 50,
-        };
-        const { nextPageParameters = defaultParams } = prevContext;
-        const response = await this.resourceAction("product", "list", nextPageParameters);
-        return {
-          options: response.result.map((e) => ({
-            label: e.title,
-            value: e.id,
-          })),
-          context: {
-            nextPageParameters: response.nextPageParameters,
-          },
-        };
+        return this.getPropOptions({
+          resourceFn: this.listProducts,
+          resourceKeys: [
+            "products",
+          ],
+          prevContext,
+        });
       },
     },
     productVariantId: {
       type: "string",
       label: "Product Variant ID",
-      description: "ID of the product variant",
+      description: "The identifier of a product variant",
       async options({
-        productId,
-        prevContext,
+        prevContext, productId,
       }) {
-        const defaultParams = {
-          fields: "id,title",
-        };
-        const { nextPageParameters = defaultParams } = prevContext;
-        const response = await this.resourceAction("productVariant", "list", nextPageParameters, productId);
-        return {
-          options: response.result.map((e) => ({
-            label: e.title,
-            value: e.id,
-          })),
-          context: {
-            nextPageParameters: response.nextPageParameters,
+        return this.getPropOptions({
+          resourceFn: this.listProductVariants,
+          resourceKeys: [
+            "productVariants",
+          ],
+          variables: {
+            query: `product_id:${utils.getIdFromGid(productId)}`,
           },
-        };
+          prevContext,
+        });
       },
     },
-    customerId: {
+    collectionId: {
       type: "string",
-      label: "Customer ID",
-      description: "The Customer ID. Option displayed here as email registered with the Customer ID",
-      useQuery: true,
+      label: "Collection ID",
+      description: "The identifier of a collection",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listCollections,
+          resourceKeys: [
+            "collections",
+          ],
+          prevContext,
+        });
+      },
+    },
+    pageId: {
+      type: "string",
+      label: "Page ID",
+      description: "The identifier of a page",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listPages,
+          resourceKeys: [
+            "pages",
+          ],
+          prevContext,
+        });
+      },
+    },
+    metaobjectType: {
+      type: "string",
+      label: "Type",
+      description: "The metaobject type",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listMetaobjectDefinitions,
+          resourceKeys: [
+            "metaobjectDefinitions",
+          ],
+          labelKey: "type",
+          prevContext,
+        });
+      },
+    },
+    metaobjectId: {
+      type: "string",
+      label: "Metaobject ID",
+      description: "The metaobject to update",
       async options({
-        prevContext,
-        query,
+        prevContext, type,
       }) {
-        const defaultParams = {
-          limit: 50,
-          query,
-        };
-        const { nextPageParameters = defaultParams } = prevContext;
-        const response = await this.resourceAction("customer", "search", nextPageParameters);
-        return {
-          options: response.result.map((e) => ({
-            label: e.email,
-            value: e.id,
-          })),
-          context: {
-            nextPageParameters: response.nextPageParameters,
+        const { metaobjectDefinitions: { nodes } } = await this.listMetaobjectDefinitions({
+          first: MAX_LIMIT,
+        });
+        const { type: typeName } = nodes.find(({ id }) => id === type);
+        return this.getPropOptions({
+          resourceFn: this.listMetaobjects,
+          resourceKeys: [
+            "metaobjects",
+          ],
+          labelKey: "displayName",
+          variables: {
+            type: typeName,
           },
-        };
+          prevContext,
+        });
       },
     },
     locationId: {
       type: "string",
       label: "Location ID",
       description: "The ID of the location that the inventory level belongs to. Options will display the name of the Location ID",
-      async options() {
-        const response = await this.getLocationIds();
-        return response.result.map((e) => ({
-          label: e.name,
-          value: e.id,
-        }));
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listLocations,
+          resourceKeys: [
+            "locations",
+          ],
+          labelKey: "name",
+          prevContext,
+        });
       },
     },
     inventoryItemId: {
       type: "string",
       label: "Inventory Item ID",
-      description: toSingleLineString(`
-        The ID of the inventory item associated with the inventory level.
-        There is a 1:1 relationship between a product variant and an inventory item.
-        Each product variant includes the ID of its related inventory item.
-        To view a list of Inventory Items, choose a product using the field above
-      `),
+      description: "The ID of the inventory item associated with the inventory level. There is a 1:1 relationship between a product variant and an inventory item. Each product variant includes the ID of its related inventory item. To view a list of Inventory Items, choose a product using the field above",
       async options({
-        productId,
-        prevContext,
+        prevContext, productId,
       }) {
-        if (!productId) {
-          return [];
-        }
-        const defaultParams = {
-          fields: "title,inventory_item_id",
+        const variables = {
+          query: `product_id:${utils.getIdFromGid(productId)}`,
+          first: DEFAULT_LIMIT,
         };
-        const { nextPageParameters = defaultParams } = prevContext;
-        const response = await this.resourceAction("productVariant", "list", nextPageParameters, productId);
+        if (prevContext?.after) {
+          variables.after = prevContext.after;
+        }
+        let {
+          productVariants: {
+            nodes, pageInfo,
+          },
+        } = await this.listProductVariants(variables);
         return {
-          options: response.result.map((e) => ({
-            label: e.title,
-            value: e.inventory_item_id,
+          options: nodes?.map(({
+            inventoryItem, title: label,
+          }) => ({
+            value: inventoryItem.id,
+            label,
           })),
           context: {
-            nextPageParameters: response.nextPageParameters,
+            after: pageInfo?.endCursor,
           },
         };
       },
     },
-    firstName: {
-      type: "string",
-      label: "First Name",
-      description: "The customer's first name",
-      optional: true,
-    },
-    lastName: {
-      type: "string",
-      label: "Last Name",
-      description: "The customer's last name",
-      optional: true,
-    },
-    email: {
-      type: "string",
-      label: "Email",
-      description: "The unique email address of the customer",
-    },
-    phone: {
-      type: "string",
-      label: "Phone Number",
-      description: toSingleLineString(`
-          The unique phone number (E.164 format) for this customer.
-          Check out [Shopify Customer API](https://shopify.dev/api/admin-rest/2022-01/resources/customer#[post]/admin/api/#{api_version}/customers.json_examples) for more details on valid formats
-        `),
-      optional: true,
-    },
-    address: {
-      type: "string",
-      label: "Street Address",
-      description: "The customer's mailing address",
-      optional: true,
-    },
-    company: {
-      type: "string",
-      label: "Company",
-      description: "The customer's company",
-      optional: true,
-    },
-    city: {
-      type: "string",
-      label: "City",
-      description: "The customer's city, town, or village",
-      optional: true,
-    },
-    province: {
-      type: "string",
-      label: "Province",
-      description: "The customer's region name. Typically a province, a state, or a prefecture",
-      optional: true,
-    },
-    country: {
-      type: "string",
-      label: "Country",
-      description: "The customer's country",
-      optional: true,
-    },
-    zip: {
-      type: "string",
-      label: "Zip Code",
-      description: "The customer's postal code",
-      optional: true,
-    },
-    sendEmailInvite: {
-      type: "boolean",
-      label: "Send Email Invite",
-      description: "Send email invite to address",
-      optional: true,
-    },
-    title: {
-      type: "string",
-      label: "Title",
-      description: "The name of the product",
-    },
-    productDescription: {
-      type: "string",
-      label: "Product Description",
-      description: "A description of the product. Supports HTML formatting. Example: `<strong>Good snowboard!</strong>`",
-      optional: true,
-    },
-    price: {
-      type: "string",
-      label: "Price",
-      description: "The price of the product",
-      optional: true,
-    },
-    vendor: {
-      type: "string",
-      label: "Vendor",
-      description: "The name of the product's vendor",
-      optional: true,
-    },
-    productType: {
-      type: "string",
-      label: "Product Type",
-      description: "A categorization for the product used for filtering and searching products",
-      optional: true,
-    },
-    status: {
-      type: "string",
-      label: "Status",
-      description: toSingleLineString(`
-        The status of the product.
-        \`active\`: The product is ready to sell and is available to customers on the online store, sales channels, and apps. By default, existing products are set to active.
-        \`archived\`: The product is no longer being sold and isn't available to customers on sales channels and apps.
-        \`draft\`: The product isn't ready to sell and is unavailable to customers on sales channels and apps. By default, duplicated and unarchived products are set to draft
-      `),
-      optional: true,
-      options: [
-        "active",
-        "archived",
-        "draft",
-      ],
-    },
-    images: {
-      type: "string[]",
-      label: "Images",
-      description: toSingleLineString(`
-        A list of product base64 encoded image objects.
-        Each one represents an image associated with the product or a link that will be downloaded by Shopify.
-        Example: \`["R0lGODlhAQABAIAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==","http://example.com/rails_logo.gif"]\`.
-        More information at [Shopify Product API](https://shopify.dev/api/admin-rest/2022-01/resources/product#[post]/admin/api/2022-01/products.json)
-      `),
-      optional: true,
-    },
-    options: {
+    productOptionIds: {
       type: "string[]",
       label: "Options",
-      description: toSingleLineString(`
-        The custom product properties.
-        For example, Size, Color, and Material. Each product can have up to 3 options and each option value can be up to 255 characters.
-        Product variants are made of up combinations of option values. Options cannot be created without values.
-        To create new options, a variant with an associated option value also needs to be created.
-        Example: \`[{"name":"Color","values":["Blue","Black"]},{"name":"Size","values":["155","159"]}]\`
-      `),
+      description: "The product options to apply to the product variant",
+      async options({ productId }) {
+        const { product: { options } } = await this.getProduct({
+          id: productId,
+          first: MAX_LIMIT,
+        });
+        const productOptions = [];
+        for (const option of options) {
+          for (const optionValue of option.optionValues) {
+            productOptions.push({
+              value: optionValue.id,
+              label: `${option.name} - ${optionValue.name}`,
+            });
+          }
+        }
+        return productOptions;
+      },
+    },
+    sortKey: {
+      type: "string",
+      label: "Sort Key",
+      description: "The key to sort the results by",
       optional: true,
     },
-    variants: {
-      type: "string[]",
-      label: "Product Variants",
-      description: toSingleLineString(`
-        An array of product variants, each representing a different version of the product.
-        The position property is read-only. The position of variants is indicated by the order in which they are listed.
-        Example: \`[{"option1":"First","price":"10.00","sku":"123"},{"option1":"Second","price":"20.00","sku":"123"}]\`
-      `),
+    maxResults: {
+      type: "integer",
+      label: "Max Results",
+      description: "The maximum number of results to return",
+      default: 100,
+      optional: true,
+    },
+    reverse: {
+      type: "boolean",
+      label: "Sort Descending",
+      description: "Sort the results in descending order. Defaults to ascending.",
       optional: true,
     },
     tags: {
       type: "string[]",
       label: "Tags",
-      description: toSingleLineString(`
-        A string of comma-separated tags that are used for filtering and search. A product can have up to 250 tags. Each tag can have up to 255 characters.
-        Example: \`"Barnes & Noble","Big Air","John's Fav"\`
-      `),
+      description: "An array of tags to add",
+    },
+    metafields: {
+      type: "string[]",
+      label: "Metafields",
+      description: "An array of objects, each one representing a metafield. If adding a new metafield, the object should contain `key`, `value`, `type`, and `namespace`. Example: `{{ [{ \"key\": \"new\", \"value\": \"newvalue\", \"type\": \"single_line_text_field\", \"namespace\": \"global\" }] }}`. To update an existing metafield, use the `id` and `value`. Example: `{{ [{ \"id\": \"28408051400984\", \"value\": \"updatedvalue\" }] }}`",
       optional: true,
     },
-    option: {
+    orderId: {
       type: "string",
-      label: "Title",
-      description: "The option name of the product variant",
-    },
-    imageId: {
-      type: "string",
-      label: "Image ID",
-      description: "The unique numeric identifier for a product's image. The image must be associated to the same product as the variant",
-      optional: true,
-      async options({ productId }) {
-        if (!productId) {
-          return [];
-        }
-        const response = await this.resourceAction("productImage", "list", {
-          fields: "src,id",
-        }, productId);
-        return response.result.map((e) => ({
-          label: e.src,
-          value: e.id,
-        }));
+      label: "Order ID",
+      description: "The identifier of an order",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listOrders,
+          resourceKeys: [
+            "orders",
+          ],
+          labelKey: "name",
+          prevContext,
+        });
       },
     },
-    query: {
+    draftOrderId: {
       type: "string",
-      label: "Query",
-      description: "The search query",
+      label: "Draft Order ID",
+      description: "The identifier of a draft order",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listDraftOrders,
+          resourceKeys: [
+            "draftOrders",
+          ],
+          labelKey: "name",
+          prevContext,
+        });
+      },
     },
-    max: {
+    customerId: {
+      type: "string",
+      label: "Customer ID",
+      description: "The identifier of a customer",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listCustomers,
+          resourceKeys: [
+            "customers",
+          ],
+          labelKey: "email",
+          prevContext,
+        });
+      },
+    },
+    fulfillmentId: {
+      type: "string",
+      label: "Fulfillment ID",
+      description: "The globally-unique ID of a fulfillment associated with the order. Example: `gid://shopify/Fulfillment/1234567890`. When `orderId` is provided, available fulfillments are populated automatically; otherwise, supply the GID directly.",
+      async options({ orderId }) {
+        let options = [];
+        if (orderId) {
+          const data = await this.listOrderFulfillments({
+            id: orderId,
+            first: MAX_LIMIT,
+          });
+          const nodes = data?.order?.fulfillments ?? [];
+          options = nodes.map(({
+            id, name,
+          }) => ({
+            value: id,
+            label: name,
+          }));
+        }
+        return options;
+      },
+    },
+    fulfillmentOrderId: {
+      type: "string",
+      label: "Fulfillment Order ID",
+      description: "The identifier of a fulfillment order",
+      async options({ prevContext }) {
+        return this.getPropOptions({
+          resourceFn: this.listAssignedFulfillmentOrders,
+          resourceKeys: [
+            "assignedFulfillmentOrders",
+          ],
+          labelKey: "id",
+          prevContext,
+        });
+      },
+    },
+    priceRuleId: {
+      type: "string",
+      label: "Price Rule ID",
+      description: "The ID of the price rule (e.g. `1234567890`). Run **List Price Rules** first to retrieve valid IDs.",
+    },
+    discountCodeId: {
+      type: "string",
+      label: "Discount Code ID",
+      description: "The ID of the discount code (e.g. `9876543210`). Run **List Discount Codes** first to retrieve valid IDs for the chosen price rule.",
+    },
+    limit: {
       type: "integer",
-      label: "Max Records",
-      description: "Optionally limit the maximum number of records to return. Leave blank to retrieve all records.",
+      label: "Limit",
+      description: "Maximum number of results to return.",
+      min: 1,
+      max: 250,
       optional: true,
     },
   },
   methods: {
-    _getBaseURL() {
-      return `https://${this.$auth.shop_id}.myshopify.com/admin/api/2020-10`;
+    getShopId() {
+      return this.$auth.shop_id;
     },
-    _getAuthHeader() {
-      return {
-        "x-shopify-access-token": this.$auth.oauth_access_token,
-      };
+    getShopifyInstance() {
+      return new Shopify({
+        shopName: this.getShopId(),
+        accessToken: this.$auth.oauth_access_token,
+        autoLimit: true,
+        apiVersion: API_VERSION,
+      });
     },
-    _monthAgo() {
-      const now = new Date();
-      const monthAgo = new Date(now.getTime());
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return monthAgo;
-    },
-    _jsonPathToGraphQl(path) {
-      return toPath(path).reduceRight(
-        (accum, item) => accum
-          ? `${item} { ${accum} }`
-          : item,
+    _makeGraphQlRequest(query, variables = {}) {
+      const shopifyClient = this.getShopifyInstance();
+      return this._withRetries(
+        () => shopifyClient.graphql(query, variables),
       );
     },
-    /**
-     * Returns if an error code represents a retriable error.
-     * @callback isRetriableErrCode
-     * @param {string} errCode The error code
-     * @returns {boolean} If the error code is retriable
-     */
-    /**
-     * Returns if a GraphQL error code represents a retriable error.
-     * @type {isRetriableErrCode}
-     */
-    _isRetriableGraphQLErrCode(errCode) {
-      return errCode === "THROTTLED";
-    },
-    /**
-     * Options for handling error objects returned by API calls.
-     * @typedef {Object} ErrorOptions
-     * @property {(string|number)[]|string} errCodePath Path to the status/error
-     * code in the error object
-     * @property {(string|number)[]|string} errDataPath Path to the error data
-     * in the error object
-     * @property {isRetriableErrCode} isRetriableErrCode Function that returns if
-     * the error code is retriable
-     */
-    /**
-     * Returns options for handling GraphQL error objects.
-     * @returns {ErrorOptions} The options
-     */
     _graphQLErrOpts() {
       // Shopify GraphQL requests are throttled if queries exceed point limit.
       // See https://shopify.dev/concepts/about-apis/rate-limits
@@ -388,15 +381,9 @@ export default {
         isRetriableErrCode: this._isRetriableGraphQLErrCode,
       };
     },
-    /**
-     *
-     * @param {function} apiCall The function that makes the API request
-     * @param {object} opts Options for retrying the API call
-     * @param {ErrorOptions} opts.errOpts Options for handling errors thrown by the API call
-     * @param {object} opts.retryOpts Options for async-retry. See
-     * https://www.npmjs.com/package/async-retry
-     * @returns {Promise} A promise that resolves to the return value of the apiCall
-     */
+    _isRetriableGraphQLErrCode(errCode) {
+      return errCode === "THROTTLED";
+    },
     async _withRetries(apiCall, opts = {}) {
       const {
         errOpts: {
@@ -412,7 +399,7 @@ export default {
       } = opts;
       return retry(async (bail, retryCount) => {
         try {
-          return apiCall();
+          return await apiCall();
         } catch (err) {
           const errCode = get(err, errCodePath);
           if (!isRetriableErrCode(errCode)) {
@@ -430,341 +417,308 @@ export default {
         }
       }, retryOpts);
     },
-    _makeGraphQlRequest(query, variables = {}) {
-      const shopifyClient = this.getShopifyInstance();
-      return this._withRetries(
-        () => shopifyClient.graphql(query, variables),
-      );
-    },
-    /**
-     * Removes empty key and values from params objects
-     * Shopify lib doesn't handle this and therefore many requests are rejected
-     * @param {object} params
-     * @returns {object} Clear of empty key/values
-    */
-    _makeRequestOpts(params) {
-      for (const key of Object.keys(params)) {
-        const value = params[key];
-
-        if (typeof value == "boolean") {
-          continue;
-        }
-        if (Array.isArray(value)
-          && (value.length === 0
-            || (value.length === 1
-              && value[0] === ""))) {
-          delete params[key];
-        }
-        else if (!(key && (value || value === 0))) {
-          delete params[key];
-        }
-        else if (value.constructor == Object) {
-          this._makeRequestOpts(params[key]);
-          if (Object.values(params[key]).length === 0) {
-            delete params[key];
-          }
-        }
+    async getPropOptions({
+      resourceFn, resourceKeys = [], variables, valueKey = "id", labelKey = "title", prevContext,
+    }) {
+      variables = {
+        ...variables,
+        first: DEFAULT_LIMIT,
+      };
+      if (prevContext?.after) {
+        variables.after = prevContext.after;
       }
-      return params;
-    },
-    _throwFormattedError(err) {
-      err = err.response;
-      throw Error(`${err.statusCode} - ${err.statusMessage} - ${JSON.stringify(err.body)}`);
-    },
-    /**
-     * Transforms a string to an object or returns the object
-     * @param {string} stringObject
-     * @returns {object}
-     */
-    parseJSONStringObjects(stringObject) {
-      if (!stringObject) {
-        return {};
+      let results = await resourceFn(variables);
+      for (const key of resourceKeys) {
+        results = results[key];
       }
-      if (typeof stringObject == "string") {
-        stringObject = JSON.parse(stringObject);
-      }
-      return this._makeRequestOpts(stringObject);
+      const {
+        nodes, pageInfo,
+      } = results;
+      return {
+        options: nodes?.map((node) => ({
+          value: node[valueKey],
+          label: node[labelKey],
+        })),
+        context: {
+          after: pageInfo?.endCursor,
+        },
+      };
     },
-    /**
-     * Transforms a list of strings to a list of objects
-     * @param {string[]} stringList
-     * @returns {object[]}
-     */
-    parseArrayOfJSONStrings(stringList) {
-      if (!stringList) {
-        return [];
-      }
-      if (typeof stringList == "string") {
-        throw new Error("string type not supported, please use array of objects in structured mode");
-      }
-      return stringList.map((x) => x
-        ? this.parseJSONStringObjects(x)
-        : x).filter((x) => Object.values(x).length > 0);
+    createWebhook(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_WEBHOOK, variables);
     },
-    /**
-     * Transforms a list of strings to a comma-separated string
-     * @param {string[]} value
-     * @returns {string}
-     */
-    parseCommaSeparatedStrings(value) {
-      if (Array.isArray(value)) {
-        return value.join();
-      }
-      if (value === undefined || typeof value == "string") {
-        return value;
-      }
-      throw new TypeError("variable should be an array or string");
-    },
-    parseImages(images) {
-      if (!images) return [];
-      return images.map((image) => ({
-        [image.includes("http")
-          ? "src"
-          : "attachment"]: image,
-      }));
-    },
-    dayAgo() {
-      const dayAgo = new Date();
-      dayAgo.setDate(dayAgo.getDate() - 1);
-      return dayAgo;
-    },
-    getShopifyInstance() {
-      return new Shopify({
-        shopName: this.$auth.shop_id,
-        accessToken: this.$auth.oauth_access_token,
-        autoLimit: true,
+    deleteWebhook(webhookId) {
+      return this._makeGraphQlRequest(mutations.DELETE_WEBHOOK, {
+        id: webhookId,
       });
     },
-    getSinceParams(sinceId = false, useCreatedAt = false, updatedAfter = null, params = {}) {
-      if (sinceId) params = {
-        ...params,
-        since_id: sinceId,
-      };
-      if (updatedAfter) params = {
-        ...params,
-        updated_at_min: updatedAfter,
-      };
-      // If no sinceId or updatedAfter, get objects created within the last month
-      if (!sinceId && !updatedAfter && useCreatedAt) return {
-        created_at_min: this._monthAgo(),
-      };
-      return params;
+    listAbandonedCheckouts(variables) {
+      return this._makeGraphQlRequest(queries.LIST_ABANDONED_CHECKOUTS, variables);
     },
-    async getObjects(objectType, params = {}, id = null) {
-      const shopify = this.getShopifyInstance();
-      let objects = [];
+    listBlogArticles(variables) {
+      return this._makeGraphQlRequest(queries.LIST_BLOG_ARTICLES, variables);
+    },
+    listBlogs(variables) {
+      return this._makeGraphQlRequest(queries.LIST_BLOGS, variables);
+    },
+    listPages(variables) {
+      return this._makeGraphQlRequest(queries.LIST_PAGES, variables);
+    },
+    listProducts(variables) {
+      return this._makeGraphQlRequest(queries.LIST_PRODUCTS, variables);
+    },
+    listCollections(variables) {
+      return this._makeGraphQlRequest(queries.LIST_COLLECTIONS, variables);
+    },
+    listProductVariants(variables) {
+      return this._makeGraphQlRequest(queries.LIST_PRODUCT_VARIANTS, variables);
+    },
+    listMetaobjects(variables) {
+      return this._makeGraphQlRequest(queries.LIST_METAOBJECTS, variables);
+    },
+    listMetaobjectDefinitions(variables) {
+      return this._makeGraphQlRequest(queries.LIST_METAOBJECT_DEFINITIONS, variables);
+    },
+    listLocations(variables) {
+      return this._makeGraphQlRequest(queries.LIST_LOCATIONS, variables);
+    },
+    getProduct(variables) {
+      return this._makeGraphQlRequest(queries.GET_PRODUCT, variables);
+    },
+    getProductVariant(variables) {
+      return this._makeGraphQlRequest(queries.GET_PRODUCT_VARIANT, variables);
+    },
+    getCollection(variables) {
+      return this._makeGraphQlRequest(queries.GET_COLLECTION, variables);
+    },
+    getBlog(variables) {
+      return this._makeGraphQlRequest(queries.GET_BLOG, variables);
+    },
+    getPage(variables) {
+      return this._makeGraphQlRequest(queries.GET_PAGE, variables);
+    },
+    getArticle(variables) {
+      return this._makeGraphQlRequest(queries.GET_ARTICLE, variables);
+    },
+    addTags(variables) {
+      return this._makeGraphQlRequest(mutations.ADD_TAGS, variables);
+    },
+    addProductsToCollection(variables) {
+      return this._makeGraphQlRequest(mutations.ADD_PRODUCTS_TO_COLLECTION, variables);
+    },
+    createArticle(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_ARTICLE, variables);
+    },
+    createBlog(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_BLOG, variables);
+    },
+    createCollectionWithSources(variables) {
+      return this._makeGraphQlRequest(mutations.COLLECTION_CREATE, variables);
+    },
+    async getShopCurrencyCode() {
+      const { shop } = await this._makeGraphQlRequest("{ shop { currencyCode } }");
+      return shop.currencyCode;
+    },
+    createPage(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_PAGE, variables);
+    },
+    createProduct(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_PRODUCT, variables);
+    },
+    createProductVariants(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_PRODUCT_VARIANTS, variables);
+    },
+    createMetafield(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_METAFIELD, variables);
+    },
+    updateMetafield(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_METAFIELD, variables);
+    },
+    updateProduct(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_PRODUCT, variables);
+    },
+    updateArticle(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_ARTICLE, variables);
+    },
+    updatePage(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_PAGE, variables);
+    },
+    updateInventoryLevel(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_INVENTORY_LEVEL, variables);
+    },
+    updateProductVariant(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_PRODUCT_VARIANT, variables);
+    },
+    deleteArticle(variables) {
+      return this._makeGraphQlRequest(mutations.DELETE_ARTICLE, variables);
+    },
+    deleteBlog(variables) {
+      return this._makeGraphQlRequest(mutations.DELETE_BLOG, variables);
+    },
+    deletePage(variables) {
+      return this._makeGraphQlRequest(mutations.DELETE_PAGE, variables);
+    },
+    deleteMetafield(variables) {
+      return this._makeGraphQlRequest(mutations.DELETE_METAFIELD, variables);
+    },
+    listOrders(variables) {
+      return this._makeGraphQlRequest(queries.LIST_ORDERS, variables);
+    },
+    getDraftOrder(variables) {
+      return this._makeGraphQlRequest(queries.GET_DRAFT_ORDER, variables);
+    },
+    listDraftOrders(variables) {
+      return this._makeGraphQlRequest(queries.LIST_DRAFT_ORDERS, variables);
+    },
+    updateOrder(variables) {
+      return this._makeGraphQlRequest(mutations.UPDATE_ORDER, variables);
+    },
+    createRefund(variables) {
+      return this._makeGraphQlRequest(mutations.REFUND_CREATE, variables);
+    },
+    cancelOrder(variables) {
+      return this._makeGraphQlRequest(mutations.ORDER_CANCEL, variables);
+    },
+    submitFulfillmentOrderCancellationRequest(variables) {
+      return this._makeGraphQlRequest(
+        mutations.FULFILLMENT_ORDER_SUBMIT_CANCELLATION_REQUEST,
+        variables,
+      );
+    },
+    createGiftCard(variables) {
+      return this._makeGraphQlRequest(mutations.GIFT_CARD_CREATE, variables);
+    },
+    createOrder(variables) {
+      return this._makeGraphQlRequest(mutations.ORDER_CREATE, variables);
+    },
+    sendOrderInvoice(variables) {
+      return this._makeGraphQlRequest(mutations.ORDER_INVOICE_SEND, variables);
+    },
+    createReturn(variables) {
+      return this._makeGraphQlRequest(mutations.RETURN_CREATE, variables);
+    },
+    processReturn(variables) {
+      return this._makeGraphQlRequest(mutations.RETURN_PROCESS, variables);
+    },
+    cancelFulfillment(variables) {
+      return this._makeGraphQlRequest(mutations.FULFILLMENT_CANCEL, variables);
+    },
+    cancelFulfillmentOrder(variables) {
+      return this._makeGraphQlRequest(mutations.FULFILLMENT_ORDER_CANCEL, variables);
+    },
+    holdFulfillmentOrder(variables) {
+      return this._makeGraphQlRequest(mutations.FULFILLMENT_ORDER_HOLD, variables);
+    },
+    getCustomer(variables) {
+      return this._makeGraphQlRequest(queries.GET_CUSTOMER, variables);
+    },
+    listCustomers(variables) {
+      return this._makeGraphQlRequest(queries.LIST_CUSTOMERS, variables);
+    },
+    listAssignedFulfillmentOrders(variables) {
+      return this._makeGraphQlRequest(queries.LIST_ASSIGNED_FULFILLMENT_ORDERS, variables);
+    },
+    getFulfillment(variables) {
+      return this._makeGraphQlRequest(queries.GET_FULFILLMENT, variables);
+    },
+    getFulfillmentOrder(variables) {
+      return this._makeGraphQlRequest(queries.GET_FULFILLMENT_ORDER, variables);
+    },
+    listFulfillmentOrders(variables) {
+      return this._makeGraphQlRequest(queries.LIST_FULFILLMENT_ORDERS, variables);
+    },
+    listOrderFulfillments(variables) {
+      return this._makeGraphQlRequest(queries.LIST_ORDER_FULFILLMENTS, variables);
+    },
+    createStagedUpload(variables) {
+      return this._makeGraphQlRequest(mutations.CREATE_STAGED_UPLOAD, variables);
+    },
+    runBulkMutation(variables) {
+      return this._makeGraphQlRequest(mutations.RUN_BULK_MUTATION, variables);
+    },
+    async *paginate({
+      resourceFn, resourceKeys = [], variables = {}, max,
+    }) {
+      variables = {
+        ...variables,
+        first: MAX_LIMIT,
+      };
+      let after, count = 0;
       do {
-        const results = id
-          ? await shopify[objectType].list(id, params)
-          : await shopify[objectType].list(params);
-        objects = objects.concat(results);
-        params = results.nextPageParameters;
-      } while (params !== undefined);
-      return objects;
-    },
-    /**
-     * Uses Shopify lib for API requests according to resource and action
-     * @param {string} objectType Shopify resource
-     * @param {string} action Shopify resource method
-     * @param {object} params JSON or Query request parameters
-     * @param {string} id Resource ID if expected
-     * @returns {object} Shopify resource action result
-     */
-    async resourceAction(objectType, action, params = {}, id = null) {
-      const shopify = this.getShopifyInstance();
-      this._makeRequestOpts(params);
-      try {
-        const result = id
-          ? await shopify[objectType][action](id, params)
-          : await shopify[objectType][action](params);
-        return {
-          result,
-          nextPageParameters: result.nextPageParameters,
-        };
-      } catch (err) {
-        this._throwFormattedError(err);
-      }
-    },
-    async *paginate(resourceFn, params, max = null) {
-      let nextParams = params;
-      let count = 0;
-      do {
+        let results = await resourceFn(variables);
+        for (const key of resourceKeys) {
+          results = results[key];
+        }
         const {
-          result,
-          nextPageParameters,
-        } = await resourceFn(nextParams);
-        for (const item of result) {
-          yield item;
-          count++;
-          if (max && count >= max) {
+          nodes, pageInfo,
+        } = results;
+        for (const node of nodes) {
+          yield node;
+          if (max && ++count >= max) {
             return;
           }
         }
-        // pass cursor to get next page of results; if no cursor, no more pages
-        nextParams = nextPageParameters;
-      } while (nextParams !== undefined);
+        after = pageInfo.endCursor;
+        variables.after = after;
+      } while (after);
     },
-    async getPaginatedResults(resourceFn, params, max) {
-      const results = [];
-      const resourceStream = await this.paginate(resourceFn, params, max);
-      for await (const result of resourceStream) {
-        results.push(result);
+    async getPaginated(opts) {
+      let results = [];
+      const items = this.paginate(opts);
+      for await (const item of items) {
+        results.push(item);
       }
       return results;
     },
-    async getAbandonedCheckouts(sinceId) {
-      const params = this.getSinceParams(sinceId, true);
-      return this.getObjects("checkout", params);
+    getDiscountCode(priceRuleId, discountCodeId) {
+      const shopifyClient = this.getShopifyInstance();
+      return shopifyClient.discountCode.get(priceRuleId, discountCodeId);
     },
-    async getArticles(blogId, sinceId) {
-      const params = this.getSinceParams(sinceId, true);
-      return this.getObjects("article", params, blogId);
+    updateDiscountCode(priceRuleId, discountCodeId, params) {
+      const shopifyClient = this.getShopifyInstance();
+      return shopifyClient.discountCode.update(priceRuleId, discountCodeId, params);
     },
-    async getBlogs() {
-      return this.getObjects("blog");
+    deleteDiscountCode(priceRuleId, discountCodeId) {
+      const shopifyClient = this.getShopifyInstance();
+      return shopifyClient.discountCode.delete(priceRuleId, discountCodeId);
     },
-    async getCustomers(sinceId, updatedAfter, params = {}) {
-      if (Object.values(this._makeRequestOpts(params)).length > 0) {
-        return this.resourceAction("customer", "list", params);
-      } else {
-        params = this.getSinceParams(sinceId, true, updatedAfter);
-        return this.getObjects("customer", params);
+    createDiscountCodesBatch(priceRuleId, codes) {
+      const shopifyClient = this.getShopifyInstance();
+      return shopifyClient.discountCodeCreationJob.create(priceRuleId, codes.map((code) => ({
+        code,
+      })));
+    },
+    async listPriceRules(params = {}) {
+      const shopifyClient = this.getShopifyInstance();
+      if (params.limit) {
+        return shopifyClient.priceRule.list(params);
       }
-    },
-    async createCustomer(params) {
-      return this.resourceAction("customer", "create", params);
-    },
-    async updateCustomer(customerId, params) {
-      return this.resourceAction("customer", "update", params, customerId);
-    },
-    async searchCustomers(params = {}) {
-      return this.resourceAction("customer", "search", params);
-    },
-    async getEvents(sinceId, filter = null, verb = null) {
-      const params = this.getSinceParams(sinceId, true);
-      params.filter = filter;
-      params.verb = verb;
-      return this.getObjects("event", params);
-    },
-    async getDraftOrders(fulfillmentStatus) {
-      return this.getObjects("draftOrder", {
-        fulfillment_status: fulfillmentStatus,
-      });
-    },
-    async getOrders(fulfillmentStatus, useCreatedAt = false, sinceId = null, updatedAfter = null, status = "any") {
-      const params = this.getSinceParams(sinceId, useCreatedAt, updatedAfter);
-      params.status = status;
-      params.fulfillment_status = fulfillmentStatus;
-      return this.getObjects("order", params);
-    },
-    async getOrdersById(ids = []) {
-      if (ids.length === 0) {
-        return [];
-      }
-      const params = {
-        ids: ids.join(","),
-        status: "any",
-        limit: 100,
+      let nextParams = {
+        ...params,
       };
-      return this.getObjects("order", params);
+      const allRules = [];
+      do {
+        const page = await shopifyClient.priceRule.list(nextParams);
+        allRules.push(...page);
+        nextParams = page.nextPageParameters;
+      } while (nextParams);
+      return allRules;
     },
-    async createOrder(params) {
-      return this.resourceAction("order", "create", params);
-    },
-    async getPages(sinceId) {
-      const params = this.getSinceParams(sinceId, true);
-      return this.getObjects("page", params);
-    },
-    async getProducts(sinceId, useCreatedAt = true, params = {}) {
-      this.getSinceParams(sinceId, useCreatedAt, null, params);
-      return this.getObjects("product", params);
-    },
-    async getProduct(productId, params) {
-      return this.resourceAction("product", "get", params, productId);
-    },
-    async updateProduct(productId, params) {
-      return this.resourceAction("product", "update", params, productId);
-    },
-    async getProductVariant(productVariantId, params) {
-      return this.resourceAction("productVariant", "get", params, productVariantId);
-    },
-    async getProductVariantByTitle(productId, title, params) {
-      let list = (await this.resourceAction("productVariant", "list", params, productId)).result;
-      list = list.filter((e) => e.title == title);
-      if (list.length === 0) {
-        throw new Error(`Product variant with title ${title} not found`);
+    async listDiscountCodes(priceRuleId, params = {}) {
+      const shopifyClient = this.getShopifyInstance();
+      if (params.limit) {
+        return shopifyClient.discountCode.list(priceRuleId, params);
       }
-      return list[0];
-    },
-    async updateProductVariant(productVariantId, params) {
-      return this.resourceAction("productVariant", "update", params, productVariantId);
-    },
-    async createProduct(params) {
-      return this.resourceAction("product", "create", params);
-    },
-    async createProductVariant(productId, params) {
-      return this.resourceAction("productVariant", "create", params, productId);
-    },
-    async createSmartCollection(params) {
-      return this.resourceAction("smartCollection", "create", params);
-    },
-    async getLocationIds() {
-      return this.resourceAction("location", "list");
-    },
-    async updateInventoryLevel(params) {
-      return this.resourceAction("inventoryLevel", "set", params);
-    },
-    async *queryOrders(opts = {}) {
-      const {
-        sortKey = "UPDATED_AT",
-        filter = "",
-        fields = [],
-      } = opts;
-      const nodeFields = [
-        "id",
-        ...fields.map(this._jsonPathToGraphQl),
-      ].join("\n");
-      const query = `
-        query orders($after: String, $filter: String, $sortKey: OrderSortKeys) {
-          orders(after: $after, first: 100, query: $filter, sortKey: $sortKey) {
-            pageInfo {
-              hasNextPage
-            }
-            edges {
-              cursor
-              node {
-                ${nodeFields}
-              }
-            }
-          }
-        }
-      `;
-
-      let { prevCursor: after = null } = opts;
-      while (true) {
-        const variables = {
-          after,
-          filter,
-          sortKey,
-        };
-        const { orders } = await this._makeGraphQlRequest(query, variables);
-        const { edges = [] } = orders;
-        for (const edge of edges) {
-          const {
-            node: order,
-            cursor,
-          } = edge;
-          yield {
-            order,
-            cursor,
-          };
-          after = cursor;
-        }
-
-        if (!orders.pageInfo.hasNextPage) {
-          return;
-        }
-      }
+      let nextParams = {
+        ...params,
+      };
+      const allCodes = [];
+      do {
+        const page = await shopifyClient.discountCode.list(priceRuleId, nextParams);
+        allCodes.push(...page);
+        nextParams = page.nextPageParameters;
+      } while (nextParams);
+      return allCodes;
     },
   },
 };

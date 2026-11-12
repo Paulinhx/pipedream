@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/unstructured",
+  "version": "0.1.1",
+  "description": "Pipedream Unstructured Components",
+  "main": "unstructured.app.mjs",
+  "keywords": [
+    "pipedream",
+    "unstructured"
+  ],
+  "homepage": "https://pipedream.com/apps/unstructured",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "form-data": "^4.0.5"
+  }
+}

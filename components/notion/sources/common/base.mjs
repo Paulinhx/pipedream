@@ -1,5 +1,6 @@
 import notion from "../../notion.app.mjs";
 import constants from "./constants.mjs";
+import { DEFAULT_POLLING_SOURCE_TIMER_INTERVAL } from "@pipedream/platform";
 
 function lastSortParam(timestamp, params = {}) {
   return {
@@ -20,7 +21,7 @@ export default {
     timer: {
       type: "$.interface.timer",
       default: {
-        intervalSeconds: 60 * 15,
+        intervalSeconds: DEFAULT_POLLING_SOURCE_TIMER_INTERVAL,
       },
     },
   },
@@ -33,8 +34,8 @@ export default {
       } = obj;
       const ts = Date.parse(lastTime);
 
-      if (type === constants.types.DATABASE) {
-        title = this.notion.extractDatabaseTitle(obj);
+      if (type === constants.types.DATABASE || type === constants.types.DATA_SOURCE) {
+        title = this.notion.extractDataSourceTitle(obj);
       } else {
         title = this.notion.extractPageTitle(obj);
         // Create composite ID so update events for the same page have unique keys
@@ -46,7 +47,7 @@ export default {
 
       return {
         id,
-        summary: `${summary}: ${title} - ${id}`,
+        summary: `${summary}: ${title || id}`,
         ts,
       };
     },

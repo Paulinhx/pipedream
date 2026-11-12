@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/optimoroute",
+  "version": "0.1.1",
+  "description": "Pipedream OptimoRoute Components",
+  "main": "optimoroute.app.mjs",
+  "keywords": [
+    "pipedream",
+    "optimoroute"
+  ],
+  "homepage": "https://pipedream.com/apps/optimoroute",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

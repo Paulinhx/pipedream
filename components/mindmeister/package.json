@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/mindmeister",
+  "version": "0.0.4",
+  "description": "Pipedream MindMeister Components",
+  "main": "mindmeister.app.mjs",
+  "keywords": [
+    "pipedream",
+    "mindmeister"
+  ],
+  "homepage": "https://pipedream.com/apps/mindmeister",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

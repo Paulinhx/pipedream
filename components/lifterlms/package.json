@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/lifterlms",
+  "version": "0.0.3",
+  "description": "Pipedream LifterLMS  Components",
+  "main": "lifterlms.app.mjs",
+  "keywords": [
+    "pipedream",
+    "lifterlms"
+  ],
+  "homepage": "https://pipedream.com/apps/lifterlms",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

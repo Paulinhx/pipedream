@@ -1,11 +1,25 @@
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api";
-import querystring from "querystring";
+import querystring from "query-string";
 import constants from "./constants.mjs";
 
 export default {
   type: "app",
   app: "woocommerce",
   propDefinitions: {
+    orderId: {
+      type: "integer",
+      label: "Order ID",
+      description: "ID of the Order",
+      async options({ page }) {
+        const orders = await this.listOrders({
+          page: page + 1,
+        });
+        return orders.map((order) => ({
+          label: `Order #${order.number || order.id} - ${order.status}`,
+          value: order.id,
+        }));
+      },
+    },
     orderStatus: {
       type: "string",
       label: "Status",
@@ -123,7 +137,9 @@ export default {
       label: "Products",
       description: "Products to add to the the new order",
       async options({ page }) {
-        const products = await this.listProducts(page + 1);
+        const products = await this.listProducts({
+          page: page + 1,
+        });
         return products.map((product) => ({
           label: product.name,
           value: product.id,
@@ -143,6 +159,68 @@ export default {
         }));
       },
       optional: true,
+    },
+    productId: {
+      type: "integer",
+      label: "Product ID",
+      description: "ID of the Product",
+      async options({ page }) {
+        const products = await this.listProducts({
+          page: page + 1,
+        });
+        return products.map((product) => ({
+          label: product.name,
+          value: product.id,
+        }));
+      },
+    },
+    orderNoteId: {
+      type: "integer",
+      label: "Note ID",
+      description: "ID of the Order Note",
+      async options({
+        page, orderId,
+      }) {
+        if (!orderId) {
+          return [];
+        }
+        const notes = await this.listOrderNotes({
+          orderId,
+          params: {
+            page: page + 1,
+          },
+        });
+        return notes.map((note) => {
+          const preview = note.note.length > 50
+            ? `${note.note.substring(0, 50)}...`
+            : note.note;
+          return {
+            label: `Note #${note.id} - ${preview}`,
+            value: note.id,
+          };
+        });
+      },
+    },
+    noteType: {
+      type: "string",
+      label: "Note Type",
+      description: "Limit result to customers or internal notes",
+      options: [
+        {
+          label: "Any",
+          value: "any",
+        },
+        {
+          label: "Customer",
+          value: "customer",
+        },
+        {
+          label: "Internal",
+          value: "internal",
+        },
+      ],
+      optional: true,
+      default: "any",
     },
   },
   methods: {
@@ -181,29 +259,75 @@ export default {
       return this.postResource("webhooks", data);
     },
     async deleteWebhook(id) {
-      return this.deleteResource(`webhooks/${id}`);
+      return this.deleteResource(`webhooks/${id}?force=true`);
     },
-    async listCustomers(params) {
+    async listCustomers(params = null) {
       const q = querystring.stringify(params);
       return this.listResources(`customers?${q}`);
+    },
+    async getCustomer(id) {
+      return this.listResources(`customers/${id}`);
     },
     async listPaymentGateways() {
       return this.listResources("payment_gateways");
     },
-    async listProducts(page) {
-      return this.listResources(`products?page=${page}`);
+    async listProducts(params = null) {
+      const q = querystring.stringify(params);
+      return this.listResources(`products?${q}`);
+    },
+    async listCoupons(params = null) {
+      const q = querystring.stringify(params);
+      return this.listResources(`coupons?${q}`);
     },
     async listCategories(page) {
       return this.listResources(`products/categories?page=${page}`);
     },
+    async getOrder(id) {
+      return this.listResources(`orders/${id}`);
+    },
+    async listOrders(params = null) {
+      const q = querystring.stringify(params);
+      return this.listResources(`orders?${q}`);
+    },
     async createOrder(data) {
       return this.postResource("orders", data);
+    },
+    async updateOrder(orderId, data) {
+      return this.putResource(`orders/${orderId}`, data);
     },
     async createProduct(data) {
       return this.postResource("products", data);
     },
     async updateProduct(productId, data) {
       return this.putResource(`products/${productId}`, data);
+    },
+    async getProduct(id) {
+      return this.listResources(`products/${id}`);
+    },
+    async deleteOrder(orderId, params = null) {
+      const q = querystring.stringify(params);
+      return this.deleteResource(`orders/${orderId}?${q}`);
+    },
+    async getOrderNote({
+      orderId, noteId,
+    }) {
+      return this.listResources(`orders/${orderId}/notes/${noteId}`);
+    },
+    async listOrderNotes({
+      orderId, params = null,
+    }) {
+      const q = querystring.stringify(params);
+      return this.listResources(`orders/${orderId}/notes?${q}`);
+    },
+    async createOrderNote({
+      orderId, data,
+    }) {
+      return this.postResource(`orders/${orderId}/notes`, data);
+    },
+    async createRefund({
+      orderId, data,
+    }) {
+      return this.postResource(`orders/${orderId}/refunds`, data);
     },
   },
 };

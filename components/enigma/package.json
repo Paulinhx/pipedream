@@ -1,0 +1,15 @@
+{
+  "name": "@pipedream/enigma",
+  "version": "0.0.3",
+  "description": "Pipedream Enigma Components",
+  "main": "enigma.app.mjs",
+  "keywords": [
+    "pipedream",
+    "enigma"
+  ],
+  "homepage": "https://pipedream.com/apps/enigma",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  }
+}

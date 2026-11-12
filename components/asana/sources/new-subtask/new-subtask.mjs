@@ -7,7 +7,7 @@ export default {
   type: "source",
   name: "New Subtask (Instant)",
   description: "Emit new event for each subtask added to a project.",
-  version: "0.1.0",
+  version: "1.0.15",
   dedupe: "unique",
   props: {
     ...common.props,
@@ -17,23 +17,23 @@ export default {
       type: "string",
       propDefinition: [
         asana,
-        "projects",
+        "projectsAsync",
         (c) => ({
           workspace: c.workspace,
         }),
       ],
     },
     tasks: {
+      optional: true,
       propDefinition: [
         asana,
-        "tasks",
+        "tasksAsync",
         (c) => ({
-          projects: c.project,
+          project: c.project,
         }),
       ],
     },
   },
-
   methods: {
     ...common.methods,
     getWebhookFilter() {
@@ -48,25 +48,34 @@ export default {
       };
     },
     async emitEvent(event) {
-      const { body } = event;
-      if (!body || !body.events) return;
+      const { tasks } = this;
+      const { events = [] } = event.body || {};
 
-      const tasks = this.db.get("tasks");
+      const promises = events
+        .filter(({ parent }) => parent.resource_type === "task")
+        .filter(({ resource }) => {
+          return tasks?.length
+            ? tasks.includes(String(resource.gid))
+            : true;
+        })
+        .map(async (event) => ({
+          event,
+          task: (await this.asana.getTask({
+            taskId: event.resource.gid,
+          })).data,
+        }));
 
-      for (const e of body.events) {
-        if (!e.parent || e.parent.resource_type !== "task") continue;
+      const responses = await Promise.all(promises);
 
-        if (!tasks || tasks.length <= 0 || Object.keys(tasks).length <= 0 ||
-          tasks.includes(e.parent.gid)) {
-          const task = await this.asana.getTask(e.resource.gid);
-
-          this.$emit(task, {
-            id: task.gid,
-            summary: task.name,
-            ts: Date.now(),
-          });
-        }
-      }
+      responses.forEach(({
+        event, task,
+      }) => {
+        this.$emit(task, {
+          id: task.gid,
+          summary: task.name,
+          ts: Date.parse(event.created_at),
+        });
+      });
     },
   },
 };

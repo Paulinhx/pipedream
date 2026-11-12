@@ -1,0 +1,19 @@
+{
+  "name": "@pipedream/sonix",
+  "version": "1.2.1",
+  "description": "Pipedream Sonix Components",
+  "main": "sonix.app.mjs",
+  "keywords": [
+    "pipedream",
+    "sonix"
+  ],
+  "homepage": "https://pipedream.com/apps/sonix",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.2.5",
+    "form-data": "^4.0.4"
+  }
+}

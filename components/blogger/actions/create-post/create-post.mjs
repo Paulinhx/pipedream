@@ -4,8 +4,14 @@ export default {
   name: "Create a Post",
   description: "Creates and publishes a new post or creates a new post as a draft. [See the docs here](https://developers.google.com/blogger/docs/3.0/reference/posts/insert).",
   key: "blogger-create-post",
-  version: "0.0.1",
+  version: "0.0.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     bloggerApp,
     blog: {
@@ -26,6 +32,11 @@ export default {
         "content",
       ],
     },
+    labels: {
+      type: "string[]",
+      label: "Labels",
+      description: "The list of labels this post is tagged with.",
+    },
     isDraft: {
       type: "boolean",
       label: "Is Draft",
@@ -36,6 +47,7 @@ export default {
     const dataParams = {
       content: this.content,
       title: this.title,
+      labels: this.labels,
     };
     const urlParams = {
       isDraft: this.isDraft,

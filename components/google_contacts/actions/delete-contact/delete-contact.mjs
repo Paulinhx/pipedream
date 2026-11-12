@@ -4,9 +4,15 @@ export default {
   ...common,
   key: "google_contacts-delete-contact",
   name: "Delete Contact",
-  description: "Deletes a contact. [See the docs here](https://developers.google.com/people/api/rest/v1/people/deleteContact)",
-  version: "0.0.1",
+  description: "Deletes a contact. [See the documentation](https://developers.google.com/people/api/rest/v1/people/deleteContact)",
+  version: "0.0.10",
+  annotations: {
+    "destructiveHint": true,
+    "openWorldHint": true,
+    "readOnlyHint": false,
+  },
   type: "action",
+  ai: "optimized",
   props: {
     ...common.props,
     resourceName: {
@@ -23,7 +29,7 @@ export default {
       });
     },
     emitSummary($) {
-      $.export("$summary", "Successfully deleted contact");
+      $.export("$summary", `Successfully deleted contact with ID ${this.resourceName.split("/").pop()}`);
     },
   },
 };

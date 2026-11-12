@@ -1,0 +1,24 @@
+{
+  "name": "@pipedream/resend",
+  "version": "0.1.2",
+  "description": "Pipedream Resend Components",
+  "main": "dist/app/resend.app.mjs",
+  "keywords": [
+    "pipedream",
+    "resend"
+  ],
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://pipedream.com/apps/resend",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  },
+  "devDependencies": {
+    "@pipedream/types": "^0.3.2"
+  }
+}

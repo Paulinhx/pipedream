@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/opinion_stage",
+  "version": "0.2.0",
+  "description": "Pipedream Opinion Stage Components",
+  "main": "opinion_stage.app.mjs",
+  "keywords": [
+    "pipedream",
+    "opinion_stage"
+  ],
+  "homepage": "https://pipedream.com/apps/opinion_stage",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}

@@ -1,0 +1,118 @@
+import { ConfigurationError } from "@pipedream/platform";
+
+async function streamIterator(stream) {
+  const resources = [];
+  for await (const resource of stream) {
+    resources.push(resource);
+  }
+  return resources;
+}
+
+function summaryEnd(count, singular, plural) {
+  if (!plural) {
+    plural = singular + "s";
+  }
+  const noun = count === 1 && singular || plural;
+  return `${count} ${noun}`;
+}
+
+function isSuccessOrNotFound(status) {
+  return (status >= 200 && status < 300) || status === 404;
+}
+
+function doubleEncode(value) {
+  if ((typeof value === "string") && (value.startsWith("/") || value.includes("//"))) {
+    return encodeURIComponent(encodeURIComponent(value));
+  }
+  return value;
+}
+
+// Ordered preference used when the caller doesn't name a specific recording file.
+// A single meeting usually yields 5+ files (speaker-view MP4, audio-only M4A, chat
+// TXT, transcript VTT, timeline JSON); "the recording" almost always means the video.
+const FILE_PREFERENCE = [
+  (file) => file.file_type === "MP4" && file.recording_type === "shared_screen_with_speaker_view",
+  (file) => file.file_type === "MP4",
+  (file) => file.file_type === "M4A",
+];
+
+function selectRecordingFile(files = [], recordingFileId) {
+  const completed = files.filter(({ status }) => status === "completed");
+
+  if (recordingFileId) {
+    return completed.find(({ id }) => id === recordingFileId);
+  }
+
+  for (const predicate of FILE_PREFERENCE) {
+    const matches = completed.filter(predicate);
+    if (matches.length) {
+      return matches.sort((a, b) => (b.file_size ?? 0) - (a.file_size ?? 0))[0];
+    }
+  }
+  return undefined;
+}
+
+function parseArray(value) {
+  if (!value) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      throw new ConfigurationError(`Could not parse as array: ${value}`);
+    }
+  }
+  if (Array.isArray(value)) {
+    return value;
+  } else {
+    throw new ConfigurationError(`Expected a string or array, got ${typeof value}`);
+  }
+}
+
+function parseJson(value, fieldName) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new ConfigurationError(`${fieldName}: \`${value}\` is not valid JSON`);
+  }
+}
+
+// Parses a `string[]` prop whose entries are JSON-serialized objects, leaving
+// already-parsed objects untouched. Also accepts the whole array as one JSON string
+// (common from expressions and the pre-1.0 contract), and flattens an entry holding a
+// JSON array, since that mistake is easy to make when copying an example.
+function parseJsonArray(values, fieldName) {
+  if (!values) {
+    return undefined;
+  }
+  const entries = (Array.isArray(values)
+    ? values
+    : [
+      values,
+    ])
+    .filter((entry) => entry !== undefined && entry !== null && entry !== "")
+    .flatMap((entry) => parseJson(entry, fieldName));
+  for (const entry of entries) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new ConfigurationError(`${fieldName}: \`${JSON.stringify(entry)}\` is not a JSON object`);
+    }
+  }
+  return entries.length
+    ? entries
+    : undefined;
+}
+
+export default {
+  streamIterator,
+  summaryEnd,
+  doubleEncode,
+  isSuccessOrNotFound,
+  selectRecordingFile,
+  parseArray,
+  parseJson,
+  parseJsonArray,
+};

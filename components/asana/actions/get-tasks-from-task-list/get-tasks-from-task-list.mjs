@@ -1,0 +1,85 @@
+import asana from "../../asana.app.mjs";
+
+export default {
+  key: "asana-get-tasks-from-task-list",
+  name: "Get Tasks From Task List",
+  description: "Returns tasks from the authenticated user's personal **My Tasks** inbox — NOT a project task list. Use this when the user asks for 'my tasks', 'my task list', or 'My Tasks'. Only a workspace GID is needed; no project GID required. Example: call with `workspace: '1200123456789012'` → returns all tasks in the authenticated user's My Tasks list, e.g. `[{gid: '1202345678901234', name: 'Review Q3 report'}]`. [See the documentation](https://developers.asana.com/reference/gettasksforusertasklist)",
+  version: "1.1.2",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
+  type: "action",
+  ai: "optimized",
+  props: {
+    asana,
+    workspace: {
+      label: "Workspace",
+      description: "The workspace GID to retrieve the user task list from. Use the **List Workspaces** action to find available workspace GIDs.",
+      type: "string",
+      propDefinition: [
+        asana,
+        "workspaces",
+      ],
+    },
+    optFields: {
+      propDefinition: [
+        asana,
+        "optFields",
+      ],
+      description: "Optional task properties to include in the response (e.g. `created_at`, `due_on`, `custom_fields`). Nested paths are allowed; `gid` is always returned. [See the documentation](https://developers.asana.com/reference/gettasksforusertasklist)",
+      optional: true,
+    },
+    maxResults: {
+      propDefinition: [
+        asana,
+        "maxResults",
+      ],
+    },
+  },
+  async run({ $ }) {
+    const { data: taskList } = await this.asana.getUserTaskList({
+      userId: "me",
+      params: {
+        workspace: this.workspace,
+      },
+      $,
+    });
+
+    let hasMore, count = 0;
+    const params = {
+      opt_fields: this.optFields?.length
+        ? this.optFields.join(",")
+        : undefined,
+      limit: 100,
+    };
+    const results = [];
+
+    do {
+      const {
+        data, next_page: next,
+      } = await this.asana.getTasksForUserTaskList({
+        userTaskListId: taskList.gid,
+        params,
+        $,
+      });
+
+      hasMore = next;
+      params.offset = next?.offset;
+
+      if (data.length === 0) break;
+
+      for (const task of data) {
+        results.push(task);
+        if (++count >= this.maxResults) {
+          hasMore = false;
+          break;
+        }
+      }
+    } while (hasMore);
+
+    $.export("$summary", `Successfully retrieved ${results.length} tasks`);
+    return results;
+  },
+};

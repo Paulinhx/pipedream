@@ -1,40 +1,85 @@
-// legacy_hash_id: a_MdizXv
-import { axios } from "@pipedream/platform";
+import jira from "../../jira.app.mjs";
 
 export default {
   key: "jira-create-version",
-  name: "Create Jira Version in project",
-  version: "0.1.1",
+  name: "Create Jira Version in Project",
+  description: "Creates a project version. [See the documentation](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/#api-rest-api-3-version-post)",
+  version: "0.1.26",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: false,
+  },
   type: "action",
   props: {
-    jira: {
-      type: "app",
-      app: "jira",
-    },
+    jira,
     cloudId: {
-      type: "string",
-      description: "Could add previous step as `jira.obtain_jira_instance_id` and use its return value like `{{steps.obtain_jira_instance_id.$return_value}}`",
+      propDefinition: [
+        jira,
+        "cloudId",
+      ],
     },
-    project: {
-      type: "string",
+    projectID: {
+      propDefinition: [
+        jira,
+        "projectID",
+        (c) => ({
+          cloudId: c.cloudId,
+        }),
+      ],
     },
-    version: {
+    name: {
       type: "string",
+      label: "Version Name",
+      description: "The unique name of the version. The maximum length is 255 characters.",
+    },
+    description: {
+      type: "string",
+      label: "Description",
+      description: "The description of the version",
+      optional: true,
+    },
+    archived: {
+      type: "boolean",
+      label: "Archived",
+      description: "Indicates that the version is archived",
+      optional: true,
+    },
+    startDate: {
+      type: "string",
+      label: "Start Date",
+      description: "The start date of the version. Expressed in ISO 8601 format (yyyy-mm-dd).",
+      optional: true,
+    },
+    releaseDate: {
+      type: "string",
+      label: "Release Date",
+      description: "The release date of the version. Expressed in ISO 8601 format (yyyy-mm-dd).",
+      optional: true,
+    },
+    expand: {
+      propDefinition: [
+        jira,
+        "expand",
+      ],
+      description: "Use expand to include additional information about the version in the response. This parameter accepts a comma-separated list. Expand options include:\n`operations` Returns the list of operations available for this version.\n`issuesstatus` Returns the count of issues in this version for each of the status categories `to do`, `in progress`, `done`, and `unmapped`.",
     },
   },
   async run({ $ }) {
-    return await axios($, {
-      method: "POST",
-      url: `https://api.atlassian.com/ex/jira/${this.cloudId}/rest/api/3/version`,
-      headers: {
-        "Authorization": `Bearer ${this.jira.$auth.oauth_access_token}`,
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
+    const response = await this.jira.createVersion({
+      $,
+      cloudId: this.cloudId,
       data: {
-        project: this.project,
-        name: this.version,
+        projectId: this.projectID,
+        name: this.name,
+        description: this.description,
+        archived: this.archived,
+        startDate: this.startDate,
+        releaseDate: this.releaseDate,
+        expand: this.expand,
       },
     });
+    $.export("$summary", `Version has been created successfuly. (ID:${response.id}, NAME:${response.name})`);
+    return response;
   },
 };

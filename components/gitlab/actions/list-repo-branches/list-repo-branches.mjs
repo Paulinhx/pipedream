@@ -3,8 +3,13 @@ import gitlab from "../../gitlab.app.mjs";
 export default {
   key: "gitlab-list-repo-branches",
   name: "List Repo Branches",
-  description: "Get a list of repository branches from a project. [See docs](https://docs.gitlab.com/ee/api/branches.html#list-repository-branches)",
-  version: "0.2.0",
+  description: "Get a list of repository branches from a project. [See the documentation](https://docs.gitlab.com/ee/api/branches.html#list-repository-branches)",
+  version: "0.2.4",
+  annotations: {
+    destructiveHint: false,
+    openWorldHint: true,
+    readOnlyHint: true,
+  },
   type: "action",
   props: {
     gitlab,
@@ -25,10 +30,11 @@ export default {
     },
   },
   async run({ $ }) {
-    const response = await this.gitlab.listBranches(this.projectId, {
-      search: this.search,
+    const branches = await this.gitlab.listBranches(this.projectId, {
+      params: {
+        search: this.search,
+      },
     });
-    const { data: branches } = response;
     const suffix = branches.length === 1
       ? ""
       : "es";

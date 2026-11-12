@@ -1,0 +1,18 @@
+{
+  "name": "@pipedream/encharge",
+  "version": "0.2.0",
+  "description": "Pipedream Encharge Components",
+  "main": "encharge.app.mjs",
+  "keywords": [
+    "pipedream",
+    "encharge"
+  ],
+  "homepage": "https://pipedream.com/apps/encharge",
+  "author": "Pipedream <support@pipedream.com> (https://pipedream.com/)",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@pipedream/platform": "^3.1.1"
+  }
+}
